@@ -9,6 +9,8 @@ using Microsoft.AspNetCore.SignalR;
 
 public class GameHub : Hub
 {
+    private const string TableCreatedMethodName = "TableCreated";
+    private const string TableUpdateMethodName = "TableUpdate";
     private const string RoomjoinedMethodName = "RoomJoined";
     private const string RoomUpdateMethodName = "RoomUpdate";
     private const string RoomReconnectMethodName = "RoomReconnect";
@@ -28,6 +30,25 @@ public class GameHub : Hub
     {
         _logger.LogInformation("Connected {ConnId}", Context.ConnectionId );
         await base.OnConnectedAsync();
+    }
+
+    public async Task StartRoom(string roomCode)
+    {
+        var player = _gameManager.GetPlayers(roomCode).First(p => p.ConnectionId == Context.ConnectionId);
+        if (player == null)
+            throw new HubException("Player not found in room");
+        //validate if teams are full
+        if (_gameManager.GetRoom(roomCode).Team1.Count != 2 || _gameManager.GetRoom(roomCode).Team2.Count != 2)
+            throw new HubException("Teams are not full");
+
+        _logger.LogInformation("Starting room {RoomCode}", roomCode);
+        await Clients.Groups(roomCode).SendAsync(TableCreatedMethodName,"test");
+
+    }
+
+    public async Task GetTableContext(string roomCode)
+    {
+        await Clients.Group(roomCode).SendAsync(TableUpdateMethodName, 1);
     }
 
     public async Task ReconnectRoom(string roomCode, string userId)
