@@ -1,25 +1,11 @@
-import { useState } from "react";
 import { GrHide, GrView } from "react-icons/gr";
 import { ImExit } from "react-icons/im";
 import { IoMdAddCircle } from "react-icons/io";
 import { IoMdSend } from "react-icons/io";
 import GameService from "../services/GameService";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+import type { ChatMessage, Player } from "./Game";
 
-interface Player {
-    connectionId: string;
-    nickname: string;
-}
-interface ChatMessage {
-    nickname: string;
-    message: string;
-}
-interface TableContext {
-    players: Player[];
-    team1: Player[];
-    team2: Player[];
-    code: string;
-}
 
 const JoinTeamHandler = (isTeam1: boolean, gameCode: string) => {
     GameService.connection?.invoke("JoinTeam", gameCode, isTeam1)
@@ -63,7 +49,7 @@ const Lobby = ({
                 <div className="flex gap-2 mt-2">
                     <input
                         type="text"
-                        placeholder="Type your message..."
+                        placeholder="Wiadomość..."
                         className="w-full p-2 border border-gray-700 rounded bg-neutral-800 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                         name="chatInput"
                         onKeyDown={(e) => {
@@ -108,6 +94,23 @@ const Lobby = ({
                         >
                             {showCode ? <GrHide /> : <GrView />}
                         </button>
+                        <button
+                            className="p-2 bg-gradient-to-r from-blue-500 to-blue-700 hover:from-blue-600 hover:to-blue-800 rounded text-white flex items-center justify-center transition-colors duration-150 cursor-pointer"
+                            title="Kopiuj kod do schowka"
+                            onClick={async () => {
+                                try {
+                                    await navigator.clipboard.writeText(gameCode);
+                                } catch (e) {
+                                    console.error("Failed to copy code:", e);
+                                }
+                            }}
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <rect x="9" y="9" width="13" height="13" rx="2" fill="#3b82f6" stroke="#fff" strokeWidth="2" />
+                                <rect x="3" y="3" width="13" height="13" rx="2" stroke="#fff" strokeWidth="2" />
+                            </svg>
+                        </button>
+
                         <button
                             className="px-4 py-2 bg-gradient-to-r from-red-500 to-red-700 text-white rounded hover:from-red-600 hover:to-red-800 flex items-center cursor-pointer"
                             title="Opuść pokój gry"

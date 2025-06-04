@@ -1,8 +1,8 @@
-﻿namespace GameServer.Models;
+﻿using GameServer.Models.impl;
 
-public interface IPlayer
+namespace GameServer.Models;
+
+public interface IPlayer : IPlayerBase
 {
-    string ConnectionId { get; set; }
-    string Id { get; }
-    public string Nickname { get; }
+    public List<ICard> Hand { get; }
 }

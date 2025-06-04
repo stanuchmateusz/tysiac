@@ -4,26 +4,24 @@ import { useNavigate } from "react-router-dom";
 import * as signalR from "@microsoft/signalr";
 
 const StartGame = () => {
-
     const [nickname, setNickname] = useState("");
     const [roomCode, setRoomCode] = useState("");
     const [roomError, setRoomError] = useState("");
     const [isReady, setIsReady] = useState(false);
+    const [connectionError, setConnectionError] = useState<string | null>(null);
 
     const navigate = useNavigate();
 
     useEffect(() => {
-
         if (!GameService.connection || GameService.connection.state === signalR.HubConnectionState.Disconnected) {
             GameService.constructor()
             GameService.startConnection()
                 .then(() => setIsReady(true))
-                .catch(err => {
-                    console.error("Błąd podczas nawiązywania połączenia:", err);
+                .catch(() => {
+                    setConnectionError("Błąd podczas nawiązywania połączenia z serwerem. Sprawdź połączenie internetowe i spróbuj ponownie.");
                     setIsReady(false);
                 });
         }
-
 
         GameService.onRoomCreated((roomCode: string) => {
             navigate(`/game/${roomCode}`);
@@ -32,23 +30,23 @@ const StartGame = () => {
             navigate(`/game/${roomCode}`);
         });
 
-        const ensureConnection = async () => {
-            if (GameService.getConnectionState() !== window.signalR.HubConnectionState.Connected) {
-                await GameService.startConnection();
-            }
-            setIsReady(true);
-        };
-        // Use the global signalR if available, otherwise fallback to 1
-        if (window.signalR && window.signalR.HubConnectionState) {
-            ensureConnection();
-        } else {
-            // fallback: check for string value
-            if (GameService.getConnectionState() !== 'Connected') {
-                GameService.startConnection().then(() => setIsReady(true));
-            } else {
-                setIsReady(true);
-            }
-        }
+        // const ensureConnection = async () => {
+        //     if (GameService.getConnectionState() !== window.signalR.HubConnectionState.Connected) {
+        //         await GameService.startConnection();
+        //     }
+        //     setIsReady(true);
+        // };
+
+        // if (window.signalR && window.signalR.HubConnectionState) {
+        //     ensureConnection();
+        // } else {
+
+        //     if (GameService.getConnectionState() !== 'Connected') {
+        //         GameService.startConnection().then(() => setIsReady(true));
+        //     } else {
+        //         setIsReady(true);
+        //     }
+        // }
         return () => {
             GameService.offRoomCreated();
             GameService.offRoomJoined();
@@ -105,6 +103,25 @@ const StartGame = () => {
 
     return (
         <div className="flex flex-col items-center justify-center w-full gap-4">
+            {connectionError && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+                    <div className="bg-white rounded-2xl shadow-2xl px-8 py-10 flex flex-col items-center max-w-sm w-full border border-red-300 animate-fade-in">
+                        <div className="mb-4 text-red-500">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9 9 4.03 9 9z" />
+                            </svg>
+                        </div>
+                        <h2 className="text-xl font-bold text-gray-800 mb-2">Błąd połączenia</h2>
+                        <p className="text-gray-600 mb-6 text-center">{connectionError}</p>
+                        <button
+                            className="px-6 py-2 bg-gradient-to-r from-red-500 to-red-700 hover:from-red-600 hover:to-red-800 text-white rounded-lg font-semibold shadow-md transition-all duration-150"
+                            onClick={() => window.location.reload()}
+                        >
+                            Spróbuj ponownie
+                        </button>
+                    </div>
+                </div>
+            )}
             <div className="flex flex-col gap-4 w-full max-w-md bg-gray-800/90 rounded-2xl shadow-xl px-8 py-8">
                 <input
                     type="text"

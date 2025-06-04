@@ -21,7 +21,9 @@ builder.Services.AddCors(options =>
     });
 });
 
-builder.Services.AddSingleton<IGameManager,GameManager>();
+// builder.Services.AddSingleton<IGameManager,GameManager>();
+builder.Services.AddSingleton<GameManager>();
+builder.Services.AddSingleton<LobbyService>();
 
 var app = builder.Build();
 

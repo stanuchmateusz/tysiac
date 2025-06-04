@@ -1,5 +1,6 @@
 ﻿using System.Text;
 using GameServer.Models;
+using GameServer.Models.Context;
 using GameServer.Models.impl;
 using GameServer.Services;
 
@@ -7,128 +8,197 @@ namespace GameServer;
 
 using Microsoft.AspNetCore.SignalR;
 
-public class GameHub : Hub
+public class GameHub(GameManager gameManager, LobbyService lobbyService, ILogger<GameHub> logger)
+    : Hub
 {
-    private const string TableCreatedMethodName = "TableCreated";
-    private const string TableUpdateMethodName = "TableUpdate";
-    private const string RoomjoinedMethodName = "RoomJoined";
-    private const string RoomUpdateMethodName = "RoomUpdate";
-    private const string RoomReconnectMethodName = "RoomReconnect";
-    private const string RoomCreatedMethodName = "RoomCreated";
+    private const string GameCreatedMethodName = "GameCreated";
+    private const string GameContextUpdateMethodName = "GameContextUpdate";
+    private const string GameUserContextUpdateMethodName = "GameUserContextUpdate";
+    
+    private const string GamePlaceBetMethodName = "PlaceBet";
+    private const string GamePassBetMethodName = "PassBet";
+    
+    private const string GameDealCardsMethodName = "DealCard";
+    private const string GamePlayCardMethodName = "PlayCard";
+    
+    
     private const string MessageReceiveMethodName = "MessageRecieve";
     
-    private readonly ILogger<GameHub> _logger;
-    private readonly IGameManager _gameManager;
-    
-    public GameHub(IGameManager gameManager, ILogger<GameHub> logger)
-    {
-        _logger = logger;
-        _gameManager = gameManager;
-    }
-    
+    private const string LobbyJoinedMethodName = "RoomJoined";
+    private const string LobbyUpdateMethodName = "LobbyUpdate";
+    private const string LobbyCreatedMethodName = "RoomCreated";
+
     public override async Task OnConnectedAsync()
     {
-        _logger.LogInformation("Connected {ConnId}", Context.ConnectionId );
+        logger.LogInformation("Connected {ConnId}", Context.ConnectionId );
+        //todo try to reconnect? 
         await base.OnConnectedAsync();
     }
-
-    public async Task StartRoom(string roomCode)
+    public override Task OnDisconnectedAsync(Exception? exception)
     {
-        var player = _gameManager.GetPlayers(roomCode).First(p => p.ConnectionId == Context.ConnectionId);
-        if (player == null)
-            throw new HubException("Player not found in room");
-        //validate if teams are full
-        if (_gameManager.GetRoom(roomCode).Team1.Count != 2 || _gameManager.GetRoom(roomCode).Team2.Count != 2)
-            throw new HubException("Teams are not full");
-
-        _logger.LogInformation("Starting room {RoomCode}", roomCode);
-        await Clients.Groups(roomCode).SendAsync(TableCreatedMethodName,"test");
-
-    }
-
-    public async Task GetTableContext(string roomCode)
-    {
-        await Clients.Group(roomCode).SendAsync(TableUpdateMethodName, 1);
-    }
-
-    public async Task ReconnectRoom(string roomCode, string userId)
-    {
-        var player = _gameManager.GetPlayers(roomCode).First(p => p.Id == userId);
-        if (player == null)
-            return;
-        player.ConnectionId = Context.ConnectionId;
+        logger.LogInformation("Disconnected {ConnId}", Context.ConnectionId );
+        gameManager.Disconnect(Context.ConnectionId);
         
+        return base.OnDisconnectedAsync(exception);
     }
     
-    public async Task SendMessage(string roomCode, string message )
+    #region Lobby
+    
+    public async Task GetLobbyContext(string roomCode)
     {
-       var player = _gameManager.GetPlayers(roomCode).First(p => p.ConnectionId == Context.ConnectionId);
-       if (player == null)
-           throw new HubException("Player not found in room");
-       await Clients.Groups(roomCode).SendAsync(MessageReceiveMethodName, new {nickname = player.Nickname,message});
-    }
-    public async Task GetRoomContext(string roomCode)
-    {
-        var player = _gameManager.GetPlayers(roomCode).First(p => p.ConnectionId == Context.ConnectionId);
-        if (player == null)
+        try
+        {
+            //validate room and player
+            lobbyService.GetPlayerFromRoom(roomCode, Context.ConnectionId);
+        }
+        catch (HubException exception)
+        {
             throw new HubException("Player not found in room");
-        await Clients.Caller.SendAsync(RoomUpdateMethodName, new TableContext(_gameManager.GetRoom(roomCode),roomCode));
+        }
+        await Clients.Caller.SendAsync(LobbyUpdateMethodName, lobbyService.GetRoom(roomCode));
     }
     
     public async Task JoinRoom(string roomCode, string nickname)
     {
         var player = new HumanPlayer(Context.ConnectionId, nickname);
-        _gameManager.JoinRoom(roomCode, player);
+        lobbyService.JoinRoom(roomCode, player);
         
         await Groups.AddToGroupAsync(Context.ConnectionId, roomCode);
-        await Clients.Caller.SendAsync(RoomjoinedMethodName, roomCode);
-        await Clients.Groups(roomCode).SendAsync(RoomUpdateMethodName, 
-            new TableContext(_gameManager.GetRoom(roomCode),roomCode));
+        await Clients.Caller.SendAsync(LobbyJoinedMethodName, roomCode);
+        await Clients.Groups(roomCode).SendAsync(LobbyUpdateMethodName, 
+            lobbyService.GetRoom(roomCode));
         
-        _logger.LogInformation("Joined {Nickname} room {RoomCode}",nickname, roomCode);
+        logger.LogInformation("Joined {Nickname} room {RoomCode}",nickname, roomCode);
     }
 
     public async Task JoinTeam(string roomCode, bool isTeam1)
     {
-        var player = _gameManager.GetPlayers(roomCode).First(p => p.ConnectionId == Context.ConnectionId);
+        var lobby = lobbyService.GetRoom(roomCode);
+        if (lobby == null)
+            throw new HubException("Room not found");
+        var player = lobby.GetPlayer(Context.ConnectionId);
         if (player == null)
             throw new HubException("Player not found in room");
         if (isTeam1)
         {
-            _logger.LogInformation("Joining {Nickname} team1", player.Nickname);
-            _gameManager.GetRoom(roomCode).AddToTeam1(player);
+            logger.LogInformation("Joining {Nickname} team1", player.Nickname);
+            lobbyService.AddToTeam1(player, lobby);
         }
         else
         {
-            _logger.LogInformation("Joining {Nickname} team2", player.Nickname);
-            _gameManager.GetRoom(roomCode).AddToTeam2(player);
+            logger.LogInformation("Joining {Nickname} team2", player.Nickname);
+            lobbyService.AddToTeam2(player, lobby);
         }
-        await Clients.Groups(roomCode).SendAsync(RoomUpdateMethodName, new TableContext(_gameManager.GetRoom(roomCode),roomCode));
+        await Clients.Groups(roomCode).SendAsync(LobbyUpdateMethodName, lobbyService.GetRoom(roomCode));
 
     }
     public async Task CreateRoom(string nickname)
     {
         var player = new HumanPlayer(Context.ConnectionId, nickname);
-        var roomCode = _gameManager.CreateRoom(player);
+        var roomCode = lobbyService.CreateRoom(player);
         
         await Groups.AddToGroupAsync(Context.ConnectionId, roomCode);
-        await Clients.Caller.SendAsync(RoomCreatedMethodName, roomCode);
-        _logger.LogInformation("Created room {RoomCode}", roomCode);
+        await Clients.Caller.SendAsync(LobbyCreatedMethodName, roomCode);
+        logger.LogInformation("Created room {RoomCode}", roomCode);
 
     }
 
     public async Task LeaveRoom(string roomCode)
     {
-        _gameManager.LeaveRoom(roomCode, Context.ConnectionId);
+        lobbyService.LeaveRoom(roomCode, Context.ConnectionId);
         await Groups.RemoveFromGroupAsync(Context.ConnectionId, roomCode);
-        await Clients.Groups(roomCode).SendAsync(RoomUpdateMethodName, new TableContext(_gameManager.GetRoom(roomCode),roomCode));
-        _logger.LogInformation("Left room {RoomCode}", roomCode);
+        await Clients.Groups(roomCode).SendAsync(LobbyUpdateMethodName, lobbyService.GetRoom(roomCode));
+        logger.LogInformation("Left room {RoomCode}", roomCode);
     }
-    public override Task OnDisconnectedAsync(Exception? exception)
+    #endregion
+    
+    public async Task StartRoom(string roomCode)
     {
-        _logger.LogInformation("Disconnected {ConnId}", Context.ConnectionId );
-        _gameManager.Disconnect(Context.ConnectionId);
+        var room = lobbyService.GetRoom(roomCode);
+        if (room == null)
+            throw new HubException("Lobby not found");
         
-        return base.OnDisconnectedAsync(exception);
+        gameManager.CreateNewGame(room);
+        var game = gameManager.GetRoom(roomCode);
+        if (game == null)
+            throw new HubException("Game not found");
+        
+        var player = game.GetPlayerFromRoom(Context.ConnectionId);
+        
+        if (player == null)
+            throw new HubException("Player not found in room");
+        
+        if (game.Players.Count != 4)
+            throw new HubException("Teams are not full");
+
+        logger.LogInformation("Starting room {RoomCode}", roomCode);
+        
+        await Clients.Groups(roomCode).SendAsync(GameCreatedMethodName);
+        await StartGame(roomCode);
+
     }
+    
+    public async Task ReconnectRoom(string roomCode, string userId)
+    {
+        throw new NotImplementedException();
+    }
+    
+    public async Task SendMessage(string roomCode, string message )
+    {
+        var player = gameManager.GetRoom(roomCode).GetPlayerFromRoom(Context.ConnectionId) ?? lobbyService.GetPlayerFromRoom(roomCode,Context.ConnectionId);
+        await Clients.Groups(roomCode).SendAsync(MessageReceiveMethodName, new {nickname = player.Nickname,message});
+    }
+    
+    public async Task StartGame(string roomCode)
+    {
+        logger.LogInformation("Starting game in room");
+        var table = gameManager.GetRoom(roomCode);
+        if (table == null)
+            throw new HubException("Game not found");
+        table.StartGame();
+        await Clients.Group(roomCode).SendAsync("GameStarted", table.GetGameState());
+        await NotifyUpdatedGameState(roomCode);
+    }
+    
+    public async Task PlaceBid(string roomCode, int bid)
+    {
+        var table = gameManager.GetRoom(roomCode);
+        if (table == null)
+            throw new HubException("Game not found");
+        var player = table.Players.First(p => p.ConnectionId == Context.ConnectionId);
+        table.PlaceBid(player, bid);
+        await NotifyUpdatedGameState(roomCode);
+    }
+    
+    private async Task NotifyUpdatedGameState(string roomCode)
+    {
+        var roomService = gameManager.GetRoom(roomCode);
+        if (roomService == null)
+            throw new HubException("Room not found");
+        await Clients.Group(roomCode).SendAsync(GameContextUpdateMethodName, roomService.GetGameState());
+        
+        foreach (var player in roomService.Players)
+        {
+            await Clients.Client(player.ConnectionId).SendAsync(GameUserContextUpdateMethodName, roomService.GetUserState(player));
+        }
+    }
+
+    public async Task PassBid(string roomCode)
+    {
+        var table = gameManager.GetRoom(roomCode);
+        var player = table.Players.First(p => p.ConnectionId == Context.ConnectionId);
+        table.PassBid(player);
+        await NotifyUpdatedGameState(roomCode);
+    }
+    
+    public async Task PlayCard(string roomCode, string cardShortName)
+    {
+        var table = gameManager.GetRoom(roomCode);
+        var player = table.GetPlayerFromRoom(Context.ConnectionId);
+        var card = player.Hand.First(card => card.ShortName == cardShortName);
+        table.PlayCard(player,card);
+        
+        await NotifyUpdatedGameState(roomCode);
+    }
+    
 }

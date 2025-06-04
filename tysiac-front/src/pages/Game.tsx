@@ -1,38 +1,28 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import GameService from "../services/GameService";
-import { GrHide } from "react-icons/gr";
-import { GrView } from "react-icons/gr";
-import { ImExit } from "react-icons/im";
-import { IoMdAddCircle } from "react-icons/io";
-import { IoMdSend } from "react-icons/io";
-import Lobby from "./Lobby";
-import Table, { type GameTableContext } from "./Table";
 
-interface Player {
+import Lobby from "./Lobby";
+import Table, { type GameContext as GameContext, type GameUserContext } from "./Table";
+
+export interface Player {
     connectionId: string;
     nickname: string;
 }
-interface ChatMessage {
+export interface ChatMessage {
     nickname: string;
     message: string;
 }
 
-interface TableContext {
+export interface LobbyContext {
     players: Player[];
     team1: Player[];
     team2: Player[];
     code: string;
 }
 
-const JoinTeamHandler = (isTeam1: boolean, gameCode: string) => {
-    GameService.connection?.invoke("JoinTeam", gameCode, isTeam1)
-        .catch(err => {
-            console.error(`Error joining team:`, err);
-        });
-}
-
 const Game = () => {
+    const navigate = useNavigate();
     const { gameCode } = useParams<{ gameCode: string }>();
     const [users, setUsers] = useState<Player[]>([]);
     const [team1, setTeam1] = useState<Player[]>([]);
@@ -40,47 +30,59 @@ const Game = () => {
     const [chatMessages, setChatMessages] = useState<ChatMessage[]>([{ nickname: "System", message: "Witaj w grze! Użyj czatu, aby komunikować się z innymi graczami." }]);
     const [showCode, setShowCode] = useState(false);
     const [inGame, setInGame] = useState(false);
-    const [gameTableContext, setGameTableContext] = useState<GameTableContext | null>(null);
+    const [gameContext, setGameContext] = useState<GameContext | null>(null);
+    const [gameUserContext, setGameUserContext] = useState<GameUserContext | null>(null);
     useEffect(() => {
         const connection = GameService.connection;
-        if (!connection) return;
-
-        const handleRoomUpdate = (ctx: TableContext) => {
-            setUsers(ctx.players);
-            setTeam1(ctx.team1);
-            setTeam2(ctx.team2);
-        };
-        const handleGameTableUpdate = (ctx: GameTableContext) => {
-            //todo: handle table update logic
-            setGameTableContext(ctx);
-            console.log("Game table context updated:", ctx);
+        if (!connection || connection.state === "Disconnected") {
+            navigate("/");
+            return;
         }
+
+        // Handle lobby updates
+        const handleRoomUpdate = (lobbyCtx: LobbyContext) => {
+            setUsers(lobbyCtx.players);
+            setTeam1(lobbyCtx.team1);
+            setTeam2(lobbyCtx.team2);
+        };
+
+
+        const handleGameContextUpdate = (ctx: GameContext) => {
+            setGameContext(ctx);
+            console.log("Game table context updated:", ctx);
+
+        }
+        const handleGameUserContextUpdate = (ctx: GameUserContext) => {
+            //todo 
+            setGameUserContext(ctx);
+            console.log("Game user context updated:", ctx);
+        }
+
+        // Handle incoming chat messages
         const handleMessageReceive = (message: ChatMessage) => {
             setChatMessages(prevMessages => [...prevMessages, message]);
         };
-        const handleGameTableCreated = (created: boolean) => {
-            console.log("Table created:", created);
-            if (created) {
-                setInGame(true);
-            } else {
-                console.error("Failed to create room.");
-            }
+
+        // Finish lobby start the game
+        const handleGameCreated = () => {
+            console.log("New game created");
+            setInGame(true);
         }
 
-        connection.invoke("GetRoomContext", gameCode);
+        connection.invoke("GetLobbyContext", gameCode); //request lobby context
 
-        connection.on("GetRoomContext", handleRoomUpdate);
-        connection.on("GetTableContext", handleGameTableUpdate);
-        connection.on("TableCreated", handleGameTableCreated);
-        connection.on("MessageRecieve", handleMessageReceive);
-        connection.on("RoomUpdate", handleRoomUpdate);
+
+        connection.on("GameContextUpdate", handleGameContextUpdate); //game update
+        connection.on("GameUserContextUpdate", handleGameUserContextUpdate); //game user update
+        connection.on("GameCreated", handleGameCreated); //game created
+        connection.on("MessageRecieve", handleMessageReceive);//message receive
+        connection.on("LobbyUpdate", handleRoomUpdate);//lobby update
 
         return () => {
-            connection.on("GetTableContext", handleGameTableUpdate);
-            connection.off("TableCreated", handleGameTableCreated);
-            connection.off("GetRoomContext", handleRoomUpdate);
+            connection.off("GameContextUpdate", handleGameContextUpdate);
+            connection.off("GameCreated", handleGameCreated);
             connection.off("MessageRecieve", handleMessageReceive);
-            connection.off("RoomUpdate", handleRoomUpdate);
+            connection.off("LobbyUpdate", handleRoomUpdate);
         };
     }, []);
 
@@ -92,7 +94,7 @@ const Game = () => {
     if (!inGame) {
         return <Lobby users={users} team1={team1} team2={team2} chatMessages={chatMessages} showCode={showCode} setShowCode={setShowCode} gameCode={gameCode!} onStartGame={handleStartGame} />;
     } else {
-        return <Table users={users} team1={team1} team2={team2} chatMessages={chatMessages} showCode={showCode} setShowCode={setShowCode} gameCode={gameCode!} tableContext={gameTableContext} />;
+        return <Table chatMessages={chatMessages} gameCode={gameCode!} gameCtx={gameContext} gameUserCtx={gameUserContext} />;
     }
 }
 export default Game;
