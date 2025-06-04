@@ -15,16 +15,16 @@ public class UserContext
     public int MyTeamScore { get; }        // Current team score
     public int OpponentScore { get; }
 
-    public UserContext(IPlayerBase me ,IPlayerBase teammate, IPlayerBase leftPlayer, IPlayerBase rightPlayer, int teammateCards, int leftPlayerCards, int rightPlayerCards, List<ICard> hand, int myTeamScore, int opponentScore)
+    public UserContext(IPlayer me ,IPlayer teammate, IPlayer leftPlayer, IPlayer rightPlayer, int myTeamScore, int opponentScore)
     {
         Me = me;
         Teammate = teammate;
         LeftPlayer = leftPlayer;
         RightPlayer = rightPlayer;
-        TeammateCards = teammateCards;
-        LeftPlayerCards = leftPlayerCards;
-        RightPlayerCards = rightPlayerCards;
-        Hand = hand;
+        TeammateCards = teammate.Hand.Count;
+        LeftPlayerCards = leftPlayer.Hand.Count;
+        RightPlayerCards = rightPlayer.Hand.Count;
+        Hand = me.Hand;
         MyTeamScore = myTeamScore;
         OpponentScore = opponentScore;
     }

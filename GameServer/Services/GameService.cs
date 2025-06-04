@@ -55,23 +55,48 @@ public class GameService
         Round.TurnQueue.Enqueue(Player4);
         
         Round.OrginalTurnQueue = new Queue<IPlayer>(Round.TurnQueue);
+        Round.CurrentBidWinner = Player1;
     }
-
+    
+    private void StartQueueFromPlayer(IPlayer player)
+    {
+        Round.TurnQueue.Enqueue(player);
+        Round.TurnQueue.Enqueue(GetLeftPlayer(player));
+        Round.TurnQueue.Enqueue(GetTeammate(player));
+        Round.TurnQueue.Enqueue(GetRightPlayer(player));
+    }
     private void AdvanceTurn()
     {
         Round.TurnQueue.Dequeue();
+        
+        if (GamePhase.CardDistribution == CurrentPhase)
+        {
+            Round.TurnQueue.Clear();
+            Round.TurnQueue.Enqueue(Round.CurrentBidWinner);
+        }
         if (Round.TurnQueue.Count == 0)
         {
             if (GamePhase.Auction == CurrentPhase)
             {
-                Round.TurnQueue.Enqueue(Player1);
-                Round.TurnQueue.Enqueue(Player2);
-                Round.TurnQueue.Enqueue(Player3);
-                Round.TurnQueue.Enqueue(Player4);
+                if (Round.Pass.Count != 3) 
+                    StartQueueFromPlayer(Round.CurrentBidWinner);
             }
-
+            
             if (CurrentPhase == GamePhase.Playing)
             {
+                _logger.LogInformation("GamePhase.Playing");
+                if (Round.CurrentCardsOnTable.Count < 4)
+                {
+                    // nie ma jeszcze 4 kart na stole, więc kontynuujemy grę
+                    StartQueueFromPlayer(Round.CurrentBidWinner);
+
+                }
+                else
+                {
+                    // jest 4 karty na stole, więc kończymy lewę
+                    CompleteTake();
+                    
+                }
                 if (_deck.Count > 0)
                 {
                     // skończone rozdanie - policz  i jedziemy dalej 
@@ -89,13 +114,13 @@ public class GameService
         ArgumentNullException.ThrowIfNull(player);
         
         if (player == Player1)
-            return Player2;
-        if (player == Player2)
-            return Player1;
-        if (player == Player3)
-            return Player4;
-        if (player == Player4)
             return Player3;
+        if (player == Player2)
+            return Player4;
+        if (player == Player3)
+            return Player1;
+        if (player == Player4)
+            return Player2;
         
         throw new ArgumentException("Unknown player");
     }
@@ -147,6 +172,7 @@ public class GameService
             Round.TurnQueue.Peek(),
                 CurrentPhase,
                 Round.CurrentCardsOnTable,
+                Round.TrumpSuit.GetValueOrDefault(),
                 Round.Musik.Count,
                 Round.CurrentBet
             );
@@ -162,10 +188,6 @@ public class GameService
             teammate,
             leftPlayer,
             rightPlayer,
-            teammate.Hand.Count,
-            leftPlayer.Hand.Count,
-            rightPlayer.Hand.Count,
-            player.Hand,
             GetTeamPoints(player),
             GetTeamPoints(player, true)
             );
@@ -216,11 +238,11 @@ public class GameService
     public void PassBid(IPlayer player)
     {
         Round.Pass.Add(player);
-        
+        _logger.LogInformation("Player {Player} passed", player);
         if (Round.Pass.Count == 3)
         {
-            // wygrywa nastepny 
-            var winner = Round.TurnQueue.Dequeue();//todo do zdebugowania
+            var winner = Round.CurrentBidWinner;
+            _logger.LogInformation("Player {Player} won auction", winner);
             MoveMusikToBindWinner(winner);
             CurrentPhase = GamePhase.CardDistribution;
         }
@@ -242,7 +264,7 @@ public class GameService
         playerRef?.Hand.AddRange(Round.Musik);
     }
     
-    public void DistributeCard(IPlayer distributor, ICard cardToGive, IPlayer target)
+    public void DistributeCard(IPlayer distributor, string cardToGiveShortName, IPlayer target)
     {
         if (CurrentPhase != GamePhase.CardDistribution)
             throw new InvalidOperationException("Invalid State!");
@@ -254,12 +276,25 @@ public class GameService
         var targetRef = GetPlayerRef(target);
         if (distributorRef == null || targetRef == null)
             throw new InvalidOperationException("Invalid player reference");
-
-        if (!distributorRef.Hand.Contains(cardToGive))
+        var cardToGive = distributorRef.Hand.FirstOrDefault(c => c.ShortName == cardToGiveShortName);
+        
+        if (cardToGive == null)
             throw new InvalidOperationException($"{distributorRef} doesn't have a card {cardToGive}");
 
         distributorRef.Hand.Remove(cardToGive);
         targetRef.Hand.Add(cardToGive);
+        
+        // Sprawdź czy rozdanie kart się skończyło
+        if (distributorRef.Hand.Count == 6)
+        {
+            // Wszystkie karty rozdane, przechodzimy do fazy gry
+            CurrentPhase = GamePhase.Playing;
+            _logger.LogInformation("All cards distributed, moving to playing phase");
+        }
+        else
+        {
+            AdvanceTurn();
+        }
     }
     
     public void PlayCard(IPlayer player, ICard card)
@@ -278,10 +313,10 @@ public class GameService
         playerRef.Hand.Remove(card);
         Round.CurrentCardsOnTable.Add(card);
         // Check for meld announcement
-        if (card.Name == CardName.Queen && 
-            playerRef.Hand.Any(c => c.Color == card.Color && c.Name == CardName.King))
+        if (card.Rank == CardRank.Queen && 
+            playerRef.Hand.Any(c => c.Suit == card.Suit && c.Rank == CardRank.King))
         {
-            Round.TrumpSuit = card.Color;
+            Round.TrumpSuit = card.Suit;
             //todo Round.TeamXTrumps += GetThrumpPoints(card.Color);
         }
         
@@ -296,9 +331,9 @@ public class GameService
     public bool CanPlay(ICard card, ICard stackTop)
     {
         //todo musi przebić?
-        if (card.Color != stackTop.Color)
+        if (card.Suit != stackTop.Suit)
         {
-            return (card.Color == Round.TrumpSuit);
+            return (card.Suit == Round.TrumpSuit);
         }
         return true;
     }
@@ -318,14 +353,7 @@ public class GameService
 
         // Ustaw kolejność graczy tak, by zwycięzca zaczynał następną lewę
         Round.TurnQueue.Clear();
-        var order = new List<IPlayer> { winner };
-        for (int i = 1; i < 4; i++)
-        {
-            var idx = (GetPlayerIndex(winner) + i) % 4;
-            order.Add(GetPlayerByIndex(idx));
-        }
-        foreach (var p in order)
-            Round.TurnQueue.Enqueue(p);
+        StartQueueFromPlayer(winner);
 
         // Sprawdź czy wszyscy gracze mają puste ręce (koniec rundy)
         if (Player1.Hand.Count == 0 && Player2.Hand.Count == 0 && Player3.Hand.Count == 0 && Player4.Hand.Count == 0)
@@ -341,12 +369,12 @@ public class GameService
         var playersOrder = Round.TurnQueue.ToArray();
         int winnerIdx = 0;
         ICard highestCard = cardsOnTable[0];
-        CardColor? trump = Round.TrumpSuit;
+        CardSuit? trump = Round.TrumpSuit;
         for (int i = 1; i < cardsOnTable.Count; i++)
         {
             var card = cardsOnTable[i];
-            if ((card.Color == highestCard.Color && card.Points > highestCard.Points) ||
-                (trump.HasValue && card.Color == trump && highestCard.Color != trump))
+            if ((card.Suit == highestCard.Suit && card.Points > highestCard.Points) ||
+                (trump.HasValue && card.Suit == trump && highestCard.Suit != trump))
             {
                 highestCard = card;
                 winnerIdx = i;
@@ -379,6 +407,7 @@ public class GameService
 
     private void EndRound()
     {
+        _logger.LogInformation("Ending round");
         // Tu możesz dodać logikę podsumowania rundy, sprawdzenia zakładów, ogłoszenia zwycięzcy itd.
         // Przykład:
         // - sprawdź czy drużyna, która wygrała licytację, zdobyła wymaganą liczbę punktów
@@ -401,11 +430,11 @@ public class GameService
     {
         _logger.LogInformation("Initializing TableService");
         var tempDeck = new List<ICard>();
-        foreach (var color in Enum.GetValues<CardColor>())
+        foreach (var color in Enum.GetValues<CardSuit>())
         {
-            foreach (var name in Enum.GetValues<CardName>())
+            foreach (var name in Enum.GetValues<CardRank>())
             {
-                if (name is CardName.As or CardName.King or CardName.Queen or CardName.Jack or CardName.Ten or CardName.Nine)
+                if (name is CardRank.As or CardRank.King or CardRank.Queen or CardRank.Jack or CardRank.Ten or CardRank.Nine)
                 {
                     tempDeck.Add(new Card(name, color));
                 }

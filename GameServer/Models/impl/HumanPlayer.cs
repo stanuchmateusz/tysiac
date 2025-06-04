@@ -13,4 +13,9 @@ public class HumanPlayer : IPlayer
         ConnectionId = connectionId;
         Nickname = nickname;
     }
+    
+    public override string ToString()
+    {
+        return $"HumanPlayer: {Nickname}";
+    }
 }

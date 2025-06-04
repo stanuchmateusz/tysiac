@@ -1,6 +1,6 @@
 ﻿namespace GameServer.Models;
 
-public enum CardColor
+public enum CardSuit
 {
     Spades, // Pik-Wino
     Clubs, // Trefl-Żołądź

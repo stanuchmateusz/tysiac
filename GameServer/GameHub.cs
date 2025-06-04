@@ -156,10 +156,9 @@ public class GameHub(GameManager gameManager, LobbyService lobbyService, ILogger
         if (table == null)
             throw new HubException("Game not found");
         table.StartGame();
-        await Clients.Group(roomCode).SendAsync("GameStarted", table.GetGameState());
+        await Clients.Group(roomCode).SendAsync("GameStarted");//todo sprawdzić czy to jest potrzebne
         await NotifyUpdatedGameState(roomCode);
     }
-    
     public async Task PlaceBid(string roomCode, int bid)
     {
         var table = gameManager.GetRoom(roomCode);
@@ -167,6 +166,44 @@ public class GameHub(GameManager gameManager, LobbyService lobbyService, ILogger
             throw new HubException("Game not found");
         var player = table.Players.First(p => p.ConnectionId == Context.ConnectionId);
         table.PlaceBid(player, bid);
+        await NotifyUpdatedGameState(roomCode);
+    }
+    public async Task GiveCard(string roomCode, string card, string toPlayerId)
+    {
+        var table = gameManager.GetRoom(roomCode);
+        if (table == null)
+            throw new HubException("Game not found");
+        var player = table.GetPlayerFromRoom(Context.ConnectionId);
+        if (player == null)
+            throw new HubException("Player not found in room");
+        var targetPlayer = table.GetPlayerFromRoom(toPlayerId);
+        if (targetPlayer == null)
+            throw new HubException("Target player not found in room");
+        logger.LogInformation("Giving card {Card} to {PlayerId}", card,targetPlayer.Nickname);
+        table.DistributeCard(player, card, targetPlayer);
+        
+        await NotifyUpdatedGameState(roomCode);
+    }
+    
+    public async Task PassBid(string roomCode)
+    {
+        var table = gameManager.GetRoom(roomCode);
+        if (table == null)
+            throw new HubException("Game not found");
+        var player = table.GetPlayerFromRoom(Context.ConnectionId);
+        if (player == null)
+            throw new HubException("Player not found in room");
+        table.PassBid(player);
+        await NotifyUpdatedGameState(roomCode);
+    }
+    
+    public async Task PlayCard(string roomCode, string cardShortName)
+    {
+        var table = gameManager.GetRoom(roomCode);
+        var player = table.GetPlayerFromRoom(Context.ConnectionId);
+        var card = player.Hand.First(card => card.ShortName == cardShortName);
+        table.PlayCard(player,card);
+        
         await NotifyUpdatedGameState(roomCode);
     }
     
@@ -182,23 +219,4 @@ public class GameHub(GameManager gameManager, LobbyService lobbyService, ILogger
             await Clients.Client(player.ConnectionId).SendAsync(GameUserContextUpdateMethodName, roomService.GetUserState(player));
         }
     }
-
-    public async Task PassBid(string roomCode)
-    {
-        var table = gameManager.GetRoom(roomCode);
-        var player = table.Players.First(p => p.ConnectionId == Context.ConnectionId);
-        table.PassBid(player);
-        await NotifyUpdatedGameState(roomCode);
-    }
-    
-    public async Task PlayCard(string roomCode, string cardShortName)
-    {
-        var table = gameManager.GetRoom(roomCode);
-        var player = table.GetPlayerFromRoom(Context.ConnectionId);
-        var card = player.Hand.First(card => card.ShortName == cardShortName);
-        table.PlayCard(player,card);
-        
-        await NotifyUpdatedGameState(roomCode);
-    }
-    
 }

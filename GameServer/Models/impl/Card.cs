@@ -4,15 +4,15 @@ namespace GameServer.Models.impl;
 
 public class Card : ICard
 {
-    public CardName Name { get; }
-    public CardColor Color { get; }
+    public CardRank Rank { get; }
+    public CardSuit Suit { get; }
     public ushort Points { get; }
     public string ShortName { get; }
 
-    public Card(CardName name, CardColor color)
+    public Card(CardRank rank, CardSuit suit)
     {
-        Name = name;
-        Color = color;
+        Rank = rank;
+        Suit = suit;
         Points = CalculatePoints();
         ShortName = GetShortName();
     }
@@ -20,41 +20,41 @@ public class Card : ICard
     private string GetShortName()
     {
         return new StringBuilder()
-            .Append(Name switch
+            .Append(Rank switch
             {
-                CardName.As => "A",
-                CardName.King => "K",
-                CardName.Queen => "Q",
-                CardName.Jack => "J",
-                CardName.Ten => "10",
-                CardName.Nine => "9",
+                CardRank.As => "A",
+                CardRank.King => "K",
+                CardRank.Queen => "Q",
+                CardRank.Jack => "J",
+                CardRank.Ten => "10",
+                CardRank.Nine => "9",
                 _ => throw new ArgumentOutOfRangeException("Invalid card name")
             })
-            .Append(Color switch
+            .Append(Suit switch
             {
-                CardColor.Spades => "S",
-                CardColor.Clubs => "C",
-                CardColor.Hearts => "H",
-                CardColor.Diamonds => "D",
+                CardSuit.Spades => "S",
+                CardSuit.Clubs => "C",
+                CardSuit.Hearts => "H",
+                CardSuit.Diamonds => "D",
                 _ => throw new ArgumentOutOfRangeException("Invalid color")
             })
             .ToString();
     }
     private ushort CalculatePoints()
     {
-        return Name switch
+        return Rank switch
         {
-            CardName.As => 11,
-            CardName.King => 4,
-            CardName.Queen => 3,
-            CardName.Jack => 2,
-            CardName.Ten => 10,
+            CardRank.As => 11,
+            CardRank.King => 4,
+            CardRank.Queen => 3,
+            CardRank.Jack => 2,
+            CardRank.Ten => 10,
             _ => 0
         };
     }
 
     public override string ToString()
     {
-        return Name + " of " + Color;
+        return Rank + " of " + Suit;
     }
 }

@@ -3,7 +3,7 @@ import GameService from "../services/GameService";
 
 import { ImExit } from "react-icons/im";
 import { IoMdSend } from "react-icons/io";
-import { useState } from "react";
+import React, { useState } from "react";
 
 interface Player {
     id: string;
@@ -23,10 +23,11 @@ interface Card {
 
 export interface GameContext {
     currentPlayer: Player;
-    gamePhase: string;
+    gamePhase: number;
     cardsOnTable: Card[];
-    musikCards: number;
-    currentTrick: Card[];
+    trumpSuit: number;
+    musikCount: number;
+    currentBet: number;
 }
 
 export interface GameUserContext {
@@ -42,22 +43,29 @@ export interface GameUserContext {
     opponentScore: number; //wy
 }
 const CARD_SVG_PATH = "/src/assets/poker-qr/";
-const SUIT_ICONS: Record<string, string> = {
-    'S': '♠', // Spades
-    'C': '♣', // Clubs
-    'H': '♥', // Hearts
-    'D': '♦'  // Diamonds
+const SUIT_ICONS: Record<number, string> = {
+    0: '♠', // Spades
+    1: '♣', // Clubs
+    2: '♥', // Hearts
+    3: '♦'  // Diamonds
 };
 
-const CARD_RANKS: Record<string, string> = {
-    'A': 'A',
-    'K': 'K',
-    'Q': 'Q',
-    'J': 'J',
-    '10': '10',
-    '9': '9'
+const CARD_RANKS: Record<number, string> = {
+    0: 'A',
+    1: 'K',
+    2: 'Q',
+    3: 'J',
+    4: '10',
+    5: '9'
 };
 
+const GAME_STAGES: Record<number, string> = {
+    0: "Start",
+    1: "Auction",
+    2: "Card Distribution",
+    3: "Playing",
+    4: "End"
+}
 function CardHand({ cards, onCardSelect, disabled = false }: {
     cards: Card[],
     onCardSelect: (card: string) => void,
@@ -83,30 +91,111 @@ function CardHand({ cards, onCardSelect, disabled = false }: {
         </div>
     );
 }
-function PlayerPosition({ player, position, isCurrentPlayer = false, cardCount = 0 }: {
+function PlayerPosition({ player, position, cardCount = 0, cardDirection, highlightGold, isSelectable, isSelected, onSelect }: {
     player?: Player,
     position: string,
     isCurrentPlayer?: boolean,
-    cardCount?: number
+    cardCount?: number,
+    cardDirection?: 'normal' | 'left' | 'right',
+    highlightGold?: boolean,
+    isSelectable?: boolean,
+    isSelected?: boolean,
+    onSelect?: () => void
 }) {
     if (!player) return null;
 
+    // Ustal styl rotacji kart
+    let cardStyle = '';
+    if (cardDirection === 'left') cardStyle = 'rotate-[-90deg] origin-bottom left';
+    if (cardDirection === 'right') cardStyle = 'rotate-[90deg] origin-bottom right';
+
+    // Ustal flex-row dla linii kart
+    let cardRowClass = 'flex gap-0.5'; // zmniejsz gap
+    if (cardDirection === 'left') cardRowClass += ' flex-col-reverse';
+    if (cardDirection === 'right') cardRowClass += ' flex-col';
+
+    // Poprawne podświetlenie nicka na złoto
+    let playerClass = 'rounded-full px-4 py-2 mb-2 cursor-pointer ';
+    if (isSelected) {
+        playerClass += 'bg-red-600 text-white font-bold border-2 border-red-400 animate-pulse ';
+    } else if (highlightGold) {
+        playerClass += 'bg-yellow-400 text-black font-bold border-2 border-yellow-300 animate-pulse ';
+    } else {
+        playerClass += 'bg-gray-800 ';
+    }
+    if (!isSelectable) playerClass += ' cursor-default ';
+
     return (
         <div className={`absolute ${position} flex flex-col items-center`}>
-            <div className={`rounded-full px-4 py-2 mb-2 ${isCurrentPlayer ? 'bg-blue-600' : 'bg-gray-800'
-                }`}>
-                {player.nickname}
-            </div>
-            <div className="flex gap-1">
-                {Array.from({ length: Math.min(cardCount, 5) }).map((_, idx) => (
+            <div className={playerClass} onClick={isSelectable && onSelect ? onSelect : undefined}>{player.nickname}</div>
+            <div className={cardRowClass}>
+                {Array.from({ length: cardCount }).map((_, idx) => (
                     <div
                         key={idx}
-                        className="w-10 h-14 bg-blue-900 border-2 border-blue-700 rounded-md shadow-md"
+                        className={`w-10 h-14 bg-blue-900 border-2 border-blue-700 rounded-md shadow-md ${cardStyle}`}
                     />
                 ))}
-                {cardCount > 5 && (
-                    <div className="text-xs ml-1 self-center">+{cardCount - 5}</div>
-                )}
+            </div>
+        </div>
+    );
+}
+
+// Modal do betowania
+function BetModal({
+    open,
+    currentBet,
+    onRaise,
+    onLower,
+    onPass,
+    onAccept,
+    disabled,
+    minBet
+}: {
+    open: boolean,
+    currentBet: number,
+    onRaise: () => void,
+    onLower: () => void,
+    onPass: () => void,
+    onAccept: () => void,
+    disabled?: boolean,
+    minBet: number
+}) {
+    if (!open) return null;
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+            <div className="bg-green-900 bg-opacity-90 rounded-xl p-8 shadow-2xl min-w-[320px] flex flex-col items-center">
+                <h2 className="text-2xl font-bold mb-4">Licytacja</h2>
+                <div className="mb-6 text-lg">Aktualny zakład: <span className="font-bold text-yellow-300">{currentBet}</span></div>
+                <div className="flex gap-4 mb-2">
+                    <button
+                        className="px-4 py-2 bg-blue-700 hover:bg-blue-800 rounded text-white font-semibold"
+                        onClick={onRaise}
+                        disabled={disabled}
+                    >
+                        +10
+                    </button>
+                    <button
+                        className="px-4 py-2 bg-blue-700 hover:bg-blue-800 rounded text-white font-semibold"
+                        onClick={onLower}
+                        disabled={disabled || currentBet <= minBet}
+                    >
+                        -10
+                    </button>
+                    <button
+                        className="px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded text-white font-semibold"
+                        onClick={onPass}
+                        disabled={disabled}
+                    >
+                        Pass
+                    </button>
+                    <button
+                        className="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 rounded text-white font-semibold"
+                        onClick={onAccept}
+                        disabled={disabled}
+                    >
+                        Akceptuj
+                    </button>
+                </div>
             </div>
         </div>
     );
@@ -126,8 +215,18 @@ const Table = ({
     const navigate = useNavigate();
     const [message, setMessage] = useState("");
     const [showChat, setShowChat] = useState(true);
+    const [betModalOpen, setBetModalOpen] = useState(false);
+    const minBet = (gameCtx?.currentBet ?? 100) + 10;
+    const [bet, setBet] = useState(minBet);
 
-    // Send chat message
+    React.useEffect(() => {
+        setBet(minBet);
+    }, [minBet]);
+
+    const [selectedPlayer, setSelectedPlayer] = useState<string | null>(null);
+    const [playersGivenCard, setPlayersGivenCard] = useState<string[]>([]); // For tracking players to whom cards have been given in Game Phase 2
+
+
     const sendMessage = () => {
         if (message.trim()) {
             GameService.connection?.invoke("SendMessage", gameCode, message)
@@ -136,16 +235,56 @@ const Table = ({
         }
     };
 
-    // Handle key press in chat
     const handleKeyPress = (e: React.KeyboardEvent) => {
         if (e.key === 'Enter') {
             sendMessage();
         }
     };
 
+    // Funkcje do obsługi betowania
+    const handleRaise = () => setBet(bet + 10);
+    const handleLower = () => setBet(bet > minBet ? bet - 10 : bet);
+    const handlePass = () => {
+        setBetModalOpen(false);
+
+        GameService.connection?.invoke("PassBid", gameCode)
+        console.log("Pass bid");
+    };
+    const handleAccept = () => {
+        setBetModalOpen(false);
+        GameService.connection?.invoke("PlaceBid", gameCode, bet)
+        console.log("Accept bid:", bet);
+    };
+
+    // Funkcja do obsługi wyboru gracza do przekazania karty
+    const handleSelectPlayer = (connectionId?: string) => {
+        if (gameCtx?.gamePhase === 2 && connectionId && !playersGivenCard.includes(connectionId)) {
+            setSelectedPlayer(connectionId);
+        }
+    };
+
+    // Funkcja do obsługi wyboru karty
+    const handleCardSelect = (card: string) => {
+        if (gameCtx?.gamePhase === 2) {
+            if (selectedPlayer) {
+
+                console.log(`Giving card ${card} to player ${selectedPlayer}`);
+                GameService.connection?.invoke("GiveCard", gameCode, card, selectedPlayer);
+                setPlayersGivenCard(prev => [...prev, selectedPlayer]); // zapamiętaj komu już dano
+                setSelectedPlayer(null); // reset po przekazaniu
+            } else {
+                alert("Najpierw wybierz gracza, któremu chcesz dać kartę!");
+            }
+        } else {
+
+            console.log("Selected card:", card);
+        }
+    };
+
+    const isCurrentPlayer = gameCtx?.currentPlayer.connectionId === GameService.connection?.connectionId;
 
     return (
-        <div className="grid grid-cols-3 gap-6 h-screen max-w-6xl mx-auto p-6 bg-green-900 text-white relative">
+        <div className={`grid ${showChat ? 'grid-cols-3' : 'grid-cols-1'} gap-6 h-screen max-w-6xl mx-auto p-6 bg-green-900 text-white relative`}>
             {/* Kolumna 1: Chat */}
             {showChat && (
                 <div className="col-span-1 flex flex-col h-full">
@@ -173,7 +312,7 @@ const Table = ({
                             className="w-full p-2 border border-gray-700 rounded bg-neutral-800 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                             value={message}
                             onChange={(e) => setMessage(e.target.value)}
-                            onKeyPress={handleKeyPress}
+                            onKeyDown={handleKeyPress}
                         />
                         <button
                             className="p-2 bg-gradient-to-r from-blue-600 to-blue-800 hover:from-blue-700 hover:to-blue-900 rounded text-white flex items-center justify-center transition-colors duration-150 cursor-pointer"
@@ -196,19 +335,20 @@ const Table = ({
             )}
 
             {/* Kolumny 2-3: UI rozgrywki */}
-            <div className="col-span-2 flex flex-col h-full relative">
+            <div className={`${showChat ? 'col-span-2' : 'col-span-1'} flex flex-col h-full relative`}>
                 <div className="flex items-center justify-between w-full mb-4">
                     <div>
                         <h1 className="text-3xl font-bold">Tysiąc - Gra Karciana</h1>
                         <div className="flex items-center mt-1">
                             <span className="text-blue-300 mr-4">MY: {gameUserCtx?.myTeamScore || 0}</span>
                             <span className="text-red-300">WY: {gameUserCtx?.myTeamScore || 0}</span>
-                            {/* {tableContext?.trumpSuit && (
+                            <span className="mx-4">State: {gameCtx != null && GAME_STAGES[gameCtx.gamePhase]}</span>
+                            {gameCtx?.trumpSuit != 0 && (
                                 <div className="ml-4 flex items-center">
                                     <span className="mr-2">Atut:</span>
-                                    <span className="text-xl">{SUIT_ICONS[tableContext.trumpSuit]}</span>
+                                    <span className="text-xl">{gameCtx != null && SUIT_ICONS[gameCtx.trumpSuit]}</span>
                                 </div>
-                            )} */}
+                            )}
                         </div>
                     </div>
                     <button
@@ -224,12 +364,11 @@ const Table = ({
 
                 {/* Główny obszar gry */}
                 <div className="flex-1 relative bg-green-800 rounded-2xl border-8 border-yellow-800 shadow-lg overflow-hidden">
-                    {/* Muzyk */}
-                    {/* {tableContext?.musik && tableContext.musik.length > 0 && (
-                        <div className="absolute top-4 left-4 bg-green-900 p-2 rounded-lg">
-                            <h3 className="text-sm mb-1">Muzyk</h3>
-                            <div className="flex gap-1">
-                                {tableContext.musik.map((card, idx) => (
+                    {/* Musik */}
+                    {gameCtx?.gamePhase === 1 && gameCtx?.musikCount && gameCtx?.musikCount > 0 && (
+                        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-20">
+                            <div className="flex gap-1 justify-center">
+                                {Array.from({ length: gameCtx.musikCount }).map((_, idx) => (
                                     <div
                                         key={idx}
                                         className="w-10 h-14 bg-blue-900 border-2 border-blue-700 rounded-md shadow-md"
@@ -237,33 +376,22 @@ const Table = ({
                                 ))}
                             </div>
                         </div>
-                    )} */}
+                    )}
 
                     {/* Aktualna lewa */}
-                    {gameCtx?.currentTrick && gameCtx.currentTrick.length > 0 && (
+                    {gameCtx?.cardsOnTable && gameCtx.cardsOnTable.length > 0 && (
                         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
                             <div className="flex gap-4">
-                                {gameCtx.currentTrick.map((card, idx) => (
+                                {gameCtx.cardsOnTable.map((card, idx) => (
                                     <div
                                         key={idx}
                                         className="w-16 h-24 bg-white rounded-md border border-gray-300 shadow-lg flex flex-col p-1"
                                     >
-                                        <div className="flex justify-between items-start">
-                                            <div className={`text-lg font-bold ${card.shortName.endsWith('H') || card.shortName.endsWith('D') ? 'text-red-600' : 'text-black'
-                                                }`}>
-                                                {CARD_RANKS[card.shortName.slice(0, -1)]}
-                                            </div>
-                                            <div className={`text-xs ${card.shortName.endsWith('H') || card.shortName.endsWith('D') ? 'text-red-600' : 'text-black'
-                                                }`}>
-                                                {SUIT_ICONS[card.shortName.slice(-1)]}
-                                            </div>
-                                        </div>
-                                        <div className="flex-1 flex items-center justify-center">
-                                            <div className={`text-3xl ${card.shortName.endsWith('H') || card.shortName.endsWith('D') ? 'text-red-600' : 'text-black'
-                                                }`}>
-                                                {SUIT_ICONS[card.shortName.slice(-1)]}
-                                            </div>
-                                        </div>
+                                        <img
+                                            src={`${CARD_SVG_PATH}${card.shortName}.svg`}
+                                            alt={card.shortName}
+                                            className="w-full h-full object-cover"
+                                        />
                                     </div>
                                 ))}
                             </div>
@@ -272,10 +400,12 @@ const Table = ({
 
                     {/* Informacja o turze */}
                     {gameCtx?.currentPlayer && (
-                        <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 text-lg">
-                            {gameCtx.currentPlayer.connectionId === GameService.connection?.connectionId
-                                ? "Twoja kolej!"
-                                : "Czekaj na swoją turę..."}
+                        <div className="absolute left-1/2 bottom-42 transform -translate-x-1/2 z-30">
+                            <div className={`px-8 py-4 rounded-2xl shadow-xl text-2xl font-bold text-center backdrop-blur bg-black/40 ${gameCtx.currentPlayer.connectionId === GameService.connection?.connectionId ? 'text-green-200 border-2 border-green-400' : 'text-yellow-200 border-2 border-yellow-400'}`}>
+                                {gameCtx.currentPlayer.connectionId === GameService.connection?.connectionId
+                                    ? 'Twoja kolej!'
+                                    : 'Czekaj na swoją turę...'}
+                            </div>
                         </div>
                     )}
 
@@ -284,26 +414,32 @@ const Table = ({
                         player={gameUserCtx?.teammate}
                         position="top-4 left-1/2 transform -translate-x-1/2"
                         cardCount={gameUserCtx?.teammateCards || 0}
-                        isCurrentPlayer={gameCtx?.currentPlayer === gameUserCtx?.teammate}
+                        highlightGold={gameCtx?.currentPlayer.connectionId === gameUserCtx?.teammate.connectionId && !isCurrentPlayer}
+                        isSelectable={gameCtx?.gamePhase === 2 && !playersGivenCard.includes(gameUserCtx?.teammate?.connectionId || '')}
+                        isSelected={selectedPlayer === gameUserCtx?.teammate.connectionId}
+                        onSelect={() => handleSelectPlayer(gameUserCtx?.teammate?.connectionId)}
                     />
                     <PlayerPosition
                         player={gameUserCtx?.rightPlayer}
                         position="top-1/2 right-4 transform -translate-y-1/2"
                         cardCount={gameUserCtx?.rightPlayerCards || 0}
-                        isCurrentPlayer={gameCtx?.currentPlayer === gameUserCtx?.rightPlayer}
+                        cardDirection="right"
+                        highlightGold={gameCtx?.currentPlayer.connectionId === gameUserCtx?.rightPlayer.connectionId && !isCurrentPlayer}
+                        isSelectable={gameCtx?.gamePhase === 2 && !playersGivenCard.includes(gameUserCtx?.rightPlayer?.connectionId || '')}
+                        isSelected={selectedPlayer === gameUserCtx?.rightPlayer.connectionId}
+                        onSelect={() => handleSelectPlayer(gameUserCtx?.rightPlayer?.connectionId)}
                     />
                     <PlayerPosition
                         player={gameUserCtx?.leftPlayer}
                         position="top-1/2 left-4 transform -translate-y-1/2"
                         cardCount={gameUserCtx?.leftPlayerCards || 0}
-                        isCurrentPlayer={gameCtx?.currentPlayer === gameUserCtx?.leftPlayer}
+                        cardDirection="left"
+                        highlightGold={gameCtx?.currentPlayer.connectionId === gameUserCtx?.leftPlayer.connectionId && !isCurrentPlayer}
+                        isSelectable={gameCtx?.gamePhase === 2 && !playersGivenCard.includes(gameUserCtx?.leftPlayer?.connectionId || '')}
+                        isSelected={selectedPlayer === gameUserCtx?.leftPlayer.connectionId}
+                        onSelect={() => handleSelectPlayer(gameUserCtx?.leftPlayer?.connectionId)}
                     />
-                    {/* <PlayerPosition
-                        player={gameUserCtx?.me}
-                        position="bottom-4 left-1/2 transform -translate-x-1/2"
-                        cardCount={gameUserCtx?.hand?.length || 0}
-                        isCurrentPlayer={gameCtx?.currentPlayer === gameUserCtx?.me} 
-                         */}
+
                 </div>
 
 
@@ -313,12 +449,31 @@ const Table = ({
                     {gameUserCtx?.hand && (
                         <CardHand
                             cards={gameUserCtx.hand}
-                            onCardSelect={(card) => { console.log("Selected card:", card); }}
-                            disabled={gameCtx?.currentPlayer !== gameUserCtx?.me || gameCtx?.gamePhase !== "Playing"}
+                            onCardSelect={handleCardSelect}
+                            disabled={!isCurrentPlayer || (gameCtx?.gamePhase != 2 && gameCtx?.gamePhase != 3)}
                         />
                     )}
                 </div>
             </div>
+            <BetModal
+                open={betModalOpen}
+                currentBet={bet}
+                onRaise={handleRaise}
+                onLower={handleLower}
+                onPass={handlePass}
+                onAccept={handleAccept}
+                disabled={!isCurrentPlayer}
+                minBet={minBet}
+            />
+            {gameCtx?.gamePhase === 1 && (
+                <button
+                    className="fixed bottom-8 right-8 z-50 px-6 py-3 bg-yellow-600 hover:bg-yellow-700 rounded-full text-white font-bold shadow-lg"
+                    onClick={() => setBetModalOpen(true)}
+                    disabled={!isCurrentPlayer}
+                >
+                    Otwórz licytację
+                </button>
+            )}
         </div>
     );
 };

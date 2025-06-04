@@ -4,8 +4,8 @@ namespace GameServer.Models;
 
 public interface ICard
 {
-    CardName Name { get;}
-    CardColor Color { get;}
+    CardRank Rank { get;}
+    CardSuit Suit { get;}
     ushort Points { get;}
     string ShortName { get;}
 }

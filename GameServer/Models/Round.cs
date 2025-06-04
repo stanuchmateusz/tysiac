@@ -9,7 +9,7 @@ public class Round
     public Queue<IPlayer> TurnQueue = new();
     
     public List<ICard> CurrentCardsOnTable { get; } = [];
-    public CardColor? TrumpSuit { get; set; }
+    public CardSuit? TrumpSuit { get; set; }
     public IPlayer CurrentBidWinner { get; set; }
     
     public List<ICard> Team1Cards { get; set; } = [];

@@ -52,7 +52,7 @@ const StartGame = () => {
             GameService.offRoomJoined();
         };
     }, [navigate]);
-
+    //todo fixme - zbugowane po leave roomie
     const handleHostGame = async () => {
 
         if (!validateNickname(nickname)) {

@@ -1,6 +1,6 @@
 ﻿namespace GameServer.Models;
 
-public enum CardName
+public enum CardRank
 {
     As,
     King,
