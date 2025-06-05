@@ -16,6 +16,8 @@ public class Round
     public List<ICard> Team2Cards { get; set; } = [];
     public int Team1Trumps { get; set; }
     public int Team2Trumps { get; set; }
+    public int Team1Points { get; set; }
+    public int Team2Points { get; set; }
     public List<ICard> Musik = [];
     public HashSet<IPlayer> Pass = [];
     

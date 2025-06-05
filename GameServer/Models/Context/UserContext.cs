@@ -14,8 +14,11 @@ public class UserContext
     public List<ICard> Hand { get; }  
     public int MyTeamScore { get; }        // Current team score
     public int OpponentScore { get; }
+    public int MyTeamRoundScore { get; }        // Current team score
+    public int OpponentRoundScore { get; }
 
-    public UserContext(IPlayer me ,IPlayer teammate, IPlayer leftPlayer, IPlayer rightPlayer, int myTeamScore, int opponentScore)
+    public UserContext(IPlayer me, IPlayer teammate, IPlayer leftPlayer, IPlayer rightPlayer, int myTeamScore,
+        int opponentScore, int myTeamRoundScore, int opponentRoundScore)
     {
         Me = me;
         Teammate = teammate;
@@ -27,5 +30,7 @@ public class UserContext
         Hand = me.Hand;
         MyTeamScore = myTeamScore;
         OpponentScore = opponentScore;
+        MyTeamRoundScore = myTeamRoundScore;
+        OpponentRoundScore = opponentRoundScore;
     }
 }

@@ -145,7 +145,21 @@ public class GameHub(GameManager gameManager, LobbyService lobbyService, ILogger
     
     public async Task SendMessage(string roomCode, string message )
     {
-        var player = gameManager.GetRoom(roomCode).GetPlayerFromRoom(Context.ConnectionId) ?? lobbyService.GetPlayerFromRoom(roomCode,Context.ConnectionId);
+        var game = gameManager.GetRoom(roomCode);
+        IPlayer? player = null;
+        if (game == null) //game doesn't exist - send in lobby
+        {
+            player = lobbyService.GetPlayerFromRoom(roomCode,Context.ConnectionId);
+            if (player == null)
+                throw new HubException("Room not found");
+        }
+        else
+        {
+            player = game.GetPlayerFromRoom(Context.ConnectionId);
+            if (player == null)
+                throw new HubException("Player not found in room");
+        }
+        // var player = gameManager.GetRoom(roomCode).GetPlayerFromRoom(Context.ConnectionId) ?? lobbyService.GetPlayerFromRoom(roomCode,Context.ConnectionId);
         await Clients.Groups(roomCode).SendAsync(MessageReceiveMethodName, new {nickname = player.Nickname,message});
     }
     
@@ -200,8 +214,15 @@ public class GameHub(GameManager gameManager, LobbyService lobbyService, ILogger
     public async Task PlayCard(string roomCode, string cardShortName)
     {
         var table = gameManager.GetRoom(roomCode);
+        if (table == null)
+            throw new HubException("Game not found");
         var player = table.GetPlayerFromRoom(Context.ConnectionId);
-        var card = player.Hand.First(card => card.ShortName == cardShortName);
+        if (player == null)
+            throw new HubException("Player not found in room");
+        
+        var card = player.Hand.FirstOrDefault(card => card.ShortName == cardShortName);
+        if (card == null)
+            throw new HubException("Card not found in player's hand");
         table.PlayCard(player,card);
         
         await NotifyUpdatedGameState(roomCode);

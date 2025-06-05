@@ -2,8 +2,8 @@
 
 public enum CardSuit
 {
-    Spades, // Pik-Wino
-    Clubs, // Trefl-Żołądź
-    Hearts, // Kier-Serce
-    Diamonds // Karo-Dzwonka
+    Spades=1, // Pik-Wino
+    Clubs=2, // Trefl-Żołądź
+    Hearts=3, // Kier-Serce
+    Diamonds=4 // Karo-Dzwonka
 }

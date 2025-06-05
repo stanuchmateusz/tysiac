@@ -3,7 +3,7 @@ import GameService from "../services/GameService";
 
 import { ImExit } from "react-icons/im";
 import { IoMdSend } from "react-icons/io";
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 
 interface Player {
     id: string;
@@ -16,7 +16,7 @@ interface ChatMessage {
 }
 interface Card {
     name: number;
-    color: number;
+    suit: number;
     points: number;
     shortName: string;
 }
@@ -26,7 +26,6 @@ export interface GameContext {
     gamePhase: number;
     cardsOnTable: Card[];
     trumpSuit: number;
-    musikCount: number;
     currentBet: number;
 }
 
@@ -41,22 +40,25 @@ export interface GameUserContext {
     hand: Card[];
     myTeamScore: number; //my
     opponentScore: number; //wy
+    myTeamRoundScore: number;
+    opponentRoundScore: number;
+
 }
 const CARD_SVG_PATH = "/src/assets/poker-qr/";
 const SUIT_ICONS: Record<number, string> = {
-    0: '♠', // Spades
-    1: '♣', // Clubs
-    2: '♥', // Hearts
-    3: '♦'  // Diamonds
+    1: '♠', // Spades
+    2: '♣', // Clubs
+    3: '♥', // Hearts
+    4: '♦'  // Diamonds
 };
 
 const CARD_RANKS: Record<number, string> = {
-    0: 'A',
-    1: 'K',
-    2: 'Q',
-    3: 'J',
-    4: '10',
-    5: '9'
+    1: 'A',
+    2: 'K',
+    3: 'Q',
+    4: 'J',
+    5: '10',
+    6: '9'
 };
 
 const GAME_STAGES: Record<number, string> = {
@@ -66,20 +68,21 @@ const GAME_STAGES: Record<number, string> = {
     3: "Playing",
     4: "End"
 }
-function CardHand({ cards, onCardSelect, disabled = false }: {
+function CardHand({ cards, onCardSelect, disabled = false, canPlayCard }: {
     cards: Card[],
     onCardSelect: (card: string) => void,
-    disabled?: boolean
+    disabled?: boolean,
+    canPlayCard?: (card: Card) => boolean
 }) {
     return (
         <div className="flex gap-4 justify-center items-end w-full pb-8">
             {cards.map(card => (
                 <button
                     key={card.shortName}
-                    disabled={disabled}
+                    disabled={disabled || (canPlayCard ? !canPlayCard(card) : false)}
                     onClick={() => onCardSelect(card.shortName)}
                     className={`transition-all duration-200 transform hover:-translate-y-2 hover:scale-105 
-                                ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                                ${(disabled || (canPlayCard && !canPlayCard(card))) ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                 >
                     <img
                         src={`${CARD_SVG_PATH}${card.shortName}.svg`}
@@ -217,15 +220,33 @@ const Table = ({
     const [showChat, setShowChat] = useState(true);
     const [betModalOpen, setBetModalOpen] = useState(false);
     const minBet = (gameCtx?.currentBet ?? 100) + 10;
-    const [bet, setBet] = useState(minBet);
+    const [bet, setBet] = useState(minBet); //todo czesem dalej się psuje i nie odświeża
 
     React.useEffect(() => {
         setBet(minBet);
     }, [minBet]);
 
+    // Reset playersGivenCard when gamePhase changes to Card Distribution (2)
+    React.useEffect(() => {
+        if (gameCtx?.gamePhase === 2) {
+            setPlayersGivenCard([]);
+        }
+    }, [gameCtx?.gamePhase]);
+
     const [selectedPlayer, setSelectedPlayer] = useState<string | null>(null);
     const [playersGivenCard, setPlayersGivenCard] = useState<string[]>([]); // For tracking players to whom cards have been given in Game Phase 2
+    const [showTrumpModal, setShowTrumpModal] = useState(false);
+    const prevTrumpSuit = useRef<number | null>(null);
+    const trumpTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+    React.useEffect(() => {
+        if (gameCtx && gameCtx.trumpSuit && prevTrumpSuit.current !== null && gameCtx.trumpSuit !== prevTrumpSuit.current) {
+            setShowTrumpModal(true);
+            if (trumpTimeout.current) clearTimeout(trumpTimeout.current);
+            trumpTimeout.current = setTimeout(() => setShowTrumpModal(false), 1000);
+        }
+        if (gameCtx) prevTrumpSuit.current = gameCtx.trumpSuit;
+    }, [gameCtx?.trumpSuit]);
 
     const sendMessage = () => {
         if (message.trim()) {
@@ -271,11 +292,16 @@ const Table = ({
                 console.log(`Giving card ${card} to player ${selectedPlayer}`);
                 GameService.connection?.invoke("GiveCard", gameCode, card, selectedPlayer);
                 setPlayersGivenCard(prev => [...prev, selectedPlayer]); // zapamiętaj komu już dano
-                setSelectedPlayer(null); // reset po przekazaniu
+                setSelectedPlayer(null);
             } else {
                 alert("Najpierw wybierz gracza, któremu chcesz dać kartę!");
             }
-        } else {
+        }
+        else if (gameCtx?.gamePhase === 3) {
+            GameService.connection?.invoke("PlayCard", gameCode, card);
+            console.log(`Playing card: ${card}`);
+        }
+        else {
 
             console.log("Selected card:", card);
         }
@@ -283,198 +309,249 @@ const Table = ({
 
     const isCurrentPlayer = gameCtx?.currentPlayer.connectionId === GameService.connection?.connectionId;
 
-    return (
-        <div className={`grid ${showChat ? 'grid-cols-3' : 'grid-cols-1'} gap-6 h-screen max-w-6xl mx-auto p-6 bg-green-900 text-white relative`}>
-            {/* Kolumna 1: Chat */}
-            {showChat && (
-                <div className="col-span-1 flex flex-col h-full">
-                    <div className="flex items-center justify-between mb-2">
-                        <h2 className="text-2xl font-semibold">Chat</h2>
-                        <button
-                            className="ml-2 p-1 rounded bg-gray-700 hover:bg-gray-600 text-white text-xs"
-                            onClick={() => setShowChat(false)}
-                            title="Ukryj chat"
-                        >
-                            Ukryj
-                        </button>
+    function canPlayCard(card: Card): boolean {
+        if (!gameCtx || !gameUserCtx) return true;
+        if (gameCtx.gamePhase !== 3) return true;
+        if (!gameCtx.cardsOnTable || gameCtx.cardsOnTable.length === 0) return true; // stół pusty
+        const firstCardInTake = gameCtx.cardsOnTable[0];
+        const trumpSuit = gameCtx.trumpSuit;
+        const hand = gameUserCtx.hand;
+
+        if (card.suit === firstCardInTake.suit) {
+            console.log("Same color - can play", card.shortName);
+            return true;
+        };
+
+        if (card.suit === trumpSuit) {
+            console.log("Trump card - can play", card.shortName, trumpSuit);
+            return true;
+        }
+
+        const hasStackColor = hand.every(c => c.suit !== firstCardInTake.suit);
+        const hasTrump = hand.every(c => c.suit !== trumpSuit);
+        console.log("No same color or trump - can play any card", card.shortName, hasStackColor, hasTrump);
+        return (hasStackColor && hasTrump) // nothing to play - can play any card
+    }
+
+    if (gameCtx?.gamePhase === 4) {
+        return (
+            <div className="flex flex-col items-center justify-center h-screen bg-green-900 text-white">
+                <h1 className="text-4xl font-bold mb-8">Koniec gry!</h1>
+                <div className="text-2xl mb-4">Wynik końcowy:</div>
+                <div className="flex gap-12 text-2xl mb-8">
+                    <div className="bg-blue-800 rounded-xl px-8 py-4 shadow-lg">
+                        <div className="font-bold text-blue-200 mb-2">MY</div>
+                        <div className="text-3xl">{gameUserCtx?.myTeamScore ?? 0}</div>
                     </div>
-                    <div className="bg-gray-800 p-4 rounded-lg flex-1 overflow-y-auto mb-2">
-                        {chatMessages.map((msg, index) => (
-                            <div key={index} className="mb-2">
-                                <strong>{msg.nickname}:</strong> {msg.message}
-                            </div>
-                        ))}
-                    </div>
-                    <div className="flex gap-2 mt-2">
-                        <input
-                            type="text"
-                            placeholder="Wiadomość..."
-                            className="w-full p-2 border border-gray-700 rounded bg-neutral-800 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            value={message}
-                            onChange={(e) => setMessage(e.target.value)}
-                            onKeyDown={handleKeyPress}
-                        />
-                        <button
-                            className="p-2 bg-gradient-to-r from-blue-600 to-blue-800 hover:from-blue-700 hover:to-blue-900 rounded text-white flex items-center justify-center transition-colors duration-150 cursor-pointer"
-                            title="Wyślij wiadomość"
-                            onClick={sendMessage}
-                        >
-                            <IoMdSend size={20} />
-                        </button>
+                    <div className="bg-red-800 rounded-xl px-8 py-4 shadow-lg">
+                        <div className="font-bold text-red-200 mb-2">WY</div>
+                        <div className="text-3xl">{gameUserCtx?.opponentScore ?? 0}</div>
                     </div>
                 </div>
-            )}
-            {!showChat && (
                 <button
-                    className="absolute top-4 left-4 z-50 p-2 bg-gray-700 hover:bg-gray-600 rounded text-white text-xs"
-                    onClick={() => setShowChat(true)}
-                    title="Pokaż chat"
+                    className="mt-8 px-6 py-3 bg-yellow-600 hover:bg-yellow-700 rounded-full text-white font-bold shadow-lg"
+                    onClick={() => window.location.href = '/'}
                 >
-                    Pokaż chat
+                    Wróć do strony głównej
                 </button>
-            )}
-
-            {/* Kolumny 2-3: UI rozgrywki */}
-            <div className={`${showChat ? 'col-span-2' : 'col-span-1'} flex flex-col h-full relative`}>
-                <div className="flex items-center justify-between w-full mb-4">
-                    <div>
-                        <h1 className="text-3xl font-bold">Tysiąc - Gra Karciana</h1>
-                        <div className="flex items-center mt-1">
-                            <span className="text-blue-300 mr-4">MY: {gameUserCtx?.myTeamScore || 0}</span>
-                            <span className="text-red-300">WY: {gameUserCtx?.myTeamScore || 0}</span>
-                            <span className="mx-4">State: {gameCtx != null && GAME_STAGES[gameCtx.gamePhase]}</span>
-                            {gameCtx?.trumpSuit != 0 && (
-                                <div className="ml-4 flex items-center">
-                                    <span className="mr-2">Atut:</span>
-                                    <span className="text-xl">{gameCtx != null && SUIT_ICONS[gameCtx.trumpSuit]}</span>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                    <button
-                        className="px-4 py-2 bg-gradient-to-r from-red-500 to-red-700 text-white rounded hover:from-red-600 hover:to-red-800 flex items-center cursor-pointer ml-4"
-                        onClick={() => {
-                            GameService.connection?.invoke("LeaveRoom", gameCode);
-                            navigate("/", { replace: true });
-                        }}
-                    >
-                        <ImExit className="mr-2" /> Wyjdź
-                    </button>
-                </div>
-
-                {/* Główny obszar gry */}
-                <div className="flex-1 relative bg-green-800 rounded-2xl border-8 border-yellow-800 shadow-lg overflow-hidden">
-                    {/* Musik */}
-                    {gameCtx?.gamePhase === 1 && gameCtx?.musikCount && gameCtx?.musikCount > 0 && (
-                        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-20">
-                            <div className="flex gap-1 justify-center">
-                                {Array.from({ length: gameCtx.musikCount }).map((_, idx) => (
-                                    <div
-                                        key={idx}
-                                        className="w-10 h-14 bg-blue-900 border-2 border-blue-700 rounded-md shadow-md"
-                                    />
-                                ))}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Aktualna lewa */}
-                    {gameCtx?.cardsOnTable && gameCtx.cardsOnTable.length > 0 && (
-                        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-                            <div className="flex gap-4">
-                                {gameCtx.cardsOnTable.map((card, idx) => (
-                                    <div
-                                        key={idx}
-                                        className="w-16 h-24 bg-white rounded-md border border-gray-300 shadow-lg flex flex-col p-1"
-                                    >
-                                        <img
-                                            src={`${CARD_SVG_PATH}${card.shortName}.svg`}
-                                            alt={card.shortName}
-                                            className="w-full h-full object-cover"
-                                        />
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Informacja o turze */}
-                    {gameCtx?.currentPlayer && (
-                        <div className="absolute left-1/2 bottom-42 transform -translate-x-1/2 z-30">
-                            <div className={`px-8 py-4 rounded-2xl shadow-xl text-2xl font-bold text-center backdrop-blur bg-black/40 ${gameCtx.currentPlayer.connectionId === GameService.connection?.connectionId ? 'text-green-200 border-2 border-green-400' : 'text-yellow-200 border-2 border-yellow-400'}`}>
-                                {gameCtx.currentPlayer.connectionId === GameService.connection?.connectionId
-                                    ? 'Twoja kolej!'
-                                    : 'Czekaj na swoją turę...'}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Gracze */}
-                    <PlayerPosition
-                        player={gameUserCtx?.teammate}
-                        position="top-4 left-1/2 transform -translate-x-1/2"
-                        cardCount={gameUserCtx?.teammateCards || 0}
-                        highlightGold={gameCtx?.currentPlayer.connectionId === gameUserCtx?.teammate.connectionId && !isCurrentPlayer}
-                        isSelectable={gameCtx?.gamePhase === 2 && !playersGivenCard.includes(gameUserCtx?.teammate?.connectionId || '')}
-                        isSelected={selectedPlayer === gameUserCtx?.teammate.connectionId}
-                        onSelect={() => handleSelectPlayer(gameUserCtx?.teammate?.connectionId)}
-                    />
-                    <PlayerPosition
-                        player={gameUserCtx?.rightPlayer}
-                        position="top-1/2 right-4 transform -translate-y-1/2"
-                        cardCount={gameUserCtx?.rightPlayerCards || 0}
-                        cardDirection="right"
-                        highlightGold={gameCtx?.currentPlayer.connectionId === gameUserCtx?.rightPlayer.connectionId && !isCurrentPlayer}
-                        isSelectable={gameCtx?.gamePhase === 2 && !playersGivenCard.includes(gameUserCtx?.rightPlayer?.connectionId || '')}
-                        isSelected={selectedPlayer === gameUserCtx?.rightPlayer.connectionId}
-                        onSelect={() => handleSelectPlayer(gameUserCtx?.rightPlayer?.connectionId)}
-                    />
-                    <PlayerPosition
-                        player={gameUserCtx?.leftPlayer}
-                        position="top-1/2 left-4 transform -translate-y-1/2"
-                        cardCount={gameUserCtx?.leftPlayerCards || 0}
-                        cardDirection="left"
-                        highlightGold={gameCtx?.currentPlayer.connectionId === gameUserCtx?.leftPlayer.connectionId && !isCurrentPlayer}
-                        isSelectable={gameCtx?.gamePhase === 2 && !playersGivenCard.includes(gameUserCtx?.leftPlayer?.connectionId || '')}
-                        isSelected={selectedPlayer === gameUserCtx?.leftPlayer.connectionId}
-                        onSelect={() => handleSelectPlayer(gameUserCtx?.leftPlayer?.connectionId)}
-                    />
-
-                </div>
-
-
-
-                {/* Ręka kart */}
-                <div className="absolute left-0 right-0 bottom-0">
-                    {gameUserCtx?.hand && (
-                        <CardHand
-                            cards={gameUserCtx.hand}
-                            onCardSelect={handleCardSelect}
-                            disabled={!isCurrentPlayer || (gameCtx?.gamePhase != 2 && gameCtx?.gamePhase != 3)}
-                        />
-                    )}
-                </div>
             </div>
-            <BetModal
-                open={betModalOpen}
-                currentBet={bet}
-                onRaise={handleRaise}
-                onLower={handleLower}
-                onPass={handlePass}
-                onAccept={handleAccept}
-                disabled={!isCurrentPlayer}
-                minBet={minBet}
-            />
-            {gameCtx?.gamePhase === 1 && (
-                <button
-                    className="fixed bottom-8 right-8 z-50 px-6 py-3 bg-yellow-600 hover:bg-yellow-700 rounded-full text-white font-bold shadow-lg"
-                    onClick={() => setBetModalOpen(true)}
-                    disabled={!isCurrentPlayer}
-                >
-                    Otwórz licytację
-                </button>
+        );
+    }
+
+    return (
+        <>
+            {showTrumpModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+                    <div className="bg-yellow-300 text-black text-3xl font-bold px-12 py-8 rounded-2xl shadow-2xl border-4 border-yellow-600 animate-pulse">
+                        Nowy meldunek: {SUIT_ICONS[gameCtx?.trumpSuit || 0]}
+                    </div>
+                </div>
             )}
-        </div>
+            <div className={`grid ${showChat ? 'grid-cols-3' : 'grid-cols-1'} gap-6 h-screen max-w-6xl mx-auto p-6 bg-green-900 text-white relative`}>
+                {/* Kolumna 1: Chat */}
+                {showChat && (
+                    <div className="col-span-1 flex flex-col h-full">
+                        <div className="flex items-center justify-between mb-2">
+                            <h2 className="text-2xl font-semibold">Chat</h2>
+                            <button
+                                className="ml-2 p-1 rounded bg-gray-700 hover:bg-gray-600 text-white text-xs"
+                                onClick={() => setShowChat(false)}
+                                title="Ukryj chat"
+                            >
+                                Ukryj
+                            </button>
+                        </div>
+                        <div className="bg-gray-800 p-4 rounded-lg flex-1 overflow-y-auto mb-2">
+                            {chatMessages.map((msg, index) => (
+                                <div key={index} className="mb-2">
+                                    <strong>{msg.nickname}:</strong> {msg.message}
+                                </div>
+                            ))}
+                        </div>
+                        <div className="flex gap-2 mt-2">
+                            <input
+                                type="text"
+                                placeholder="Wiadomość..."
+                                className="w-full p-2 border border-gray-700 rounded bg-neutral-800 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                value={message}
+                                onChange={(e) => setMessage(e.target.value)}
+                                onKeyDown={handleKeyPress}
+                            />
+                            <button
+                                className="p-2 bg-gradient-to-r from-blue-600 to-blue-800 hover:from-blue-700 hover:to-blue-900 rounded text-white flex items-center justify-center transition-colors duration-150 cursor-pointer"
+                                title="Wyślij wiadomość"
+                                onClick={sendMessage}
+                            >
+                                <IoMdSend size={20} />
+                            </button>
+                        </div>
+                    </div>
+                )}
+                {!showChat && (
+                    <button
+                        className="absolute top-4 left-4 z-50 p-2 bg-gray-700 hover:bg-gray-600 rounded text-white text-xs"
+                        onClick={() => setShowChat(true)}
+                        title="Pokaż chat"
+                    >
+                        Pokaż chat
+                    </button>
+                )}
+
+                {/* Kolumny 2-3: UI rozgrywki */}
+                <div className={`${showChat ? 'col-span-2' : 'col-span-1'} flex flex-col h-full relative`}>
+                    <div className="flex items-center justify-between w-full mb-4">
+                        <div>
+                            <h1 className="text-3xl font-bold">Tysiąc - Gra Karciana</h1>
+                            <div className="flex items-center mt-1">
+                                <span className="text-blue-300 mr-4">MY: {gameUserCtx?.myTeamScore || 0}</span>
+                                <span className="text-red-300">WY: {gameUserCtx?.opponentScore || 0}</span>
+                                <span className="mx-4">State: {gameCtx != null && GAME_STAGES[gameCtx.gamePhase]}</span>
+                                {gameCtx?.trumpSuit != 0 && (
+                                    <div className="ml-4 flex items-center">
+                                        <span className="mr-2">Meldunek:</span>
+                                        <span className="text-xl">{gameCtx != null && SUIT_ICONS[gameCtx.trumpSuit]}</span>
+                                    </div>
+                                )}
+                                <span className="ml-4">Licytacja: {gameCtx?.currentBet || 0}</span>
+                                <span className="ml-4">DEBUG round score:M/W {gameUserCtx?.myTeamRoundScore}/{gameUserCtx?.opponentRoundScore} </span>
+
+                            </div>
+                        </div>
+                        <button
+                            className="px-4 py-2 bg-gradient-to-r from-red-500 to-red-700 text-white rounded hover:from-red-600 hover:to-red-800 flex items-center cursor-pointer ml-4"
+                            onClick={() => {
+                                GameService.connection?.invoke("LeaveRoom", gameCode);
+                                navigate("/", { replace: true });
+                            }}
+                        >
+                            <ImExit className="mr-2" /> Wyjdź
+                        </button>
+                    </div>
+
+                    {/* Główny obszar gry */}
+                    <div className="flex-1 relative bg-green-800 rounded-2xl border-8 border-yellow-800 shadow-lg overflow-hidden">
+                        {/* Musik */}
+                        {gameCtx?.gamePhase === 1 && (
+                            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-20">
+                                <div className="flex gap-1 justify-center">
+                                    {Array.from({ length: 4 }).map((_, idx) => (
+                                        <div
+                                            key={idx}
+                                            className="w-10 h-14 bg-blue-900 border-2 border-blue-700 rounded-md shadow-md"
+                                        />
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Karty na stole*/}
+                        {gameCtx?.cardsOnTable && gameCtx.cardsOnTable.length > 0 && (
+                            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+                                <div className="flex gap-4">
+                                    {gameCtx.cardsOnTable.map((card, idx) => (
+                                        <div
+                                            key={idx}
+                                            className="w-16 h-24 bg-white rounded-md border border-gray-300 shadow-lg flex flex-col p-1"
+                                        >
+                                            <img
+                                                src={`${CARD_SVG_PATH}${card.shortName}.svg`}
+                                                alt={card.shortName}
+                                                className="w-full h-full object-cover"
+                                            />
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Informacja o turze */}
+                        {gameCtx?.currentPlayer && (
+                            <div className="absolute left-1/2 bottom-42 transform -translate-x-1/2 z-30">
+                                <div className={`px-8 py-4 rounded-2xl shadow-xl text-2xl font-bold text-center backdrop-blur bg-black/40 ${gameCtx.currentPlayer.connectionId === GameService.connection?.connectionId ? 'text-green-200 border-2 border-green-400' : 'text-yellow-200 border-2 border-yellow-400'}`}>
+                                    {gameCtx.currentPlayer.connectionId === GameService.connection?.connectionId
+                                        ? 'Twoja kolej!'
+                                        : 'Czekaj na swoją turę...'}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Gracze */}
+                        <PlayerPosition
+                            player={gameUserCtx?.teammate}
+                            position="top-4 left-1/2 transform -translate-x-1/2"
+                            cardCount={gameUserCtx?.teammateCards || 0}
+                            highlightGold={gameCtx?.currentPlayer.connectionId === gameUserCtx?.teammate.connectionId && !isCurrentPlayer}
+                            isSelectable={gameCtx?.gamePhase === 2 && !playersGivenCard.includes(gameUserCtx?.teammate?.connectionId || '')}
+                            isSelected={selectedPlayer === gameUserCtx?.teammate.connectionId}
+                            onSelect={() => handleSelectPlayer(gameUserCtx?.teammate?.connectionId)}
+                        />
+                        <PlayerPosition
+                            player={gameUserCtx?.rightPlayer}
+                            position="top-1/2 right-4 transform -translate-y-1/2"
+                            cardCount={gameUserCtx?.rightPlayerCards || 0}
+                            cardDirection="right"
+                            highlightGold={gameCtx?.currentPlayer.connectionId === gameUserCtx?.rightPlayer.connectionId && !isCurrentPlayer}
+                            isSelectable={gameCtx?.gamePhase === 2 && !playersGivenCard.includes(gameUserCtx?.rightPlayer?.connectionId || '')}
+                            isSelected={selectedPlayer === gameUserCtx?.rightPlayer.connectionId}
+                            onSelect={() => handleSelectPlayer(gameUserCtx?.rightPlayer?.connectionId)}
+                        />
+                        <PlayerPosition
+                            player={gameUserCtx?.leftPlayer}
+                            position="top-1/2 left-4 transform -translate-y-1/2"
+                            cardCount={gameUserCtx?.leftPlayerCards || 0}
+                            cardDirection="left"
+                            highlightGold={gameCtx?.currentPlayer.connectionId === gameUserCtx?.leftPlayer.connectionId && !isCurrentPlayer}
+                            isSelectable={gameCtx?.gamePhase === 2 && !playersGivenCard.includes(gameUserCtx?.leftPlayer?.connectionId || '')}
+                            isSelected={selectedPlayer === gameUserCtx?.leftPlayer.connectionId}
+                            onSelect={() => handleSelectPlayer(gameUserCtx?.leftPlayer?.connectionId)}
+                        />
+
+                    </div>
+
+                    {/* Ręka kart */}
+                    <div className="absolute left-0 right-0 bottom-0">
+                        {gameUserCtx?.hand && (
+                            <CardHand
+                                cards={gameUserCtx.hand}
+                                onCardSelect={handleCardSelect}
+                                disabled={!isCurrentPlayer || (gameCtx?.gamePhase != 2 && gameCtx?.gamePhase != 3)}
+                                canPlayCard={gameCtx?.gamePhase === 3 ? canPlayCard : undefined}
+                            />
+                        )}
+                    </div>
+                </div>
+                <BetModal
+                    open={isCurrentPlayer && gameCtx?.gamePhase === 1}
+                    currentBet={bet}
+                    onRaise={handleRaise}
+                    onLower={handleLower}
+                    onPass={handlePass}
+                    onAccept={handleAccept}
+                    disabled={!isCurrentPlayer}
+                    minBet={minBet}
+                />
+            </div>
+        </>
     );
 };
 

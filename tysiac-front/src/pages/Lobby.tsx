@@ -14,7 +14,9 @@ const JoinTeamHandler = (isTeam1: boolean, gameCode: string) => {
         });
 };
 
+
 const Lobby = ({
+    host,
     users,
     team1,
     team2,
@@ -24,6 +26,7 @@ const Lobby = ({
     gameCode,
     onStartGame,
 }: {
+    host: Player | null;
     users: Player[];
     team1: Player[];
     team2: Player[];
@@ -34,6 +37,9 @@ const Lobby = ({
     onStartGame: () => void;
 }) => {
     const navigate = useNavigate();
+    const IsHost = () => {
+        return GameService.connection?.state === "Connected" && GameService.connection?.connectionId == host?.connectionId;
+    }
     return (
         <div className="grid grid-cols-3 gap-6 h-screen max-w-6xl mx-auto p-6 bg-neutral-900 text-white">
             {/* Chat */}
@@ -138,7 +144,7 @@ const Lobby = ({
                                     <td className="py-1 px-2 border-b align-top">
                                         {team1.length > 0 ? team1.map((user, index) => (
                                             <div key={index} className="bg-blue-900/60 rounded px-1.5 py-0.5 my-0.5 text-blue-100 text-sm flex items-center gap-1">
-                                                <span className="inline-block w-2 h-2 bg-blue-400 rounded-full"></span>
+
                                                 {user.nickname}
                                             </div>
                                         )) : <span className="text-gray-400 text-sm">Brak graczy</span>}
@@ -146,7 +152,7 @@ const Lobby = ({
                                     <td className="py-1 px-2 border-b align-top">
                                         {team2.length > 0 ? team2.map((user, index) => (
                                             <div key={index} className="bg-pink-900/60 rounded px-1.5 py-0.5 my-0.5 text-pink-100 text-sm flex items-center gap-1">
-                                                <span className="inline-block w-2 h-2 bg-pink-400 rounded-full"></span>
+
                                                 {user.nickname}
                                             </div>
                                         )) : <span className="text-gray-400 text-sm">Brak graczy</span>}
@@ -191,7 +197,7 @@ const Lobby = ({
                 <div className="flex justify-end mt-8">
                     <button
                         className="px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-700 hover:from-blue-600 hover:to-blue-800 text-white rounded text-lg font-semibold shadow-lg cursor-pointer"
-                        disabled={team1.length < 2 || team2.length < 2}
+                        disabled={!IsHost() && team1.length < 2 || team2.length < 2}
                         onClick={onStartGame}
                     >
                         Rozpocznij grę

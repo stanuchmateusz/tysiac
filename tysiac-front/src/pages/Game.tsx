@@ -16,6 +16,7 @@ export interface ChatMessage {
 
 export interface LobbyContext {
     players: Player[];
+    host: Player;
     team1: Player[];
     team2: Player[];
     code: string;
@@ -27,6 +28,7 @@ const Game = () => {
     const [users, setUsers] = useState<Player[]>([]);
     const [team1, setTeam1] = useState<Player[]>([]);
     const [team2, setTeam2] = useState<Player[]>([]);
+    const [host, setHost] = useState<Player | null>(null);
     const [chatMessages, setChatMessages] = useState<ChatMessage[]>([{ nickname: "System", message: "Witaj w grze! Użyj czatu, aby komunikować się z innymi graczami." }]);
     const [showCode, setShowCode] = useState(false);
     const [inGame, setInGame] = useState(false);
@@ -44,6 +46,7 @@ const Game = () => {
             setUsers(lobbyCtx.players);
             setTeam1(lobbyCtx.team1);
             setTeam2(lobbyCtx.team2);
+            setHost(lobbyCtx.host);
         };
 
 
@@ -92,8 +95,9 @@ const Game = () => {
 
 
     if (!inGame) {
-        return <Lobby users={users} team1={team1} team2={team2} chatMessages={chatMessages} showCode={showCode} setShowCode={setShowCode} gameCode={gameCode!} onStartGame={handleStartGame} />;
-    } else {
+        return <Lobby host={host} users={users} team1={team1} team2={team2} chatMessages={chatMessages} showCode={showCode} setShowCode={setShowCode} gameCode={gameCode!} onStartGame={handleStartGame} />;
+    }
+    else {
         return <Table chatMessages={chatMessages} gameCode={gameCode!} gameCtx={gameContext} gameUserCtx={gameUserContext} />;
     }
 }
