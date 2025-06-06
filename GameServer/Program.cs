@@ -15,10 +15,12 @@ builder.Services.AddCors(options =>
     options.AddPolicy("AllowFrontend", policy =>
     {
         policy.WithOrigins(
-            "http://localhost:5173", // for local dev
-            "http://frontend:80",    // for Docker Compose networking
-            "http://localhost:5224", // mapped frontend: 5224:80
-            "http://localhost"        // mapped frontend: 80:80
+            "http://localhost:5173",
+            "http://frontend:80",
+            "http://localhost:5224",
+            "http://localhost",
+            "http://192.168.1.46:5173",
+            "https://maszrum.crabdance.com"
         )
         .AllowAnyHeader()
         .AllowAnyMethod()
