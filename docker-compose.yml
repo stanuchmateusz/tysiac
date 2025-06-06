@@ -14,6 +14,8 @@ services:
     build:
       context: ./tysiac-front
       dockerfile: Dockerfile
+      args:
+        ENV_FILE: .env.production
     ports:
       - "5173:80"
     depends_on:

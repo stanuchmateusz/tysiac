@@ -4,7 +4,9 @@ WORKDIR /app
 COPY package*.json ./
 COPY vite.config.ts ./
 COPY tsconfig*.json ./
-COPY .env ./
+# Use .env.production for production builds
+ARG ENV_FILE=.env
+COPY ${ENV_FILE} .env
 COPY index.html ./
 COPY public ./public
 COPY src ./src
