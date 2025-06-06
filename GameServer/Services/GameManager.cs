@@ -4,6 +4,7 @@ using GameServer.Models;
 using GameServer.Models.Context;
 using GameServer.Models.impl;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.Extensions.Primitives;
 
 namespace GameServer.Services;
 
@@ -31,23 +32,62 @@ public class GameManager //: IGameManager
     {
         return _tables.GetValueOrDefault(roomCode, null);
     }
-
-    public void LeaveRoom(string roomCode, string contextConnectionId)
+    
+    public void RemoveRoom(string roomCode)
     {
-        //todo no tu pewnie jakieś pauzowanie jak ktoś wyjdzie czy coś? 
-    }
-
-    public void Disconnect(string contextConnectionId)
-    {
-        //find rooms with user 
-        var tabServ = _tables!.Values.Where(t => t.Players.Any(p => p.ConnectionId == contextConnectionId));
-        var tables = tabServ as GameService[] ?? tabServ.ToArray();
-        if (tables.Length == 0)
-            return;
-        foreach (var table in tables)
+        if (!_tables.Remove(roomCode))
         {
-            LeaveRoom(_tables.Keys.Where(x => _tables[x] == table).ToString(), contextConnectionId);
+            _logger.LogWarning("Attempted to remove non-existing room with code: {RoomCode}", roomCode);
         }
     }
+    private List<GameService> GetRoomsWithPlayerByConnectionId(string contextConnectionId)
+    {
+        var tabServ = _tables.Values.Where(t => t.Players.Any(p => p.ConnectionId == contextConnectionId));
+        return tabServ as List<GameService> ?? tabServ.ToList();
+    }
+    private List<GameService> GetRoomsWithPlayerByUserId(StringValues userId)
+    {
+        var tabServ = _tables.Values.Where(t => t.Players.Any(p => p.Id == userId));
+        return tabServ as List<GameService> ?? tabServ.ToList();
+    }
     
+    public List<GameService> Disconnect(string contextConnectionId)
+    {
+        //find rooms with user 
+        var tables = GetRoomsWithPlayerByConnectionId(contextConnectionId);
+        
+        foreach (var table in tables)
+        {
+            table.PauseGame();
+            if (table.DisconnectedPlayersCount == 4)
+                RemoveRoom(table.RoomCode);
+        }
+
+        return tables;
+    }
+    
+    public void TryToRestoreConnection(string connectionId, StringValues userId)
+    {
+        // Find all rooms where the user with this userId is present
+        var gameRoom = GetRoomsWithPlayerByUserId(userId);
+        if (gameRoom.Count == 0)
+        {
+            _logger.LogDebug("No rooms found for user {UserId}", userId);
+            return;
+        }
+        foreach (var room in gameRoom)
+        {
+            var player = room.Players.FirstOrDefault(p => p.Id == userId);
+            if (player != null)
+            {
+                player.ConnectionId = connectionId; // Update the connection ID
+                _logger.LogInformation("Restored connection for user {UserId} in room {RoomCode}", userId, room.RoomCode);
+                room.TryResumeGame();
+            }
+            else
+            {
+                _logger.LogWarning("Player with userId {UserId} not found in room {RoomCode}", userId, room.RoomCode);
+            }
+        }
+    }
 }

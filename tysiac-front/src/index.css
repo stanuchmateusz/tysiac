@@ -14,3 +14,72 @@
 }
 
 @import "tailwindcss";
+
+.animate-trump-pop {
+  animation: trump-pop 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes trump-pop {
+  0% {
+    transform: scale(0.7) rotate(-10deg);
+    opacity: 0;
+  }
+
+  60% {
+    transform: scale(1.1) rotate(3deg);
+    opacity: 1;
+  }
+
+  100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+}
+
+.animate-trump-shine {
+  animation: trump-shine 1.2s linear;
+}
+
+@keyframes trump-shine {
+  0% {
+    text-shadow: 0 0 0 #fff;
+  }
+
+  40% {
+    text-shadow: 0 0 24px #fff, 0 0 8px #ffe066;
+  }
+
+  100% {
+    text-shadow: 0 0 0 #fff;
+  }
+}
+
+.animate-fade-in-fast {
+  animation: fade-in 0.2s linear;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fly-card {
+  from {
+    transform: translate(0, 0) scale(1);
+    opacity: 1;
+  }
+
+  to {
+    transform: translate(var(--fly-x), var(--fly-y)) scale(0.7) rotate(10deg);
+    opacity: 0.7;
+  }
+}
+
+.animate-fly-card {
+  animation: fly-card 0.45s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}

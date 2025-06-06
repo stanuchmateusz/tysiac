@@ -1,26 +1,10 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import GameService from "../services/GameService";
-
 import Lobby from "./Lobby";
-import Table, { type GameContext as GameContext, type GameUserContext } from "./Table";
+import Table, { } from "./Table";
+import type { ChatMessage, LobbyContext, Player, UpdateContext } from "./Models";
 
-export interface Player {
-    connectionId: string;
-    nickname: string;
-}
-export interface ChatMessage {
-    nickname: string;
-    message: string;
-}
-
-export interface LobbyContext {
-    players: Player[];
-    host: Player;
-    team1: Player[];
-    team2: Player[];
-    code: string;
-}
 
 const Game = () => {
     const navigate = useNavigate();
@@ -29,11 +13,12 @@ const Game = () => {
     const [showCode, setShowCode] = useState(false);
     const [inGame, setInGame] = useState(false);
     const [me, setMe] = useState<Player | null>(null);
-    const [gameContext, setGameContext] = useState<GameContext | null>(null);
-    const [gameUserContext, setGameUserContext] = useState<GameUserContext | null>(null);
+    const [updateContext, setUpdateContext] = useState<UpdateContext | null>(null);
     const [lobbyContext, setLobbyContext] = useState<LobbyContext | null>(null);
+
     useEffect(() => {
         const connection = GameService.connection;
+
         if (!connection || connection.state === "Disconnected") {
             navigate("/");
             return;
@@ -43,18 +28,15 @@ const Game = () => {
         const handleRoomUpdate = (lobbyCtx: LobbyContext) => {
             setLobbyContext(lobbyCtx);
             setMe(lobbyCtx.players.find(p => p.connectionId === connection.connectionId) || null);
+            localStorage.setItem("userId", me?.id || "");
+
         };
 
-
-        const handleGameContextUpdate = (ctx: GameContext) => {
-            setGameContext(ctx);
-            console.log("Game table context updated:", ctx);
-
-        }
-        const handleGameUserContextUpdate = (ctx: GameUserContext) => {
-            //todo 
-            setGameUserContext(ctx);
-            console.log("Game user context updated:", ctx);
+        const handleUpdate = (update: UpdateContext) => {
+            setUpdateContext(update);
+            //todo tutaj?
+            // localStorage.setItem("userId", update.userContext.me.id);
+            console.log("Update context received:", update);
         }
 
         // Handle incoming chat messages
@@ -70,15 +52,13 @@ const Game = () => {
 
         connection.invoke("GetLobbyContext", gameCode); //request lobby context
 
-
-        connection.on("GameContextUpdate", handleGameContextUpdate); //game update
-        connection.on("GameUserContextUpdate", handleGameUserContextUpdate); //game user update
+        connection.on("UpdateContext", handleUpdate); //update context
         connection.on("GameCreated", handleGameCreated); //game created
         connection.on("MessageRecieve", handleMessageReceive);//message receive
         connection.on("LobbyUpdate", handleRoomUpdate);//lobby update
 
         return () => {
-            connection.off("GameContextUpdate", handleGameContextUpdate);
+            connection.off("UpdateContext", handleUpdate);
             connection.off("GameCreated", handleGameCreated);
             connection.off("MessageRecieve", handleMessageReceive);
             connection.off("LobbyUpdate", handleRoomUpdate);
@@ -94,7 +74,7 @@ const Game = () => {
         return <Lobby me={me} lobbyContext={lobbyContext} chatMessages={chatMessages} showCode={showCode} setShowCode={setShowCode} gameCode={gameCode!} onStartGame={handleStartGame} />;
     }
     else {
-        return <Table chatMessages={chatMessages} gameCode={gameCode!} gameCtx={gameContext} gameUserCtx={gameUserContext} />;
+        return <Table chatMessages={chatMessages} gameCode={gameCode!} updateCtx={updateContext} />;
     }
 }
 export default Game;

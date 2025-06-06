@@ -6,7 +6,8 @@ import { IoMdSend } from "react-icons/io";
 import { FaCrown } from "react-icons/fa";
 import GameService from "../services/GameService";
 import { useNavigate } from "react-router-dom";
-import type { ChatMessage, Player, LobbyContext } from "./Game";
+import type { ChatMessage, LobbyContext, Player } from "./Models";
+
 
 
 const JoinTeamHandler = (isTeam1: boolean, gameCode: string) => {

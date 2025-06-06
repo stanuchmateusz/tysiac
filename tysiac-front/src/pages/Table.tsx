@@ -2,48 +2,11 @@ import { useNavigate } from "react-router-dom";
 import GameService from "../services/GameService";
 
 import { ImExit } from "react-icons/im";
-import { IoMdSend } from "react-icons/io";
 import React, { useState, useRef } from "react";
+import { createPortal } from "react-dom";
 
-interface Player {
-    id: string;
-    connectionId: string;
-    nickname: string;
-}
-interface ChatMessage {
-    nickname: string;
-    message: string;
-}
-interface Card {
-    name: number;
-    suit: number;
-    points: number;
-    shortName: string;
-}
+import type { Card, Player, ChatMessage, GameUserContext, UpdateContext } from "./Models";
 
-export interface GameContext {
-    currentPlayer: Player;
-    gamePhase: number;
-    cardsOnTable: Card[];
-    trumpSuit: number;
-    currentBet: number;
-}
-
-export interface GameUserContext {
-    me: Player;
-    teammate: Player;
-    leftPlayer: Player;
-    rightPlayer: Player;
-    teammateCards: number;
-    leftPlayerCards: number;
-    rightPlayerCards: number;
-    hand: Card[];
-    myTeamScore: number; //my
-    opponentScore: number; //wy
-    myTeamRoundScore: number;
-    opponentRoundScore: number;
-
-}
 const CARD_SVG_PATH = "/src/assets/poker-qr/";
 const SUIT_ICONS: Record<number, string> = {
     1: '♠', // Spades
@@ -153,7 +116,6 @@ function BetModal({
     onAccept,
     disabled,
     minBet,
-    customStyle
 }: {
     open: boolean,
     currentBet: number,
@@ -163,7 +125,6 @@ function BetModal({
     onAccept: () => void,
     disabled?: boolean,
     minBet: number,
-    customStyle?: boolean
 }) {
     if (!open) return null;
     return (
@@ -209,21 +170,21 @@ function BetModal({
 const Table = ({
     chatMessages,
     gameCode,
-    gameCtx,
-    gameUserCtx,
+    updateCtx,
 }: {
     chatMessages: ChatMessage[];
     gameCode: string;
-    gameCtx: GameContext | null;
-    gameUserCtx: GameUserContext | null;
+    updateCtx: UpdateContext | null;
 }) => {
     const navigate = useNavigate();
     const [message, setMessage] = useState("");
     const [showChat, setShowChat] = useState(true);
+    const gameCtx = updateCtx?.gameCotext;
+    const gameUserCtx = updateCtx?.userContext || null;
     // const [betModalOpen, setBetModalOpen] = useState(false);
     const minBet = (gameCtx?.currentBet ?? 100) + 10;
     const [bet, setBet] = useState(minBet); //todo czesem dalej się psuje i nie odświeża
-
+    console.log("Table rendered with gameCtx:", gameCtx, "gameUserCtx:", gameUserCtx);
     React.useEffect(() => {
         setBet(minBet);
     }, [minBet]);
@@ -250,6 +211,7 @@ const Table = ({
         if (gameCtx) prevTrumpSuit.current = gameCtx.trumpSuit;
     }, [gameCtx?.trumpSuit]);
 
+    // Function to send a chat message
     const sendMessage = () => {
         if (message.trim()) {
             GameService.connection?.invoke("SendMessage", gameCode, message)
@@ -257,51 +219,69 @@ const Table = ({
             setMessage("");
         }
     };
-
+    // Handle Enter key press to send message
     const handleKeyPress = (e: React.KeyboardEvent) => {
         if (e.key === 'Enter') {
             sendMessage();
         }
     };
 
-    // Funkcje do obsługi betowania
+    // Functions to raise or lower the bet
     const handleRaise = () => setBet(bet + 10);
     const handleLower = () => setBet(bet > minBet ? bet - 10 : bet);
+    // Function to pass the current
     const handlePass = () => {
-        // setBetModalOpen(false);
         GameService.connection?.invoke("PassBid", gameCode)
         console.log("Pass bid");
     };
+    // Function to accept the current bet
     const handleAccept = () => {
         // setBetModalOpen(false);
         GameService.connection?.invoke("PlaceBid", gameCode, bet)
         console.log("Accept bid:", bet);
     };
 
-    // Funkcja do obsługi wyboru gracza do przekazania karty
+    // Function for selecting a player to give a card to
     const handleSelectPlayer = (connectionId?: string) => {
         if (gameCtx?.gamePhase === 2 && connectionId && !playersGivenCard.includes(connectionId)) {
             setSelectedPlayer(connectionId);
         }
     };
+    const handleLeaveRoom = () => {
+        GameService.connection?.invoke("LeaveGame", gameCode)
+            .then(() => navigate("/", { replace: true }))
+            .catch(err => console.error("Error leaving room:", err));
+    }
 
-    // Funkcja do obsługi wyboru karty
-    const handleCardSelect = (card: string) => {
+    const tableRef = useRef<HTMLDivElement>(null);
+    const [flyingCard, setFlyingCard] = useState<null | { card: Card, to: string, from: string }>(null);
+
+    // Function for handling card selection
+    const handleCardSelect = (cardShortName: string) => {
         if (gameCtx?.gamePhase === 2) {
             if (selectedPlayer) {
-                console.log(`Giving card ${card} to player ${selectedPlayer}`);
-                GameService.connection?.invoke("GiveCard", gameCode, card, selectedPlayer);
+                const cardObj = gameUserCtx?.hand.find(c => c.shortName === cardShortName);
+                if (cardObj) {
+                    setFlyingCard({ card: cardObj, to: selectedPlayer, from: 'hand' });
+                    setTimeout(() => setFlyingCard(null), 700);
+                }
+                GameService.connection?.invoke("GiveCard", gameCode, cardShortName, selectedPlayer);
                 setPlayersGivenCard(prev => [...prev, selectedPlayer]); setSelectedPlayer(null);
             } else {
                 alert("Najpierw wybierz gracza, któremu chcesz dać kartę!");
             }
         }
         else if (gameCtx?.gamePhase === 3) {
-            GameService.connection?.invoke("PlayCard", gameCode, card);
-            console.log(`Playing card: ${card}`);
+            const cardObj = gameUserCtx?.hand.find(c => c.shortName === cardShortName);
+            if (cardObj) {
+                setFlyingCard({ card: cardObj, to: 'table', from: 'hand' });
+                setTimeout(() => setFlyingCard(null), 700);
+            }
+            GameService.connection?.invoke("PlayCard", gameCode, cardShortName);
+            console.log(`Playing card: ${cardShortName}`);
         }
         else {
-            console.log("Selected card:", card);
+            console.log("Selected card:", cardShortName);
         }
     };
 
@@ -310,7 +290,7 @@ const Table = ({
     function canPlayCard(card: Card): boolean {
         if (!gameCtx || !gameUserCtx) return true;
         if (gameCtx.gamePhase !== 3) return true;
-        if (!gameCtx.cardsOnTable || gameCtx.cardsOnTable.length === 0) return true; // stół pusty
+        if (!gameCtx.cardsOnTable || gameCtx.cardsOnTable.length === 0) return true; // table is empty, can play any card
         const firstCardInTake = gameCtx.cardsOnTable[0];
         const trumpSuit = gameCtx.trumpSuit;
         const hand = gameUserCtx.hand;
@@ -331,17 +311,37 @@ const Table = ({
         return (hasStackColor && hasTrump) // nothing to play - can play any card
     }
 
-    // --- MODERN STYLED TABLE LAYOUT ---
+    // Modal for disconnected players
+    const showDisconnectedModal = !!(gameCtx && gameCtx.disconnectedPlayerCount > 0);
+
     return (
         <div className="min-h-screen w-full flex flex-col items-center justify-center bg-gradient-to-br from-neutral-900 via-gray-900 to-blue-950 p-6">
-            <div className="w-full max-w-6xl rounded-3xl shadow-2xl bg-gray-800/90 flex flex-col relative overflow-hidden border border-blue-900">
+            {/* Disconnected Players Modal */}
+            {showDisconnectedModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 animate-fade-in">
+                    <div className="bg-gray-900 rounded-2xl p-8 shadow-2xl flex flex-col items-center border-4 border-red-600 min-w-[340px]">
+                        <h2 className="text-3xl font-bold mb-4 text-red-400 drop-shadow">Gra została spauzowana</h2>
+                        <div className="mb-6 text-lg text-white text-center">
+                            {(gameCtx?.disconnectedPlayerCount ?? 0)} gracz(y) stracił(y) połączenie.<br />
+                            Zaczekaj na ich powrót lub opuść stół.
+                        </div>
+                        <button
+                            className="px-6 py-3 bg-gradient-to-r from-red-500 to-red-700 hover:from-red-600 hover:to-red-800 rounded-lg text-white font-semibold shadow-md text-lg transition-all duration-150 cursor-pointer mt-2"
+                            onClick={handleLeaveRoom}
+                        >
+                            Wyjdź ze stołu
+                        </button>
+                    </div>
+                </div>
+            )}
+            <div className={`w-full max-w-6xl rounded-3xl shadow-2xl bg-gray-800/90 flex flex-col relative overflow-hidden border border-blue-900 ${showDisconnectedModal ? 'pointer-events-none select-none opacity-60' : ''}`}>
                 {/* Header */}
                 <div className="flex items-center justify-between px-8 py-6 border-b border-gray-700 bg-gradient-to-r from-blue-900/80 to-gray-900/80">
                     <div className="text-3xl font-bold text-white tracking-wide">Stół gry</div>
                     <div className="flex gap-4 items-center">
                         <button
                             className="px-4 py-2 bg-gradient-to-r from-red-500 to-red-700 hover:from-red-600 hover:to-red-800 text-white rounded-lg font-semibold shadow-md flex items-center gap-2 transition-all duration-150 cursor-pointer"
-                            onClick={() => navigate("/", { replace: true })}
+                            onClick={handleLeaveRoom}
                         >
                             Wyjdź <ImExit />
                         </button>
@@ -354,18 +354,17 @@ const Table = ({
                         {/* Game Info Bar */}
                         <div className="w-full flex justify-between items-center mb-6">
                             <div className="flex gap-4 items-center">
-                                {/* Show chat button in the bottom left, darker style */}
                             </div>
                             <div className="flex gap-4 items-center">
-                                <span className="bg-blue-900/70 text-blue-200 px-4 py-2 rounded-lg font-semibold shadow">Faza: {gameCtx ? GAME_STAGES[gameCtx.gamePhase] : '-'}</span>
+                                {/* <span className="bg-blue-900/70 text-blue-200 px-4 py-2 rounded-lg font-semibold shadow">Faza: {gameCtx ? GAME_STAGES[gameCtx.gamePhase] : '-'}</span> */}
                                 <span className="bg-yellow-900/70 text-yellow-200 px-4 py-2 rounded-lg font-semibold shadow">Zakład: {gameCtx?.currentBet ?? '-'}</span>
-                                <span className="bg-green-900/70 text-green-200 px-4 py-2 rounded-lg font-semibold shadow">Atut: {gameCtx?.trumpSuit ? SUIT_ICONS[gameCtx.trumpSuit] : '-'}</span>
+                                <span className="bg-green-900/70 text-green-200 px-4 py-2 rounded-lg font-semibold shadow">Meldunek: {gameCtx?.trumpSuit ? SUIT_ICONS[gameCtx.trumpSuit] : '-'}</span>
                                 <span className="bg-gradient-to-r from-blue-700 to-blue-900 text-white px-4 py-2 rounded-lg font-bold shadow">MY: {gameUserCtx?.myTeamScore ?? 0}</span>
                                 <span className="bg-gradient-to-r from-pink-700 to-pink-900 text-white px-4 py-2 rounded-lg font-bold shadow">WY: {gameUserCtx?.opponentScore ?? 0}</span>
                             </div>
                         </div>
                         {/* Table and Players */}
-                        <div className="relative w-full h-[400px] flex items-center justify-center">
+                        <div className="relative w-full h-[400px] flex items-center justify-center" ref={tableRef}>
                             {/* Chat on the left, fixed position */}
                             <div className={`absolute left-0 top-0 ml-4 mt-4 w-80 max-w-xs bg-gray-900/90 border border-gray-700 rounded-2xl shadow-xl p-4 z-20 transition-all duration-300 ${showChat ? '' : 'opacity-0 pointer-events-none'}`} style={{ minHeight: '340px' }}>
                                 <div className="flex items-center justify-between mb-2">
@@ -471,15 +470,21 @@ const Table = ({
                             onPass={handlePass}
                             onAccept={handleAccept}
                             minBet={minBet}
-                            customStyle
                         />
                         {/* Trump Modal */}
                         {showTrumpModal && (
-                            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-                                <div className="bg-yellow-900 bg-opacity-90 rounded-2xl p-8 shadow-2xl flex flex-col items-center border-4 border-yellow-400 animate-fade-in">
-                                    <span className="text-5xl font-bold text-yellow-300 mb-4">Atut: {gameCtx?.trumpSuit ? SUIT_ICONS[gameCtx.trumpSuit] : '-'}</span>
+                            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 animate-fade-in-fast">
+                                <div className="bg-yellow-900 bg-opacity-90 rounded-2xl p-8 shadow-2xl flex flex-col items-center border-4 border-yellow-400 animate-trump-pop">
+                                    <span className="text-5xl font-bold text-yellow-300 mb-4 drop-shadow-lg animate-trump-shine">
+                                        Nowy meldunek: {gameCtx?.trumpSuit ? SUIT_ICONS[gameCtx.trumpSuit] : '-'}
+                                    </span>
                                 </div>
                             </div>
+                        )}
+                        {/* Animacja lecenia karty */}
+                        {flyingCard && tableRef.current && createPortal(
+                            <FlyingCardAnimation card={flyingCard.card} to={flyingCard.to} tableRef={tableRef as React.RefObject<HTMLDivElement>} gameUserCtx={gameUserCtx} />,
+                            tableRef.current
                         )}
                     </div>
                 </div>
@@ -489,3 +494,45 @@ const Table = ({
 };
 
 export default Table;
+
+// Animacje do tailwind.config.js lub index.css:
+
+// Komponent animacji lecenia karty
+function FlyingCardAnimation({ card, to, tableRef, gameUserCtx }: { card: Card, to: string, tableRef: React.RefObject<HTMLDivElement>, gameUserCtx: GameUserContext | null }) {
+    // Ustal pozycje startową (środek ręki) i końcową (gracz lub środek stołu)
+    const getTargetPos = () => {
+        if (!tableRef.current) return { x: 0, y: 0 };
+        const rect = tableRef.current.getBoundingClientRect();
+        if (to === 'table') return { x: rect.width / 2, y: rect.height / 2 };
+        if (to === gameUserCtx?.teammate?.connectionId) return { x: rect.width / 2, y: 40 };
+        if (to === gameUserCtx?.leftPlayer?.connectionId) return { x: 60, y: rect.height / 2 };
+        if (to === gameUserCtx?.rightPlayer?.connectionId) return { x: rect.width - 60, y: rect.height / 2 };
+        return { x: rect.width / 2, y: rect.height - 80 };
+    };
+    const start = { x: tableRef.current!.offsetWidth / 2, y: tableRef.current!.offsetHeight - 40 };
+    const end = getTargetPos();
+    const style = {
+        position: 'absolute' as const,
+        left: start.x,
+        top: start.y,
+        width: '80px',
+        height: '112px',
+        zIndex: 100,
+        pointerEvents: 'none',
+        animation: `fly-card 0.45s cubic-bezier(0.22,1,0.36,1) forwards`,
+        '--fly-x': `${end.x - start.x}px`,
+        '--fly-y': `${end.y - start.y}px`
+    };
+    return (
+        <img
+            src={`${CARD_SVG_PATH}${card.shortName}.svg`}
+            alt={card.shortName}
+            style={style as any}
+            className="drop-shadow-lg animate-fly-card"
+        />
+    );
+}
+
+// Do index.css:
+// @keyframes fly-card { from { transform: translate(0,0) scale(1); opacity: 1; } to { transform: translate(var(--fly-x), var(--fly-y)) scale(0.7) rotate(10deg); opacity: 0.7; } }
+// .animate-fly-card { animation: fly-card 0.45s cubic-bezier(0.22,1,0.36,1) forwards; }

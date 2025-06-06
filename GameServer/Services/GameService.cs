@@ -6,31 +6,31 @@ namespace GameServer.Services;
 
 public class GameService 
 {
+    private const int WinRequiredPoints = 1000;
+    
     private readonly ILogger<GameService> _logger;
+    
     public HashSet<IPlayer> Players;
-    
-    public IPlayer Player1 { get; set; }
-    public IPlayer Player2 { get; set; }
-    public IPlayer Player3 { get; set; }
-    public IPlayer Player4 { get; set; }
+    private IPlayer Player1 { get; set; }
+    private IPlayer Player2 { get; set; }
+    private IPlayer Player3 { get; set; }
+    private IPlayer Player4 { get; set; }
 
-    public Round Round { get; set; }
-    
+    private Round Round { get; set; }
+
     private readonly Stack<ICard> _deck = [];
 
-    public int PointsTeam1 = 0;
-    public int PointsTeam2 = 0;
+    private int PointsTeam1 = 0;
+    private int PointsTeam2 = 0;
 
-    public GamePhase CurrentPhase { get; set; } = GamePhase.Start;
-
-    public bool isGameFinished;
-    // public Dictionary<string, List<ICard>> PlayerHands { get; } = new();
-
-    // public Dictionary<string, UserSpecificData> PlayerContexts { get; } = new();
+    private GamePhase CurrentPhase { get; set; } = GamePhase.Start;
+    public string RoomCode { get; }
+    public int DisconnectedPlayersCount { get; set; } = 0;
     
     public GameService(LobbyContext lobbyCtx, ILogger<GameService> logger)
     {
         Players = lobbyCtx.Players.ToHashSet();
+        RoomCode = lobbyCtx.Code;
         _logger = logger;
         ShuffleDeck(
             InitCards()
@@ -47,8 +47,10 @@ public class GameService
         Player3 = lobbyCtx.Team1[1];
         Player4 = lobbyCtx.Team2[1];
         
-        Round = new Round();
-        Round.TurnQueue = new Queue<IPlayer>();
+        Round = new Round
+        {
+            TurnQueue = new Queue<IPlayer>()
+        };
         Round.TurnQueue.Enqueue(Player1);
         Round.TurnQueue.Enqueue(Player2);
         Round.TurnQueue.Enqueue(Player3);
@@ -57,9 +59,26 @@ public class GameService
         Round.CurrentBidWinner = Player4;
         
     }
+    public void PauseGame()
+    {
+        DisconnectedPlayersCount++;
+        _logger.LogInformation("[{Room}] Game paused", RoomCode);
+    }
+    
+    public void TryResumeGame()
+    {
+        DisconnectedPlayersCount--;
+        if (DisconnectedPlayersCount > 0)
+        {
+            _logger.LogInformation("[{Room}] Game cannot be resumed, {X} players are still disconnected", RoomCode, DisconnectedPlayersCount);
+            return;
+        }
+        _logger.LogInformation("[{Room}] Game resumed", RoomCode);
+    }
+    
     private void CreateAndInitNewRound(IPlayer startingPlayer)
     {
-        _logger.LogInformation("Creating new round");
+        _logger.LogInformation("[{Room}] Creating new round", RoomCode);
         Round = new Round();
         StartQueueFromPlayer(startingPlayer);
         Round.CurrentBidWinner = startingPlayer;
@@ -79,45 +98,78 @@ public class GameService
         Round.TurnQueue.Enqueue(GetRightPlayer(player));
         Round.OrginalTurnQueue = new Queue<IPlayer>(Round.TurnQueue);
     }
+
+    private void StartQueueFromPlayer(IPlayer player, HashSet<IPlayer> passedPlayers)
+    {
+        if (!passedPlayers.Contains(player))
+            Round.TurnQueue.Enqueue(player);
+        
+        var p2 = GetLeftPlayer(player);
+        if (!passedPlayers.Contains(p2))
+            Round.TurnQueue.Enqueue(p2);
+        
+        var p3 = GetTeammate(player);
+        if (!passedPlayers.Contains(p3))
+            Round.TurnQueue.Enqueue(p3);
+        
+        var p4 = GetRightPlayer(player);
+        if (!passedPlayers.Contains(p4))
+            Round.TurnQueue.Enqueue(p4);
+
+        //todo check if needed
+        // Round.OrginalTurnQueue = new Queue<IPlayer>(Round.TurnQueue);
+    }
     private void AdvanceTurn()
     {
-        _logger.LogInformation("Dequeuing player {Player}", Round.TurnQueue.Peek());
+        _logger.LogInformation("[{Room}] Dequeuing player {Player}",RoomCode, Round.TurnQueue.Peek());
         Round.TurnQueue.Dequeue();
-        _logger.LogInformation(" {X} players left in turn queue", Round.TurnQueue.Count);
+        _logger.LogInformation("[{Room}] {X} players left in turn queue",RoomCode,Round.TurnQueue.Count);
         
         if (GamePhase.CardDistribution == CurrentPhase)
         {
+            _logger.LogDebug("[{Room}] GamePhase.CardDistribution", RoomCode);
             Round.TurnQueue.Clear();
             Round.TurnQueue.Enqueue(Round.CurrentBidWinner);
         }
         if (Round.TurnQueue.Count == 0)
         {
-            if (GamePhase.Auction == CurrentPhase)
+            switch (CurrentPhase)
             {
-                //todo usunąć osoby które już passowały
-                if (Round.Pass.Count != 3) 
-                    StartQueueFromPlayer(Round.CurrentBidWinner);
-            }
-            
-            if (CurrentPhase == GamePhase.Playing)
-            {
-                _logger.LogInformation("GamePhase.Playing");
-                if (Round.CurrentCardsOnTable.Count < 4)
+                case GamePhase.Auction:
                 {
-                    // nie ma jeszcze 4 kart na stole
-                    //kolejka jest pusta, ale są karty na stole (case zaraz po zmianie stare na Playing
-                    _logger.LogInformation("Queue is empty, but there are cards on the table ( this should be called only after card distribution)");
-                    StartQueueFromPlayer(Round.CurrentBidWinner);
-                    Round.TurnQueue.Dequeue();
+                    _logger.LogDebug("[{Room}] GamePhase.Auction", RoomCode);
+                    if (Round.Pass.Count != 3) //todo - still buggy
+                        StartQueueFromPlayer(Round.CurrentBidWinner, Round.Pass);
+                    break;
                 }
-                else
+                case GamePhase.Playing:
                 {
-                    // 4 cards on the table, we need to complete the take
-                    CompleteTake();
+                    _logger.LogDebug("[{Room}] GamePhase.Playing", RoomCode);
+                    if (Round.CurrentCardsOnTable.Count < 4)
+                    {
+                        //queue is empty and there aren't 4 cards on the table
+                        //(case after change of gamePhase From Card dist to Playing)
+                        _logger.LogDebug("[{Room}] Queue is empty, but there are cards on the table ( this should be called only after card distribution)", RoomCode);
+                        StartQueueFromPlayer(Round.CurrentBidWinner);
+                        Round.TurnQueue.Dequeue();
+                    }
+                    else
+                    {
+                        // 4 cards on the table, we need to complete the take
+                        CompleteTake();
+                    }
+
+                    break;
                 }
+                case GamePhase.Start:
+                case GamePhase.CardDistribution:
+                case GamePhase.GameOver:
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException("Unknown game phase: " + CurrentPhase);
             }
         }
-        _logger.LogInformation("Turn advanced to player {Player}" ,Round.TurnQueue.Peek());
+        _logger.LogDebug("[{Room}] Turn advanced to player {Player}" ,RoomCode,Round.TurnQueue.Peek());
     }
     private IPlayer GetTeammate(IPlayer player)
     {
@@ -193,7 +245,8 @@ public class GameService
                 CurrentPhase,
                 Round.CurrentCardsOnTable,
                 Round.TrumpSuit.GetValueOrDefault(),
-                Round.CurrentBet
+                Round.CurrentBet,
+                DisconnectedPlayersCount
             );
     }
 
@@ -256,30 +309,20 @@ public class GameService
     public void PassBid(IPlayer player)
     {
         Round.Pass.Add(player);
-        _logger.LogInformation("Player {Player} passed", player);
+        _logger.LogDebug("[{Room}] Player {Player} passed", RoomCode ,player);
         if (Round.Pass.Count == 3)
         {
             var winner = Round.CurrentBidWinner;
-            _logger.LogInformation("Player {Player} won auction", winner);
+            _logger.LogDebug("[{Room}] Player {Player} won auction", RoomCode,winner);
             MoveMusikToBindWinner(winner);
             CurrentPhase = GamePhase.CardDistribution;
         }
         AdvanceTurn();
     }
-
-    private IPlayer? GetPlayerRef(IPlayer player)
-    {
-        if (player == Player1) return Player1;
-        if (player == Player2) return Player2;
-        if (player == Player3) return Player3;
-        if (player == Player4) return Player4;
-        return null;
-    }
-
+    
     private void MoveMusikToBindWinner(IPlayer winner)
     {
-        var playerRef = GetPlayerRef(winner);
-        playerRef?.Hand.AddRange(Round.Musik);
+        winner.Hand.AddRange(Round.Musik);
     }
     
     public void DistributeCard(IPlayer distributor, string cardToGiveShortName, IPlayer target)
@@ -290,8 +333,8 @@ public class GameService
         if (distributor == target)
             throw new InvalidOperationException("Can't give yourself a card!");
 
-        var distributorRef = GetPlayerRef(distributor);
-        var targetRef = GetPlayerRef(target);
+        var distributorRef = distributor;
+        var targetRef = target;
         if (distributorRef == null || targetRef == null)
             throw new InvalidOperationException("Invalid player reference");
         var cardToGive = distributorRef.Hand.FirstOrDefault(c => c.ShortName == cardToGiveShortName);
@@ -302,12 +345,12 @@ public class GameService
         distributorRef.Hand.Remove(cardToGive);
         targetRef.Hand.Add(cardToGive);
         
-        // Sprawdź czy rozdanie kart się skończyło
+        // check if all cards are distributed
         if (distributorRef.Hand.Count == 6)
         {
-            // Wszystkie karty rozdane, przechodzimy do fazy gry
+            // All players should have 6 cards, move to playing phase
             CurrentPhase = GamePhase.Playing;
-            _logger.LogInformation("All cards distributed, moving to playing phase");
+            _logger.LogInformation("[{Room}] All cards distributed, moving to playing phase", RoomCode);
         }
         else
         {
@@ -317,29 +360,27 @@ public class GameService
     
     public void PlayCard(IPlayer player, ICard card)
     {
-        // if (player != CurrentPlayerTurn)
-        //     throw new InvalidOperationException("Not your turn");
-        var playerRef = GetPlayerRef(player);
-        if (playerRef == null)
-            throw new InvalidOperationException("Invalid player reference");
-        if (!playerRef.Hand.Contains(card))
+        if (player != Round.TurnQueue.Peek())
+            throw new InvalidOperationException("Not your turn");
+        
+        if (!player.Hand.Contains(card))
             throw new InvalidOperationException("Card not in hand");
         
         var firstCardOnTheTable = Round.CurrentCardsOnTable.FirstOrDefault();
         var lastCardOnTheTable = Round.CurrentCardsOnTable.LastOrDefault();
         
-        if (firstCardOnTheTable != null && !CanPlay(card, firstCardOnTheTable, playerRef.Hand))
+        if (firstCardOnTheTable != null && !CanPlay(card, firstCardOnTheTable, player.Hand))
         {
             throw new InvalidOperationException("Cannot play that card");
         }
-        playerRef.Hand.Remove(card);
+        player.Hand.Remove(card);
         
         // Check for meld announcement
-        _logger.LogInformation("Putting {Card} on {LastCard} ", card, lastCardOnTheTable);
+        _logger.LogDebug("[{Room}] {Player} is putting {Card} on {LastCard} ", RoomCode,player ,card, lastCardOnTheTable);
         if (
             (
                 card.Rank == CardRank.Queen &&
-                playerRef.Hand.Any(c => c.Suit == card.Suit && c.Rank == CardRank.King) && 
+                player.Hand.Any(c => c.Suit == card.Suit && c.Rank == CardRank.King) && 
                 firstCardOnTheTable == null 
                 ) || (
                 lastCardOnTheTable != null &&
@@ -349,15 +390,15 @@ public class GameService
                 )
             )
         {
-            _logger.LogInformation("New Trump Suit announced by player {Player} with card {Card}", playerRef.Nickname, card.ShortName);
+            _logger.LogDebug("[{Room}] New Trump Suit announced by player {Player} with card {Card}", RoomCode,player.Nickname, card.ShortName);
             Round.TrumpSuit = card.Suit;
-            if (isPlayerInTeam1(playerRef))
+            if (IsPlayerInTeam1(player))
                 Round.Team1Trumps += GetTrumpPoints(card.Suit);
             else
                 Round.Team2Trumps += GetTrumpPoints(card.Suit);
         }
         Round.CurrentCardsOnTable.Add(card);
-        _logger.LogInformation("Player {Player} played card {Card}, and there are {X} cards on the table", playerRef.Nickname, card.ShortName,Round.CurrentCardsOnTable.Count);
+        _logger.LogDebug("[{Room}] Player {Player} played card {Card}, and there are {X} cards on the table", RoomCode,player.Nickname, card.ShortName,Round.CurrentCardsOnTable.Count);
         if (Round.CurrentCardsOnTable.Count == 4)
         {
             CompleteTake();
@@ -385,25 +426,22 @@ public class GameService
         var isSuitValid = cardToPlay.Suit == firstOnStack.Suit;
         if (isSuitValid)
         {
-            _logger.LogInformation("Card {Card} is valid to play - suit is ok", cardToPlay.ShortName);
+            _logger.LogDebug("[{Room}] Card {Card} is valid to play - suit is ok",RoomCode, cardToPlay.ShortName);
             return true;
         }
         var isTrumpValid = cardToPlay.Suit == Round.TrumpSuit;
         if (isTrumpValid)
         {
-            _logger.LogInformation("Card {Card} is valid to play - trump suit is ok", cardToPlay.ShortName);
+            _logger.LogDebug("[{Room}] Card {Card} is valid to play - trump suit is ok",RoomCode, cardToPlay.ShortName);
             return true;
         }
         var noOtherOption =
             playersCards.All(c => c.Suit != firstOnStack.Suit) &&
             playersCards.All(c => c.Suit != Round.TrumpSuit);
-                 //||
-        if (noOtherOption)
-        {
-            _logger.LogInformation("Card {Card} is valid to play - no other options", cardToPlay.ShortName);
-            return true;
-        }
-        return isSuitValid || isTrumpValid || noOtherOption;
+        
+        if (!noOtherOption) return false;
+            _logger.LogDebug("[{Room}] Card {Card} is valid to play - no other options",RoomCode, cardToPlay.ShortName);
+        return true;
     }
 
     private void CompleteTake()
@@ -411,24 +449,28 @@ public class GameService
         var winner = DetermineTakeWinner(); //tu coś śmierdzi, bo albo złego ustala albo źle kolejka się robi
         
         var trickPoints = Round.CurrentCardsOnTable.Sum(card => card.Points);
-        if (isPlayerInTeam1(winner))
+        if (IsPlayerInTeam1(winner))
         {
             Round.Team1Points += trickPoints ;
         }
         else
+        {
             Round.Team2Points += trickPoints;
+        }
 
-        // Wyczyszczenie stołu
+        // Clear the current cards on the table 
         Round.CurrentCardsOnTable.Clear();
 
-        // Ustaw kolejność graczy tak, by zwycięzca zaczynał następną lewę
+        // Set the queue that the winner starts the next turn
         Round.TurnQueue.Clear();
         StartQueueFromPlayer(winner);
 
-        // Sprawdź czy wszyscy gracze mają puste ręce (koniec rundy)
-        if (Player1.Hand.Count == 0 && Player2.Hand.Count == 0 && Player3.Hand.Count == 0 && Player4.Hand.Count == 0)
+        // check if all players have played their cards
+        if (Player1.Hand.Count == 0 &&
+            Player2.Hand.Count == 0 &&
+            Player3.Hand.Count == 0 &&
+            Player4.Hand.Count == 0)
         {
-            // Zakończ rundę, policz punkty, ogłoś zwycięzcę itp.
             EndRound();
         }
     }
@@ -438,14 +480,14 @@ public class GameService
         var cardsOnTable = Round.CurrentCardsOnTable;
         var playersOrder = Round.OrginalTurnQueue.ToArray();
         var trump = Round.TrumpSuit;
-        int winnerIdx = 0;
+        var winnerIdx = 0;
         ICard? highestTrump = null;
-        int highestTrumpIdx = -1;
-        ICard highestCard = cardsOnTable[0];
-        // Szukamy najwyższego trumpa
+        var highestTrumpIdx = -1;
+        var highestCard = cardsOnTable[0];
+        // First card on the table determines the lead suit
         if (trump.HasValue)
         {
-            for (int i = 0; i < cardsOnTable.Count; i++)
+            for (var i = 0; i < cardsOnTable.Count; i++)
             {
                 if (cardsOnTable[i].Suit == trump)
                 {
@@ -458,13 +500,13 @@ public class GameService
             }
             if (highestTrump != null)
             {
-                // Ktoś zagrał trumpa, wygrywa najwyższy trump
+                // If there is a trump card, the winner is the player with the highest trump
                 return playersOrder[highestTrumpIdx];
             }
         }
-        // Jeśli nie ma trumpa, wygrywa najwyższa karta w kolorze pierwszej karty
+        //If there is no trump, we need to find the highest card in the lead suit
         var leadSuit = cardsOnTable[0].Suit;
-        for (int i = 1; i < cardsOnTable.Count; i++)
+        for (var i = 1; i < cardsOnTable.Count; i++)
         {
             if (cardsOnTable[i].Suit == leadSuit && cardsOnTable[i].Points > highestCard.Points)
             {
@@ -477,57 +519,52 @@ public class GameService
     
     private void EndRound()
     {
-        _logger.LogInformation("Ending round");
-        // Tu możesz dodać logikę podsumowania rundy, sprawdzenia zakładów, ogłoszenia zwycięzcy itd.
-        // Przykład:
-        // - sprawdź czy drużyna, która wygrała licytację, zdobyła wymaganą liczbę punktów
-        // - zresetuj stan gry lub przygotuj do nowej rundy
-        _logger.LogInformation("Round ended. Team 1 points: {PointsTeam1}, Team 2 points: {PointsTeam2}", Round.Team1Points, Round.Team2Points);
-        //sprawdź kto wygrał aukcję
+        _logger.LogInformation("[{Room}]  Round ended. Team 1 points: {PointsTeam1}, Team 2 points: {PointsTeam2}",RoomCode, Round.Team1Points, Round.Team2Points);
+        // Check if the team that won the round has enough points to win the bet
         var betWinner = Round.CurrentBidWinner;
-        if (isPlayerInTeam1(betWinner))
+        if (IsPlayerInTeam1(betWinner))
         {
             var finalPoints = Round.Team1Points + Round.Team1Trumps;
             if (finalPoints >= Round.CurrentBet)
             {
-                _logger.LogInformation("Team 1 managed to get required points {Points}/{BetAmount} ",finalPoints ,Round.CurrentBet);
+                _logger.LogDebug("[{Room}] Team 1 managed to get required points {Points}/{BetAmount} ",RoomCode, finalPoints ,Round.CurrentBet);
                 PointsTeam1 += Round.CurrentBet;
             }
             else
             {
-                _logger.LogInformation("Team 2 failed to get required points {Points}/{BetAmount} ",finalPoints ,Round.CurrentBet);
+                _logger.LogDebug("[{Room}] Team 2 failed to get required points {Points}/{BetAmount} ",RoomCode ,finalPoints ,Round.CurrentBet);
                 PointsTeam1 -= Round.CurrentBet;
             }
-            PointsTeam2 += Round.Team2Points;
+            PointsTeam2 += Round.Team2Points + Round.Team2Trumps;
         }
         else
         {
            var finalPoints = Round.Team2Points + Round.Team2Trumps;
             if (finalPoints >= Round.CurrentBet)
             {
-                _logger.LogInformation("Team 2 managed to get required points {Points}/{BetAmount} ",finalPoints ,Round.CurrentBet);
+                _logger.LogDebug("[{Room}] Team 2 managed to get required points {Points}/{BetAmount} ",RoomCode,finalPoints ,Round.CurrentBet);
                 PointsTeam2 += Round.CurrentBet;
             }
             else
             {
-                _logger.LogInformation("Team 1 failed to get required points {Points}/{BetAmount} ",finalPoints ,Round.CurrentBet);
+                _logger.LogDebug("[{Room}] Team 1 failed to get required points {Points}/{BetAmount} ", RoomCode,finalPoints ,Round.CurrentBet);
                 PointsTeam2 -= Round.CurrentBet;
             }
-            PointsTeam1 += Round.Team1Points;
+            PointsTeam1 += Round.Team1Points + Round.Team1Trumps;
         }
-        _logger.LogInformation("Points after round: Team 1: {PointsTeam1}, Team 2: {PointsTeam2}", PointsTeam1, PointsTeam2);
-        if (PointsTeam1 >= 1000 || PointsTeam2 >= 1000) //todo zmień na 1000 potem
+        _logger.LogInformation("[{Room}] Points after round: Team 1: {PointsTeam1}, Team 2: {PointsTeam2}",RoomCode, PointsTeam1, PointsTeam2);
+        if (PointsTeam1 >= WinRequiredPoints || PointsTeam2 >= WinRequiredPoints) 
         {
-            _logger.LogInformation("Game over! Team 1 points: {PointsTeam1}, Team 2 points: {PointsTeam2}", PointsTeam1, PointsTeam2);
+            _logger.LogInformation("[{Room}] Game over! Team 1 points: {PointsTeam1}, Team 2 points: {PointsTeam2}", RoomCode,PointsTeam1, PointsTeam2);
             FinishGame();
             return;
         }
         
         CurrentPhase = GamePhase.Auction;
-        _logger.LogInformation("Game reset to start phase");
+        _logger.LogInformation("[{Room}] Game reset to start phase", RoomCode);
         var lastRoomStartPlayer = Round.OrginalTurnQueue.First();
         CreateAndInitNewRound(lastRoomStartPlayer);
-        _logger.LogInformation("New round created, starting player: {Player}", Round.TurnQueue.FirstOrDefault());
+        _logger.LogInformation("[{Room}] New round created, starting player: {Player}",RoomCode, Round.TurnQueue.FirstOrDefault());
     }
 
     private void FinishGame()
@@ -547,13 +584,15 @@ public class GameService
         }
         return deck;
     }
-    private bool isPlayerInTeam1(IPlayer player)
+    
+    private bool IsPlayerInTeam1(IPlayer player)
     {
         return Players.Contains(player) && (player == Player1 || player == Player3);
     }
+    
     private List<ICard> InitCards()
     {
-        _logger.LogInformation("Initializing TableService");
+        _logger.LogInformation("[{Room}] Initializing TableService", RoomCode);
         var tempDeck = new List<ICard>();
         foreach (var color in Enum.GetValues<CardSuit>())
         {
