@@ -9,3 +9,5 @@
 * Dołączanie przez link
 * lobby - mieszanie teamu
 * chat nie działa w trybie mobilnym - bo tak XD
+* poprawić originsy na backendize
+* Failed to copy code: TypeError: navigator.clipboard is undefined - przy kopiowaniu na prodzie

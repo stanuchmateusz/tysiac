@@ -277,23 +277,22 @@ public class GameHub(GameManager gameManager, LobbyService lobbyService, ILogger
     
     private async Task NotifyUpdatedGameState(GameService gameService)
     {
-        
         // await Clients.Group(gameService.RoomCode).SendAsync(GameContextUpdateMethodName, gameService.GetGameState());
         var gameContext = gameService.GetGameState();
         foreach (var player in gameService.Players)
         {
             // await Clients.Client(player.ConnectionId).SendAsync(GameUserContextUpdateMethodName, gameService.GetUserState(player));
-            await Clients.Client(player.ConnectionId).SendAsync(UpdateMethodName, new UpdateContext(
-                    gameContext,
-                    gameService.GetUserState(player)
-                )
-            );
+            await Clients.Client(player.ConnectionId).SendAsync(UpdateMethodName, new UpdateContext
+            {
+                GameCtx = gameContext,
+                UserCtx = gameService.GetUserState(player)
+            });
         }
     }
     #endregion
 }
-public class UpdateContext(GameContext gameContext, UserContext getUserState)
+public class UpdateContext
 {
-    public GameContext GameCtx { get; set; }
-    public UserContext UserCtx { get; set; }
+    public required GameContext GameCtx { get; set; }
+    public required UserContext UserCtx { get; set; }
 }

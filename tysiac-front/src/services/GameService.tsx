@@ -17,7 +17,7 @@ export const GameService = {
             return;
         }
         if (!this.connection) {
-            const userId = localStorage.getItem('userId');
+            const userId = false//localStorage.getItem('userId');
             const connection = new signalR.HubConnectionBuilder()
                 .withUrl(userId ? `${url}/gameHub?userId=${userId}` : `${url}/gameHub`)
                 .withAutomaticReconnect()

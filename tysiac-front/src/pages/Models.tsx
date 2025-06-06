@@ -9,8 +9,8 @@ export interface ChatMessage {
 }
 
 export interface UpdateContext {
-    gameCotext: GameContext;
-    userContext: GameUserContext;
+    gameCtx: GameContext;
+    userCtx: GameUserContext;
 }
 
 export interface LobbyContext {
