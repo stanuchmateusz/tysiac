@@ -7,7 +7,7 @@ import { createPortal } from "react-dom";
 
 import type { Card, Player, ChatMessage, GameUserContext, UpdateContext } from "./Models";
 
-const CARD_SVG_PATH = "/src/assets/poker-qr/";
+const CARD_SVG_PATH = import.meta.env.VITE_CARD_SVG_PATH || "/public/assets/poker-qr/";
 const SUIT_ICONS: Record<number, string> = {
     1: '♠', // Spades
     2: '♣', // Clubs
