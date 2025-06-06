@@ -6,7 +6,7 @@ public class LobbyContext
     public List<IPlayer> Team1 { get; }
     public List<IPlayer> Team2 { get; }
     public string Code { get; }
-    public IPlayer Host { get; }
+    public IPlayer Host { get; set; }
     
     public LobbyContext(List<IPlayer> players, List<IPlayer> team1, List<IPlayer> team2, string code)
     {

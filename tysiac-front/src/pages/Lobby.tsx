@@ -1,10 +1,12 @@
+import { useState, useRef } from "react";
 import { GrHide, GrView } from "react-icons/gr";
 import { ImExit } from "react-icons/im";
 import { IoMdAddCircle } from "react-icons/io";
 import { IoMdSend } from "react-icons/io";
+import { FaCrown } from "react-icons/fa";
 import GameService from "../services/GameService";
 import { useNavigate } from "react-router-dom";
-import type { ChatMessage, Player } from "./Game";
+import type { ChatMessage, Player, LobbyContext } from "./Game";
 
 
 const JoinTeamHandler = (isTeam1: boolean, gameCode: string) => {
@@ -14,22 +16,17 @@ const JoinTeamHandler = (isTeam1: boolean, gameCode: string) => {
         });
 };
 
-
 const Lobby = ({
-    host,
-    users,
-    team1,
-    team2,
+    me,
+    lobbyContext,
     chatMessages,
     showCode,
     setShowCode,
     gameCode,
     onStartGame,
 }: {
-    host: Player | null;
-    users: Player[];
-    team1: Player[];
-    team2: Player[];
+    me: Player | null;
+    lobbyContext: LobbyContext | null;
     chatMessages: ChatMessage[];
     showCode: boolean;
     setShowCode: (v: boolean) => void;
@@ -37,171 +34,307 @@ const Lobby = ({
     onStartGame: () => void;
 }) => {
     const navigate = useNavigate();
+    // --- Cooldown states ---
+    const [chatCooldown, setChatCooldown] = useState(false);
+    const [teamCooldown, setTeamCooldown] = useState(false);
+    const [cooldownMsg, setCooldownMsg] = useState("");
+    // --- Anti-spam states ---
+    const [chatAttempts, setChatAttempts] = useState<number[]>([]); // timestamps
+    const [teamAttempts, setTeamAttempts] = useState<number[]>([]); // timestamps
+    const chatInputRef = useRef<HTMLInputElement>(null);
+    const host = lobbyContext?.host ?? null;
+    const users: Player[] = lobbyContext?.players ?? [];
+    const team1: Player[] = lobbyContext?.team1 ?? [];
+    const team2: Player[] = lobbyContext?.team2 ?? [];
     const IsHost = () => {
         return GameService.connection?.state === "Connected" && GameService.connection?.connectionId == host?.connectionId;
     }
+    const isMe = (player: Player) => me && player.connectionId === me.connectionId;
+    const handleSendMessage = () => {
+        const now = Date.now();
+        // Odfiltrowanie prób z ostatnich 10 sekund
+        const recent = chatAttempts.filter(ts => now - ts < 10000);
+        if (recent.length >= 4) {
+            setCooldownMsg("Za dużo wiadomości! Odczekaj 5 sekund.");
+            setChatCooldown(true);
+            setTimeout(() => {
+                setChatCooldown(false);
+                setCooldownMsg("");
+                setChatAttempts([]);
+            }, 5000);
+            return;
+        }
+        if (chatCooldown) return;
+        const input = chatInputRef.current;
+        if (input) {
+            const message = input.value.trim();
+            if (message) {
+                GameService.connection?.invoke("SendMessage", gameCode, message);
+                input.value = '';
+                setChatAttempts([...recent, now]);
+            }
+        }
+    };
+    const handleJoinTeam = (isTeam1: boolean) => {
+        const now = Date.now();
+        const recent = teamAttempts.filter(ts => now - ts < 10000);
+        if (recent.length >= 4) {
+            setCooldownMsg("Za dużo zmian drużyny! Odczekaj 5 sekund.");
+            setTeamCooldown(true);
+            setTimeout(() => {
+                setTeamCooldown(false);
+                setCooldownMsg("");
+                setTeamAttempts([]);
+            }, 5000);
+            return;
+        }
+        if (teamCooldown) return;
+        JoinTeamHandler(isTeam1, gameCode);
+        setTeamAttempts([...recent, now]);
+    };
+    const handleLeaveTeam = () => {
+        const now = Date.now();
+        const recent = teamAttempts.filter(ts => now - ts < 10000);
+        if (recent.length >= 4) {
+            setCooldownMsg("Za dużo zmian drużyny! Odczekaj 5 sekund.");
+            setTeamCooldown(true);
+            setTimeout(() => {
+                setTeamCooldown(false);
+                setCooldownMsg("");
+                setTeamAttempts([]);
+            }, 5000);
+            return;
+        }
+        if (teamCooldown) return;
+        GameService.connection?.invoke("LeaveTeam", gameCode);
+        setTeamAttempts([...recent, now]);
+    };
     return (
-        <div className="grid grid-cols-3 gap-6 h-screen max-w-6xl mx-auto p-6 bg-neutral-900 text-white">
-            {/* Chat */}
-            <div className="col-span-1 flex flex-col h-full">
-                <h2 className="text-2xl font-semibold mb-2">Chat</h2>
-                <div className="bg-gray-800 p-4 rounded-lg flex-1 overflow-y-auto mb-2">
-                    {chatMessages.map((msg, index) => (
-                        <div key={index} className="mb-2">
-                            <strong>{msg.nickname}:</strong> {msg.message}
+        <div className="flex flex-col min-h-screen w-full bg-neutral-900 text-white p-2 xs:p-4 sm:p-6">
+            {cooldownMsg && (
+                <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-red-600 text-white px-4 py-2 rounded shadow-lg animate-pulse text-center text-base font-semibold">
+                    {cooldownMsg}
+                </div>
+            )}
+            <div className="flex flex-col-reverse md:grid md:grid-cols-3 gap-4 md:gap-6 max-w-6xl mx-auto flex-1">
+                {/* Main */}
+                <div className="col-span-2 flex flex-col h-full">
+                    <div className="flex flex-col md:flex-row items-center justify-between mb-4 md:mb-6 gap-2 md:gap-0">
+                        <h1 className="text-3xl md:text-4xl font-bold w-full md:w-auto text-center md:text-left">Lobby</h1>
+                        <div className="flex flex-wrap items-center space-x-2 md:space-x-4 w-full md:w-auto justify-end md:justify-end mt-2 md:mt-0">
+                            <span className="text-md font-mono bg-gray-800 px-3 py-1 rounded select-all w-28 md:w-32 text-center" title="Kod do gry">
+                                {showCode ? gameCode : '••••••'}
+                            </span>
+                            <button
+                                className="px-2 py-1 bg-gradient-to-r from-gray-600 to-gray-800 text-white rounded hover:from-gray-700 hover:to-gray-900 flex items-center cursor-pointer"
+                                title={showCode ? "Ukryj kod" : "Pokaż kod"}
+                                onClick={() => setShowCode(!showCode)}
+                            >
+                                {showCode ? <GrHide /> : <GrView />}
+                            </button>
+                            <button
+                                className="p-2 bg-gradient-to-r from-blue-500 to-blue-700 hover:from-blue-600 hover:to-blue-800 rounded text-white flex items-center justify-center transition-colors duration-150 cursor-pointer"
+                                title="Kopiuj kod do schowka"
+                                onClick={async () => {
+                                    try {
+                                        await navigator.clipboard.writeText(gameCode);
+                                    } catch (e) {
+                                        console.error("Failed to copy code:", e);
+                                    }
+                                }}
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <rect x="9" y="9" width="13" height="13" rx="2" fill="#3b82f6" stroke="#fff" strokeWidth="2" />
+                                    <rect x="3" y="3" width="13" height="13" rx="2" stroke="#fff" strokeWidth="2" />
+                                </svg>
+                            </button>
+                            <button
+                                className="px-4 py-2 bg-gradient-to-r from-red-500 to-red-700 text-white rounded hover:from-red-600 hover:to-red-800 flex items-center cursor-pointer"
+                                title="Opuść pokój gry"
+                                onClick={() => {
+                                    GameService.connection?.invoke("LeaveRoom", gameCode);
+                                    navigate("/", { replace: true });
+                                }}
+                            >
+                                <ImExit className="mr-2" /> Wyjdź
+                            </button>
                         </div>
-                    ))}
-                </div>
-                <div className="flex gap-2 mt-2">
-                    <input
-                        type="text"
-                        placeholder="Wiadomość..."
-                        className="w-full p-2 border border-gray-700 rounded bg-neutral-800 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        name="chatInput"
-                        onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                                const input = e.target as HTMLInputElement;
-                                const message = input.value.trim();
-                                if (message) {
-                                    GameService.connection?.invoke("SendMessage", gameCode, message);
-                                    input.value = '';
-                                }
-                            }
-                        }}
-                    />
-                    <button
-                        className="p-2 bg-gradient-to-r from-blue-600 to-blue-800 hover:from-blue-700 hover:to-blue-900 rounded text-white flex items-center justify-center transition-colors duration-150 cursor-pointer"
-                        title="Wyślij wiadomość"
-                        onClick={() => {
-                            const input = document.getElementsByName('chatInput')[0] as HTMLInputElement;
-                            const message = input.value.trim();
-                            if (message) {
-                                GameService.connection?.invoke("SendMessage", gameCode, message);
-                                input.value = '';
-                            }
-                        }}
-                    >
-                        <IoMdSend size={20} />
-                    </button>
-                </div>
-            </div>
-            {/* Main */}
-            <div className="col-span-2 flex flex-col h-full">
-                <div className="flex items-center justify-between mb-6">
-                    <h1 className="text-4xl font-bold">Lobby</h1>
-                    <div className="flex items-center space-x-4">
-                        <span className="text-md font-mono bg-gray-800 px-3 py-1 rounded select-all w-32 text-center" title="Kod do gry">
-                            {showCode ? gameCode : '••••••'}
-                        </span>
-                        <button
-                            className="px-2 py-1 bg-gradient-to-r from-gray-600 to-gray-800 text-white rounded hover:from-gray-700 hover:to-gray-900 flex items-center cursor-pointer"
-                            title={showCode ? "Ukryj kod" : "Pokaż kod"}
-                            onClick={() => setShowCode(!showCode)}
-                        >
-                            {showCode ? <GrHide /> : <GrView />}
-                        </button>
-                        <button
-                            className="p-2 bg-gradient-to-r from-blue-500 to-blue-700 hover:from-blue-600 hover:to-blue-800 rounded text-white flex items-center justify-center transition-colors duration-150 cursor-pointer"
-                            title="Kopiuj kod do schowka"
-                            onClick={async () => {
-                                try {
-                                    await navigator.clipboard.writeText(gameCode);
-                                } catch (e) {
-                                    console.error("Failed to copy code:", e);
-                                }
-                            }}
-                        >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <rect x="9" y="9" width="13" height="13" rx="2" fill="#3b82f6" stroke="#fff" strokeWidth="2" />
-                                <rect x="3" y="3" width="13" height="13" rx="2" stroke="#fff" strokeWidth="2" />
-                            </svg>
-                        </button>
-
-                        <button
-                            className="px-4 py-2 bg-gradient-to-r from-red-500 to-red-700 text-white rounded hover:from-red-600 hover:to-red-800 flex items-center cursor-pointer"
-                            title="Opuść pokój gry"
-                            onClick={() => {
-                                GameService.connection?.invoke("LeaveRoom", gameCode);
-                                navigate("/", { replace: true });
-                            }}
-                        >
-                            <ImExit className="mr-2" /> Wyjdź
-                        </button>
                     </div>
-                </div>
-                <div className="flex flex-1 flex-col gap-8">
-                    <div className="w-full bg-gray-700 rounded-lg p-4 flex flex-col max-h-72 overflow-y-auto mb-4">
-                        <h2 className="text-xl font-semibold mb-2 text-center">Drużyny</h2>
-                        <table className="w-full mb-0 border-separate border-spacing-y-1">
-                            <thead>
-                                <tr>
-                                    <th className="py-2 px-4 border-b text-lg text-blue-300 bg-gray-800 rounded-tl-lg">Drużyna I</th>
-                                    <th className="py-2 px-4 border-b text-lg text-pink-300 bg-gray-800 rounded-tr-lg">Drużyna II</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td className="py-1 px-2 border-b align-top">
-                                        {team1.length > 0 ? team1.map((user, index) => (
-                                            <div key={index} className="bg-blue-900/60 rounded px-1.5 py-0.5 my-0.5 text-blue-100 text-sm flex items-center gap-1">
-
-                                                {user.nickname}
-                                            </div>
-                                        )) : <span className="text-gray-400 text-sm">Brak graczy</span>}
-                                    </td>
-                                    <td className="py-1 px-2 border-b align-top">
-                                        {team2.length > 0 ? team2.map((user, index) => (
-                                            <div key={index} className="bg-pink-900/60 rounded px-1.5 py-0.5 my-0.5 text-pink-100 text-sm flex items-center gap-1">
-
-                                                {user.nickname}
-                                            </div>
-                                        )) : <span className="text-gray-400 text-sm">Brak graczy</span>}
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td className="py-2 px-4 border-b">
-                                        <button
-                                            className={`px-4 py-2 rounded w-full font-semibold transition-all duration-150 shadow-md flex items-center justify-center gap-2 cursor-pointer ${team1.length === 2 ? 'bg-gray-500 cursor-not-allowed' : 'bg-gradient-to-r from-blue-400 to-blue-700 hover:from-blue-500 hover:to-blue-800 text-white'}`}
-                                            disabled={team1.length === 2}
-                                            onClick={() => JoinTeamHandler(true, gameCode)}
-                                        >
-                                            <IoMdAddCircle /> Dołącz
-                                        </button>
-                                    </td>
-                                    <td className="py-2 px-4 border-b">
-                                        <button
-                                            className={`px-4 py-2 rounded w-full font-semibold transition-all duration-150 shadow-md flex items-center justify-center gap-2 cursor-pointer ${team2.length === 2 ? 'bg-gray-500 cursor-not-allowed' : 'bg-gradient-to-r from-pink-400 to-pink-700 hover:from-pink-500 hover:to-pink-800 text-white'}`}
-                                            disabled={team2.length === 2}
-                                            onClick={() => JoinTeamHandler(false, gameCode)}
-                                        >
-                                            <IoMdAddCircle /> Dołącz
-                                        </button>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                    <div className="w-full bg-gray-700 rounded-lg p-4 flex flex-col">
-                        <h2 className="text-xl font-semibold mb-2 text-center">Lista graczy</h2>
-                        <ul className="list-disc list-inside flex-1">
-                            {users.length > 0 ? (
-                                users.map((user, index) => (
-                                    <li key={index} className="text-lg">{user.nickname}</li>
-                                ))
-                            ) : (
-                                <li className="text-lg text-gray-500">Brak graczy - problem z połączniem z serwerm</li>
+                    <div className="flex flex-1 flex-col gap-4 sm:gap-8">
+                        <div className="w-full bg-gray-700 rounded-lg p-3 md:p-4 flex flex-col max-h-72 overflow-y-auto mb-4">
+                            <h2 className="text-lg md:text-xl font-semibold mb-2 text-center">Drużyny</h2>
+                            <div className="overflow-x-auto">
+                                <table className="w-full mb-0 border-separate border-spacing-y-1 table-fixed min-w-[320px]">
+                                    <colgroup>
+                                        <col className="w-1/2" />
+                                        <col className="w-1/2" />
+                                    </colgroup>
+                                    <thead>
+                                        <tr>
+                                            <th className="py-2 px-4 border-b text-lg text-blue-300 bg-gray-800 rounded-tl-lg">Drużyna I</th>
+                                            <th className="py-2 px-4 border-b text-lg text-pink-300 bg-gray-800 rounded-tr-lg">Drużyna II</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td className="py-1 px-2 border-b align-top">
+                                                {team1.length > 0 ? team1.map((user: Player, index: number) => (
+                                                    <div key={index} className="bg-blue-900/60 rounded px-1.5 py-0.5 my-0.5 text-blue-100 text-sm flex items-center gap-1">
+                                                        <span className={isMe(user) ? "font-bold" : undefined}>{user.nickname}</span>
+                                                        {host && user.connectionId === host.connectionId && (
+                                                            <FaCrown className="text-yellow-400 ml-1" title="Host" />
+                                                        )}
+                                                    </div>
+                                                )) : <span className="text-gray-400 text-sm">Brak graczy</span>}
+                                            </td>
+                                            <td className="py-1 px-2 border-b align-top">
+                                                {team2.length > 0 ? team2.map((user: Player, index: number) => (
+                                                    <div key={index} className="bg-pink-900/60 rounded px-1.5 py-0.5 my-0.5 text-pink-100 text-sm flex items-center gap-1">
+                                                        <span className={isMe(user) ? "font-bold" : undefined}>{user.nickname}</span>
+                                                        {host && user.connectionId === host.connectionId && (
+                                                            <FaCrown className="text-yellow-400 ml-1" title="Host" />
+                                                        )}
+                                                    </div>
+                                                )) : <span className="text-gray-400 text-sm">Brak graczy</span>}
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td className="py-2 px-4 border-b">
+                                                {team1.some(u => me && u.connectionId === me.connectionId) ? (
+                                                    <button
+                                                        className="px-4 py-2 rounded w-full font-semibold transition-all duration-150 shadow-md flex items-center justify-center gap-2 bg-gradient-to-r from-gray-600 to-gray-800 hover:from-gray-700 hover:to-gray-900 text-white cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                                                        onClick={handleLeaveTeam}
+                                                        disabled={teamCooldown}
+                                                    >
+                                                        <ImExit className="mr-2" /> Opuść drużynę
+                                                    </button>
+                                                ) : (
+                                                    <button
+                                                        className={`px-4 py-2 rounded w-full font-semibold transition-all duration-150 shadow-md flex items-center justify-center gap-2 ${team1.length === 2 || teamCooldown ? 'bg-gray-500 cursor-not-allowed opacity-70' : 'bg-gradient-to-r from-blue-400 to-blue-700 hover:from-blue-500 hover:to-blue-800 text-white cursor-pointer'}`}
+                                                        disabled={team1.length === 2 || teamCooldown}
+                                                        onClick={() => handleJoinTeam(true)}
+                                                    >
+                                                        <IoMdAddCircle /> Dołącz
+                                                    </button>
+                                                )}
+                                            </td>
+                                            <td className="py-2 px-4 border-b">
+                                                {team2.some(u => me && u.connectionId === me.connectionId) ? (
+                                                    <button
+                                                        className="px-4 py-2 rounded w-full font-semibold transition-all duration-150 shadow-md flex items-center justify-center gap-2 bg-gradient-to-r from-gray-600 to-gray-800 hover:from-gray-700 hover:to-gray-900 text-white cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                                                        onClick={handleLeaveTeam}
+                                                        disabled={teamCooldown}
+                                                    >
+                                                        <ImExit className="mr-2" /> Opuść drużynę
+                                                    </button>
+                                                ) : (
+                                                    <button
+                                                        className={`px-4 py-2 rounded w-full font-semibold transition-all duration-150 shadow-md flex items-center justify-center gap-2 ${team2.length === 2 || teamCooldown ? 'bg-gray-500 cursor-not-allowed opacity-70' : 'bg-gradient-to-r from-pink-400 to-pink-700 hover:from-pink-500 hover:to-pink-800 text-white cursor-pointer'}`}
+                                                        disabled={team2.length === 2 || teamCooldown}
+                                                        onClick={() => handleJoinTeam(false)}
+                                                    >
+                                                        <IoMdAddCircle /> Dołącz
+                                                    </button>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div className="w-full bg-gray-700 rounded-lg p-3 md:p-4 flex flex-col">
+                            <h2 className="text-lg md:text-xl font-semibold mb-2 text-center">Lista graczy</h2>
+                            <ul className="list-disc list-inside flex-1">
+                                {users.length > 0 ? (
+                                    users.map((user: Player, index: number) => (
+                                        <li key={index} className="text-lg flex items-center gap-1">
+                                            <span className={isMe(user) ? "font-bold" : undefined}>{user.nickname}</span>
+                                            {host && user.connectionId === host.connectionId && (
+                                                <FaCrown className="text-yellow-400 ml-1" title="Host" />
+                                            )}
+                                        </li>
+                                    ))
+                                ) : (
+                                    <li className="text-lg text-gray-500">Brak graczy - problem z połączniem z serwerm</li>
+                                )}
+                            </ul>
+                            {/* Przywrócony przycisk rozpocznij grę dla hosta */}
+                            {IsHost() && (
+                                <button
+                                    className={`mt-4 px-6 py-2 rounded font-bold text-lg shadow-md transition-all duration-150 
+                                        flex items-center justify-center
+                                        ${(team1.length != 2 || team2.length != 2) ? 'bg-gray-500 text-gray-200 cursor-not-allowed opacity-70' : 'bg-gradient-to-r from-blue-700 to-blue-900 hover:from-blue-800 hover:to-blue-950 text-white cursor-pointer'}`}
+                                    onClick={onStartGame}
+                                    disabled={(team1.length != 2 || team2.length != 2)}
+                                    style={{ minWidth: 200 }}
+                                >
+                                    Rozpocznij grę
+                                </button>
                             )}
-                        </ul>
+                        </div>
+                        {/* Chat at the bottom on mobile, right on desktop */}
+                        <div className="block md:hidden w-full bg-gray-800 p-3 rounded-lg flex flex-col flex-1 min-h-0 mt-2" style={{ flexGrow: 1 }}>
+                            <h2 className="text-2xl font-semibold mb-2">Chat</h2>
+                            <div className="flex-1 overflow-y-auto mb-2 min-h-0">
+                                {chatMessages.map((msg, index) => (
+                                    <div key={index} className="mb-2">
+                                        <strong>{msg.nickname}:</strong> {msg.message}
+                                    </div>
+                                ))}
+                            </div>
+                            <form className="flex gap-2 mt-2" onSubmit={e => { e.preventDefault(); if (!chatCooldown) handleSendMessage(); }}>
+                                <input
+                                    type="text"
+                                    placeholder="Wiadomość..."
+                                    className="w-full p-2 border border-gray-700 rounded bg-neutral-800 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
+                                    name="chatInput"
+                                    ref={chatInputRef}
+                                    disabled={chatCooldown}
+                                    autoComplete="off"
+                                />
+                                <button
+                                    type="submit"
+                                    className="p-2 bg-gradient-to-r from-blue-600 to-blue-800 hover:from-blue-700 hover:to-blue-900 rounded text-white flex items-center justify-center transition-colors duration-150 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                                    title="Wyślij wiadomość"
+                                    disabled={chatCooldown}
+                                >
+                                    <IoMdSend size={20} />
+                                </button>
+                            </form>
+                            {cooldownMsg && <div className="text-xs text-yellow-300 mt-1 text-center">{cooldownMsg}</div>}
+                        </div>
                     </div>
+                    {/* Desktop chat stays in the right column */}
                 </div>
-                <div className="flex justify-end mt-8">
-                    <button
-                        className="px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-700 hover:from-blue-600 hover:to-blue-800 text-white rounded text-lg font-semibold shadow-lg cursor-pointer"
-                        disabled={!IsHost() && team1.length < 2 || team2.length < 2}
-                        onClick={onStartGame}
-                    >
-                        Rozpocznij grę
-                    </button>
+                <div className="hidden md:flex col-span-1 flex-col h-80 md:h-full mb-4 md:mb-0">
+                    <h2 className="text-2xl font-semibold mb-2">Chat</h2>
+                    <div className="bg-gray-800 p-3 md:p-4 rounded-lg flex-1 overflow-y-auto mb-2 min-h-0 max-h-80 md:max-h-[420px]">
+                        {chatMessages.map((msg, index) => (
+                            <div key={index} className="mb-2">
+                                <strong>{msg.nickname}:</strong> {msg.message}
+                            </div>
+                        ))}
+                    </div>
+                    <form className="flex gap-2 mt-2" onSubmit={e => { e.preventDefault(); if (!chatCooldown) handleSendMessage(); }}>
+                        <input
+                            type="text"
+                            placeholder="Wiadomość..."
+                            className="w-full p-2 border border-gray-700 rounded bg-neutral-800 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
+                            name="chatInput"
+                            ref={chatInputRef}
+                            disabled={chatCooldown}
+                            autoComplete="off"
+                        />
+                        <button
+                            type="submit"
+                            className="p-2 bg-gradient-to-r from-blue-600 to-blue-800 hover:from-blue-700 hover:to-blue-900 rounded text-white flex items-center justify-center transition-colors duration-150 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                            title="Wyślij wiadomość"
+                            disabled={chatCooldown}
+                        >
+                            <IoMdSend size={20} />
+                        </button>
+                    </form>
+                    {cooldownMsg && <div className="text-xs text-yellow-300 mt-1 text-center">{cooldownMsg}</div>}
                 </div>
             </div>
         </div>

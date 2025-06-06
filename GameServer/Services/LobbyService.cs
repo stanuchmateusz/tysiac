@@ -19,36 +19,25 @@ public class LobbyService
     public void JoinRoom(string roomCode, IPlayer player)
     {
         var lobby = GetRoom(roomCode);
-        if (lobby == null)
-            throw new HubException("Room not found");
-        if (lobby.Players.Count == 4 )
+   
+        if (!AddPlayer(lobby,player) )
             throw new HubException("Room is full");
-        lobby.Players.Add(player);
-    }
-
-    public LobbyContext CloseLobby(string roomCode)
-    {
-        var lobby = GetRoom(roomCode);
-        if (lobby == null)
-            throw new HubException("Cannot close lobby, room not found");
-        _lobbies.Remove(roomCode);
-        return lobby;
     }
     
     public bool LeaveRoom(string roomCode,string contextConnectionId)
     {
         var lobbyContext =  GetRoom(roomCode);
-        if (lobbyContext == null)
-            throw new HubException("Room not found");
-        var player = lobbyContext.Players.FirstOrDefault(p => p.ConnectionId == contextConnectionId);
-        if (player == null)
-            throw new HubException("Player not found");
-        lobbyContext.Players.Remove(player);
+      
+        var player = GetPlayerFromRoom(lobbyContext, contextConnectionId);
+        
+        RemovePlayer(lobbyContext,player);
+        
         if (lobbyContext.Players.Count == 0)
             _lobbies.Remove(roomCode);
+        
         return true;
     }
-    public bool AddToTeam1(IPlayer player, LobbyContext lobby)
+    public bool AddToTeam1(LobbyContext lobby,IPlayer player)
     {
         if (lobby.Team1.Count == 2 || lobby.Team1.Contains(player))
             return false;
@@ -57,7 +46,7 @@ public class LobbyService
         return true;
     }
 
-    public bool AddToTeam2(IPlayer player, LobbyContext lobby)
+    public bool AddToTeam2(LobbyContext lobby,IPlayer player)
     {
         if (lobby.Team2.Count == 2 || lobby.Team2.Contains(player))
             return false;
@@ -66,7 +55,7 @@ public class LobbyService
         return true;
     }
     
-    public bool AddPlayer(IPlayer player, LobbyContext lobby)
+    public bool AddPlayer(LobbyContext lobby, IPlayer player)
     {
         if (lobby.Players.Count  == 4)
         {
@@ -76,11 +65,16 @@ public class LobbyService
         return true;
     }
 
-    public bool RemovePlayer(IPlayer player,LobbyContext lobby)
+    public void RemovePlayer(LobbyContext lobby, IPlayer player)
     {
         lobby.Team1.Remove(player);
         lobby.Team2.Remove(player);
-        return lobby.Players.Remove(player);
+        
+        lobby.Players.Remove(player);
+        if (lobby.Host.Id == player.Id && lobby.Players.Count > 0)
+        {
+           lobby.Host = lobby.Players[0]; // Promote the first player as the new host
+        }
     }
     
     public IPlayer GetPlayerFromRoom(LobbyContext lobbyContext, string contextConnectionId)
@@ -90,18 +84,35 @@ public class LobbyService
             throw new HubException("Player not found");
         return player;
     }
+    
     public IPlayer GetPlayerFromRoom(string roomCode, string contextConnectionId)
     {
-        var lobbyContext =  GetRoom(roomCode);
-        if (lobbyContext == null)
-            throw new HubException("Room not found");
+        var lobbyContext = GetRoom(roomCode);
+      
         return GetPlayerFromRoom(lobbyContext, contextConnectionId);
     }
-    public LobbyContext? GetRoom(string roomCode)
+    
+    public LobbyContext GetRoom(string roomCode)
     {
-        return _lobbies!.GetValueOrDefault(roomCode, null);
+        var room = _lobbies!.GetValueOrDefault(roomCode, null);
+        if (room == null)
+            throw new HubException("Room not found");
+        return room;
     }
     
+    public void LeaveTeam(LobbyContext lobby, IPlayer player)
+    {
+        lobby.Team1.Remove(player);
+        lobby.Team2.Remove(player);
+    }
+
+    public void LeaveTeam(string roomCode, IPlayer player)
+    {
+        var lobby = GetRoom(roomCode);
+        if (lobby == null)
+            throw new HubException("Room not found");
+        LeaveTeam(lobby, player);
+    }
     private static string GenerateRoomCode()
     {
         var random = new Random();

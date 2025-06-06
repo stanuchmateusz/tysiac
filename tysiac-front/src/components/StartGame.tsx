@@ -30,29 +30,35 @@ const StartGame = () => {
             navigate(`/game/${roomCode}`);
         });
 
-        // const ensureConnection = async () => {
-        //     if (GameService.getConnectionState() !== window.signalR.HubConnectionState.Connected) {
-        //         await GameService.startConnection();
-        //     }
-        //     setIsReady(true);
-        // };
+        const ensureConnection = async () => {
+            if (GameService.getConnectionState() !== window.signalR.HubConnectionState.Connected) {
+                await GameService.startConnection();
+            }
+            setIsReady(true);
+        };
 
-        // if (window.signalR && window.signalR.HubConnectionState) {
-        //     ensureConnection();
-        // } else {
+        if (window.signalR && window.signalR.HubConnectionState) {
+            ensureConnection();
+        } else {
 
-        //     if (GameService.getConnectionState() !== 'Connected') {
-        //         GameService.startConnection().then(() => setIsReady(true));
-        //     } else {
-        //         setIsReady(true);
-        //     }
-        // }
+            if (GameService.getConnectionState() !== 'Connected') {
+                GameService.startConnection()
+                    .then(() => setIsReady(true))
+                    .catch(() => {
+                        setConnectionError("Błąd podczas nawiązywania połączenia z serwerem. Sprawdź połączenie internetowe i spróbuj ponownie.");
+                        setIsReady(false);
+                    }
+                    );
+            } else {
+                setIsReady(true);
+            }
+        }
         return () => {
             GameService.offRoomCreated();
             GameService.offRoomJoined();
         };
     }, [navigate]);
-    //todo fixme - zbugowane po leave roomie
+
     const handleHostGame = async () => {
 
         if (!validateNickname(nickname)) {
@@ -71,7 +77,7 @@ const StartGame = () => {
     }
 
     const handleJoinGame = async () => {
-        // Logika do obsługi dołączania do pokoju gry
+
         if (!validateNickname(nickname)) {
             console.error("Nieprawidłowy pseudonim. Upewnij się, że ma od 3 do 20 znaków i zawiera tylko litery, cyfry lub podkreślenia.");
             setRoomError("Nieprawidłowy pseudonim. Upewnij się, że ma od 3 do 20 znaków i zawiera tylko litery, cyfry lub podkreślenia.");
@@ -122,9 +128,13 @@ const StartGame = () => {
                     </div>
                 </div>
             )}
-            <div className="flex flex-col gap-4 w-full max-w-md bg-gray-800/90 rounded-2xl shadow-xl px-8 py-8">
+            <div className="flex flex-col gap-4 w-full max-w-md  px-8 py-8">
                 <input
                     type="text"
+                    name="nickname"
+                    maxLength={20}
+                    pattern="[a-zA-Z0-9_]{3,20}"
+                    required
                     placeholder="Twój pseudonim..."
                     className="p-3 border border-gray-700 rounded-lg bg-neutral-800 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg w-full"
                     value={nickname}
@@ -138,7 +148,9 @@ const StartGame = () => {
                 </button>
                 <div className="flex flex-col sm:flex-row gap-3 w-full">
                     <input
-                        type="text"
+                        type="password"
+                        maxLength={8}
+                        pattern="[A-Z0-9]{8}"
                         placeholder="Kod pokoju..."
                         className="flex-1 p-3 border border-gray-700 rounded-lg bg-neutral-800 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg min-w-0"
                         value={roomCode}
@@ -151,8 +163,17 @@ const StartGame = () => {
                         Dołącz do gry
                     </button>
                 </div>
-                {roomError && <p className="text-red-500 mt-2 text-center">{roomError}</p>}
+                {roomError && (
+                    <div className="mt-2 text-red-500 text-sm">
+                        {roomError}
+                    </div>
+                )}
+                <div className={`px-4 py-2 text-xs font-semibold select-none transition-all duration-200 ${isReady && !connectionError ? 'text-gray-300' : 'text-red-200 animate-pulse'}`}>
+                    {isReady && !connectionError ? 'Połączono z serwerem' : 'Brak połączenia z serwerem'}
+                </div>
+
             </div>
+
         </div>
     );
 }
