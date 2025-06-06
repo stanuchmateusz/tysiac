@@ -1,4 +1,5 @@
-﻿using GameServer.Models.impl;
+﻿using GameServer.Models.Enums;
+using GameServer.Models.impl;
 
 namespace GameServer.Models.Context;
 

@@ -1,6 +1,4 @@
-﻿using GameServer.Models.impl;
-
-namespace GameServer.Models;
+﻿namespace GameServer.Models.Context;
 
 public class UserContext
 {

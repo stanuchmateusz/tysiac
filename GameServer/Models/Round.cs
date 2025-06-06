@@ -1,4 +1,6 @@
-﻿namespace GameServer.Models;
+﻿using GameServer.Models.Enums;
+
+namespace GameServer.Models;
 
 public class Round
 {

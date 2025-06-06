@@ -1,4 +1,4 @@
-﻿namespace GameServer.Models.impl;
+﻿namespace GameServer.Models;
 
 public interface IPlayerBase
 {

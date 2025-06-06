@@ -1,4 +1,4 @@
-﻿namespace GameServer.Models;
+﻿namespace GameServer.Models.Enums;
 
 public enum CardRank
 {

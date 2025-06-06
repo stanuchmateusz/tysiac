@@ -1,5 +1,6 @@
 ﻿using GameServer.Models;
 using GameServer.Models.Context;
+using GameServer.Models.Enums;
 using GameServer.Models.impl;
 
 namespace GameServer.Services;
@@ -20,8 +21,8 @@ public class GameService
 
     private readonly Stack<ICard> _deck = [];
 
-    private int PointsTeam1 = 0;
-    private int PointsTeam2 = 0;
+    private int _pointsTeam1 = 0;
+    private int _pointsTeam2 = 0;
 
     private GamePhase CurrentPhase { get; set; } = GamePhase.Start;
     public string RoomCode { get; }
@@ -98,32 +99,12 @@ public class GameService
         Round.TurnQueue.Enqueue(GetRightPlayer(player));
         Round.OrginalTurnQueue = new Queue<IPlayer>(Round.TurnQueue);
     }
-
-    private void StartQueueFromPlayer(IPlayer player, HashSet<IPlayer> passedPlayers)
-    {
-        if (!passedPlayers.Contains(player))
-            Round.TurnQueue.Enqueue(player);
-        
-        var p2 = GetLeftPlayer(player);
-        if (!passedPlayers.Contains(p2))
-            Round.TurnQueue.Enqueue(p2);
-        
-        var p3 = GetTeammate(player);
-        if (!passedPlayers.Contains(p3))
-            Round.TurnQueue.Enqueue(p3);
-        
-        var p4 = GetRightPlayer(player);
-        if (!passedPlayers.Contains(p4))
-            Round.TurnQueue.Enqueue(p4);
-
-        //todo check if needed
-        // Round.OrginalTurnQueue = new Queue<IPlayer>(Round.TurnQueue);
-    }
+    
     private void AdvanceTurn()
     {
-        _logger.LogInformation("[{Room}] Dequeuing player {Player}",RoomCode, Round.TurnQueue.Peek());
+        _logger.LogDebug("[{Room}] Dequeuing player {Player}",RoomCode, Round.TurnQueue.Peek());
         Round.TurnQueue.Dequeue();
-        _logger.LogInformation("[{Room}] {X} players left in turn queue",RoomCode,Round.TurnQueue.Count);
+        _logger.LogDebug("[{Room}] {X} players left in turn queue",RoomCode,Round.TurnQueue.Count);
         
         if (GamePhase.CardDistribution == CurrentPhase)
         {
@@ -138,8 +119,14 @@ public class GameService
                 case GamePhase.Auction:
                 {
                     _logger.LogDebug("[{Room}] GamePhase.Auction", RoomCode);
-                    if (Round.Pass.Count != 3) //todo - still buggy
-                        StartQueueFromPlayer(Round.CurrentBidWinner, Round.Pass);
+                    if (Round.Pass.Count != 3) 
+                    {
+                        StartQueueFromPlayer(Round.OrginalTurnQueue.First());
+                        // filter the queue - remove players that passed
+                        Round.TurnQueue = new Queue<IPlayer>(Round.TurnQueue.ToArray().Where(p => !Round.Pass.Contains(p)));
+                        
+                        _logger.LogDebug("[{Room}] Starting queue from player {Player} with passed players {Players}", RoomCode, Round.CurrentBidWinner, Round.Pass);
+                    }
                     break;
                 }
                 case GamePhase.Playing:
@@ -222,10 +209,10 @@ public class GameService
 
         if (player == Player1 || player == Player3)
         {
-            return enemy ? PointsTeam2 : PointsTeam1;
+            return enemy ? _pointsTeam2 : _pointsTeam1;
         }
         //team 2
-        return enemy ? PointsTeam1 : PointsTeam2;
+        return enemy ? _pointsTeam1 : _pointsTeam2;
     }
     
     private int GetTeamRoundPoints(IPlayer player, bool enemy = false)
@@ -443,10 +430,14 @@ public class GameService
             _logger.LogDebug("[{Room}] Card {Card} is valid to play - no other options",RoomCode, cardToPlay.ShortName);
         return true;
     }
-
+    
+    private static int RoundTo10(int value)
+    {
+        return ((value + 5) / 10) * 10;
+    }
     private void CompleteTake()
     {
-        var winner = DetermineTakeWinner(); //tu coś śmierdzi, bo albo złego ustala albo źle kolejka się robi
+        var winner = DetermineTakeWinner();
         
         var trickPoints = Round.CurrentCardsOnTable.Sum(card => card.Points);
         if (IsPlayerInTeam1(winner))
@@ -524,40 +515,50 @@ public class GameService
         var betWinner = Round.CurrentBidWinner;
         if (IsPlayerInTeam1(betWinner))
         {
-            var finalPoints = Round.Team1Points + Round.Team1Trumps;
+            var finalPoints = RoundTo10(Round.Team1Points + Round.Team1Trumps);
             if (finalPoints >= Round.CurrentBet)
             {
                 _logger.LogDebug("[{Room}] Team 1 managed to get required points {Points}/{BetAmount} ",RoomCode, finalPoints ,Round.CurrentBet);
-                PointsTeam1 += Round.CurrentBet;
+                _pointsTeam1 += Round.CurrentBet;
             }
             else
             {
                 _logger.LogDebug("[{Room}] Team 2 failed to get required points {Points}/{BetAmount} ",RoomCode ,finalPoints ,Round.CurrentBet);
-                PointsTeam1 -= Round.CurrentBet;
+                _pointsTeam1 -= Round.CurrentBet;
             }
-            PointsTeam2 += Round.Team2Points + Round.Team2Trumps;
+            _pointsTeam2 += Round.Team2Points + Round.Team2Trumps;
         }
         else
         {
-           var finalPoints = Round.Team2Points + Round.Team2Trumps;
+           var finalPoints = RoundTo10( Round.Team2Points + Round.Team2Trumps);
             if (finalPoints >= Round.CurrentBet)
             {
                 _logger.LogDebug("[{Room}] Team 2 managed to get required points {Points}/{BetAmount} ",RoomCode,finalPoints ,Round.CurrentBet);
-                PointsTeam2 += Round.CurrentBet;
+                _pointsTeam2 += Round.CurrentBet;
             }
             else
             {
                 _logger.LogDebug("[{Room}] Team 1 failed to get required points {Points}/{BetAmount} ", RoomCode,finalPoints ,Round.CurrentBet);
-                PointsTeam2 -= Round.CurrentBet;
+                _pointsTeam2 -= Round.CurrentBet;
             }
-            PointsTeam1 += Round.Team1Points + Round.Team1Trumps;
+            _pointsTeam1 += Round.Team1Points + Round.Team1Trumps;
         }
-        _logger.LogInformation("[{Room}] Points after round: Team 1: {PointsTeam1}, Team 2: {PointsTeam2}",RoomCode, PointsTeam1, PointsTeam2);
-        if (PointsTeam1 >= WinRequiredPoints || PointsTeam2 >= WinRequiredPoints) 
+        
+        _logger.LogInformation("[{Room}] Points after round: Team 1: {PointsTeam1}, Team 2: {PointsTeam2}",RoomCode, _pointsTeam1, _pointsTeam2);
+        if (_pointsTeam1 >= WinRequiredPoints || _pointsTeam2 >= WinRequiredPoints) 
         {
-            _logger.LogInformation("[{Room}] Game over! Team 1 points: {PointsTeam1}, Team 2 points: {PointsTeam2}", RoomCode,PointsTeam1, PointsTeam2);
+            _logger.LogInformation("[{Room}] Game over! Team 1 points: {PointsTeam1}, Team 2 points: {PointsTeam2}", RoomCode,_pointsTeam1, _pointsTeam2);
             FinishGame();
             return;
+        }
+        
+        if (_pointsTeam1 > 900) 
+        { 
+            _pointsTeam1 = 900;
+        }
+        if (_pointsTeam2 > 900) 
+        {
+            _pointsTeam2 = 900;
         }
         
         CurrentPhase = GamePhase.Auction;
