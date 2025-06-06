@@ -20,7 +20,7 @@ builder.Services.AddCors(options =>
             "http://localhost:5224",
             "http://localhost",
             "http://192.168.1.46:5173",
-            "https://maszrum.crabdance.com"
+            "https://maszrum.crabdance.com:5173"
         )
         .AllowAnyHeader()
         .AllowAnyMethod()
