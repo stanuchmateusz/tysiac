@@ -1,0 +1,21 @@
+version: '3.8'
+services:
+  backend:
+    build:
+      context: ./GameServer
+      dockerfile: Dockerfile
+    ports:
+      - "5224:5000"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://0.0.0.0:5000
+    restart: unless-stopped
+  frontend:
+    build:
+      context: ./tysiac-front
+      dockerfile: Dockerfile
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+    restart: unless-stopped

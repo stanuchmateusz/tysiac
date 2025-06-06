@@ -15,22 +15,22 @@ const SUIT_ICONS: Record<number, string> = {
     4: '♦'  // Diamonds
 };
 
-const CARD_RANKS: Record<number, string> = {
-    1: 'A',
-    2: 'K',
-    3: 'Q',
-    4: 'J',
-    5: '10',
-    6: '9'
-};
+// const CARD_RANKS: Record<number, string> = {
+//     1: 'A',
+//     2: 'K',
+//     3: 'Q',
+//     4: 'J',
+//     5: '10',
+//     6: '9'
+// };
 
-const GAME_STAGES: Record<number, string> = {
-    0: "Start",
-    1: "Auction",
-    2: "Card Distribution",
-    3: "Playing",
-    4: "End"
-}
+// const GAME_STAGES: Record<number, string> = {
+//     0: "Start",
+//     1: "Auction",
+//     2: "Card Distribution",
+//     3: "Playing",
+//     4: "End"
+// }
 function CardHand({ cards, onCardSelect, disabled = false, canPlayCard }: {
     cards: Card[],
     onCardSelect: (card: string) => void,
