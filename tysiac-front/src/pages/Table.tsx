@@ -176,13 +176,15 @@ const Table = ({
         const firstCardInTake = gameCtx.cardsOnTable[0];
         const trumpSuit = gameCtx.trumpSuit;
         const hand = gameUserCtx.hand;
+        const handWithoutPlayedCard = hand.filter(c => c != card)
+        const minReqPoint = firstCardInTake.points;
 
-        if (card.suit === firstCardInTake.suit) {
+        if (card.suit === firstCardInTake.suit && !(handWithoutPlayedCard.find(c => (c.suit == card.suit && c.points > minReqPoint)))) { //i nie moze przebić inną 
             console.log("Same color - can play", card.shortName);
             return true;
         };
 
-        if (card.suit === trumpSuit) {
+        if (card.suit === trumpSuit && !handWithoutPlayedCard.find(c => c.suit == firstCardInTake.suit)) { //chyba ze ma jakikolwiek kolor
             console.log("Trump card - can play", card.shortName, trumpSuit);
             return true;
         }
