@@ -59,8 +59,9 @@ public class GameManager //: IGameManager
         foreach (var table in tables)
         {
             table.PauseGame();
-            if (table.DisconnectedPlayersCount == 4)
-                RemoveRoom(table.RoomCode);
+            if (table.DisconnectedPlayersCount != 4) continue;
+            _logger.LogInformation("All players disconnected from room {RoomCode} - Removing the room", table.RoomCode);
+            RemoveRoom(table.RoomCode);
         }
 
         return tables;

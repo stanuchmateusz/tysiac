@@ -121,7 +121,11 @@ public class GameHub(GameManager gameManager, LobbyService lobbyService, ILogger
     
     public async Task LeaveRoom(string roomCode)
     {
-        lobbyService.LeaveRoom(roomCode, Context.ConnectionId);
+        if (lobbyService.LeaveRoom(roomCode, Context.ConnectionId))
+        {
+            logger.LogInformation("Left room {RoomCode} and lobby got disposed", roomCode);
+            return;
+        }
         await Groups.RemoveFromGroupAsync(Context.ConnectionId, roomCode);
         await Clients.Groups(roomCode).SendAsync(LobbyUpdateMethodName, lobbyService.GetRoom(roomCode));
         logger.LogInformation("Left room {RoomCode}", roomCode);
@@ -206,7 +210,11 @@ public class GameHub(GameManager gameManager, LobbyService lobbyService, ILogger
 
         table.PauseGame();
         if (table.DisconnectedPlayersCount == 4)
+        {
             gameManager.RemoveRoom(roomCode);
+            logger.LogInformation("Game {RoomCode} has been removed", roomCode);
+            return;
+        }
         
         await Clients.Group(roomCode).SendAsync(LeaveGameMethodName, player.Nickname);
         
@@ -233,7 +241,7 @@ public class GameHub(GameManager gameManager, LobbyService lobbyService, ILogger
         var targetPlayer = table.GetPlayerFromRoom(toPlayerId);
         if (targetPlayer == null)
             throw new HubException("Target player not found in room");
-        logger.LogInformation("Giving card {Card} to {PlayerId}", card,targetPlayer.Nickname);
+        logger.LogDebug("[{RoomCode}] Giving card {Card} to {PlayerId}",roomCode, card,targetPlayer.Nickname);
         table.DistributeCard(player, card, targetPlayer);
         
         await NotifyUpdatedGameState(roomCode);
@@ -271,7 +279,7 @@ public class GameHub(GameManager gameManager, LobbyService lobbyService, ILogger
     {
         var roomService = gameManager.GetRoom(roomCode);
         if (roomService == null)
-            throw new HubException("Room not found");
+            throw new HubException("Game not found");
         await NotifyUpdatedGameState(roomService);
     }
     

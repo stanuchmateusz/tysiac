@@ -24,18 +24,22 @@ public class LobbyService
             throw new HubException("Room is full");
     }
     
+    //return tru if lobby got removed
     public bool LeaveRoom(string roomCode,string contextConnectionId)
     {
-        var lobbyContext =  GetRoom(roomCode);
+        var lobbyContext = GetRoom(roomCode);
       
         var player = GetPlayerFromRoom(lobbyContext, contextConnectionId);
         
         RemovePlayer(lobbyContext,player);
         
         if (lobbyContext.Players.Count == 0)
+        {
             _lobbies.Remove(roomCode);
+            return true;
+        }
         
-        return true;
+        return false;
     }
     public bool AddToTeam1(LobbyContext lobby,IPlayer player)
     {

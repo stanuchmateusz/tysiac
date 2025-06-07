@@ -1,4 +1,6 @@
-﻿namespace GameServer.Models.impl;
+﻿using GameServer.Models.Enums;
+
+namespace GameServer.Models.impl;
 
 public class HumanPlayer : IPlayer
 {
@@ -6,7 +8,8 @@ public class HumanPlayer : IPlayer
     public string Nickname { get; }
     public string Id { get; }
     public List<ICard> Hand { get; set; } = new();
-    
+    public Team? Team { get; set; }
+
     public HumanPlayer(string connectionId, string nickname, string? id = null)
     {
         Id = id ?? Guid.NewGuid().ToString();

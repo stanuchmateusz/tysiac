@@ -48,6 +48,11 @@ public class GameService
         Player3 = lobbyCtx.Team1[1];
         Player4 = lobbyCtx.Team2[1];
         
+        Player1.Team = Team.Team1;
+        Player2.Team = Team.Team2;
+        Player3.Team = Team.Team1;
+        Player4.Team = Team.Team2;
+        
         Round = new Round
         {
             TurnQueue = new Queue<IPlayer>()
@@ -58,6 +63,7 @@ public class GameService
         Round.TurnQueue.Enqueue(Player4);
         Round.OrginalTurnQueue = new Queue<IPlayer>(Round.TurnQueue);
         Round.CurrentBidWinner = Player4;
+        
         
     }
     public void PauseGame()
@@ -143,6 +149,8 @@ public class GameService
                     else
                     {
                         // 4 cards on the table, we need to complete the take
+                        //todo pozwolić na przesłanie info o 4 karcie żeby wyświetlić na ui
+                        // i potem timeout 2 sec i znów notyfikacja 
                         CompleteTake();
                     }
 
@@ -161,17 +169,10 @@ public class GameService
     private IPlayer GetTeammate(IPlayer player)
     {
         ArgumentNullException.ThrowIfNull(player);
-        
-        if (player == Player1)
-            return Player3;
-        if (player == Player2)
-            return Player4;
-        if (player == Player3)
-            return Player1;
-        if (player == Player4)
-            return Player2;
-        
-        throw new ArgumentException("Unknown player");
+        var teammate = Players.FirstOrDefault(p => p.Team == player.Team && p.Id != player.Id);
+        if (teammate == null)
+            throw new ArgumentException("Cannot find teammate for player " + player);
+        return teammate;
     }
     private IPlayer GetLeftPlayer(IPlayer player)
     {
@@ -207,7 +208,7 @@ public class GameService
     private int GetTeamPoints(IPlayer player, bool enemy = false)
     {
 
-        if (player == Player1 || player == Player3)
+        if (player.Team == Team.Team1)
         {
             return enemy ? _pointsTeam2 : _pointsTeam1;
         }
@@ -217,7 +218,7 @@ public class GameService
     
     private int GetTeamRoundPoints(IPlayer player, bool enemy = false)
     {
-        if (player == Player1 || player == Player3)
+        if (player.Team == Team.Team1)
         {
             return enemy ? Round.Team2Points : Round.Team1Points;
         }
@@ -337,7 +338,7 @@ public class GameService
         {
             // All players should have 6 cards, move to playing phase
             CurrentPhase = GamePhase.Playing;
-            _logger.LogInformation("[{Room}] All cards distributed, moving to playing phase", RoomCode);
+            _logger.LogDebug("[{Room}] All cards distributed, moving to playing phase", RoomCode);
         }
         else
         {
@@ -377,25 +378,38 @@ public class GameService
                 )
             )
         {
-            _logger.LogDebug("[{Room}] New Trump Suit announced by player {Player} with card {Card}", RoomCode,player.Nickname, card.ShortName);
-            Round.TrumpSuit = card.Suit;
-            if (IsPlayerInTeam1(player))
-                Round.Team1Trumps += GetTrumpPoints(card.Suit);
+            if (Round.CurrentCardsOnTable.Count == 0) // announce trump right away
+            {
+                _logger.LogDebug("[{Room}] New Trump Suit announced by player {Player} with card {Card}", RoomCode,
+                    player.Nickname, card.ShortName);
+                Round.TrumpSuit = card.Suit;
+                Round.SuitToTeam.Add(new Tuple<CardSuit, Team>(card.Suit,
+                    player.Team ?? throw new ArgumentException("Team must be set at this point")));
+            }
             else
-                Round.Team2Trumps += GetTrumpPoints(card.Suit);
+            {
+                _logger.LogDebug("[{Room}] New Trump will be announced next round",RoomCode);
+                Round.QueuedTrumpSuit = card.Suit;
+            }
         }
         Round.CurrentCardsOnTable.Add(card);
         _logger.LogDebug("[{Room}] Player {Player} played card {Card}, and there are {X} cards on the table", RoomCode,player.Nickname, card.ShortName,Round.CurrentCardsOnTable.Count);
         if (Round.CurrentCardsOnTable.Count == 4)
         {
             CompleteTake();
+            //dequeue trump suit (if required)
+            if (Round.QueuedTrumpSuit != null)
+            {
+                Round.TrumpSuit = Round.QueuedTrumpSuit;
+                Round.QueuedTrumpSuit = null;
+            }
         }
         else
         {
             AdvanceTurn();
         }
     }
-
+    
     private static int GetTrumpPoints(CardSuit cardSuit)
     {
         return cardSuit switch
@@ -440,7 +454,7 @@ public class GameService
         var winner = DetermineTakeWinner();
         
         var trickPoints = Round.CurrentCardsOnTable.Sum(card => card.Points);
-        if (IsPlayerInTeam1(winner))
+        if (winner.Team == Team.Team1)
         {
             Round.Team1Points += trickPoints ;
         }
@@ -507,15 +521,22 @@ public class GameService
         }
         return playersOrder[winnerIdx];
     }
-    
+
+    private int TrumpPointsForTeam(Team team)
+    {
+        var trumps = Round.SuitToTeam.Where(x => x.Item2 == team);
+        return trumps.Sum(tuple => GetTrumpPoints(tuple.Item1));
+    }
+
     private void EndRound()
     {
-        _logger.LogInformation("[{Room}]  Round ended. Team 1 points: {PointsTeam1}, Team 2 points: {PointsTeam2}",RoomCode, Round.Team1Points, Round.Team2Points);
+        _logger.LogDebug("[{Room}]  Round ended. Team 1 points: {PointsTeam1}, Team 2 points: {PointsTeam2}",RoomCode, Round.Team1Points, Round.Team2Points);
+        
         // Check if the team that won the round has enough points to win the bet
         var betWinner = Round.CurrentBidWinner;
-        if (IsPlayerInTeam1(betWinner))
+        if (betWinner.Team == Team.Team1)
         {
-            var finalPoints = RoundTo10(Round.Team1Points + Round.Team1Trumps);
+            var finalPoints = RoundTo10(Round.Team1Points + TrumpPointsForTeam(Team.Team1));
             if (finalPoints >= Round.CurrentBet)
             {
                 _logger.LogDebug("[{Room}] Team 1 managed to get required points {Points}/{BetAmount} ",RoomCode, finalPoints ,Round.CurrentBet);
@@ -526,11 +547,11 @@ public class GameService
                 _logger.LogDebug("[{Room}] Team 2 failed to get required points {Points}/{BetAmount} ",RoomCode ,finalPoints ,Round.CurrentBet);
                 _pointsTeam1 -= Round.CurrentBet;
             }
-            _pointsTeam2 += Round.Team2Points + Round.Team2Trumps;
+            _pointsTeam2 += RoundTo10(Round.Team2Points + TrumpPointsForTeam(Team.Team2));
         }
         else
         {
-           var finalPoints = RoundTo10( Round.Team2Points + Round.Team2Trumps);
+           var finalPoints = RoundTo10( Round.Team2Points + TrumpPointsForTeam(Team.Team2));
             if (finalPoints >= Round.CurrentBet)
             {
                 _logger.LogDebug("[{Room}] Team 2 managed to get required points {Points}/{BetAmount} ",RoomCode,finalPoints ,Round.CurrentBet);
@@ -541,10 +562,10 @@ public class GameService
                 _logger.LogDebug("[{Room}] Team 1 failed to get required points {Points}/{BetAmount} ", RoomCode,finalPoints ,Round.CurrentBet);
                 _pointsTeam2 -= Round.CurrentBet;
             }
-            _pointsTeam1 += Round.Team1Points + Round.Team1Trumps;
+            _pointsTeam1 += RoundTo10(Round.Team1Points + TrumpPointsForTeam(Team.Team1));
         }
         
-        _logger.LogInformation("[{Room}] Points after round: Team 1: {PointsTeam1}, Team 2: {PointsTeam2}",RoomCode, _pointsTeam1, _pointsTeam2);
+        _logger.LogDebug("[{Room}] Points after round: Team 1: {PointsTeam1}, Team 2: {PointsTeam2}",RoomCode, _pointsTeam1, _pointsTeam2);
         if (_pointsTeam1 >= WinRequiredPoints || _pointsTeam2 >= WinRequiredPoints) 
         {
             _logger.LogInformation("[{Room}] Game over! Team 1 points: {PointsTeam1}, Team 2 points: {PointsTeam2}", RoomCode,_pointsTeam1, _pointsTeam2);
@@ -584,11 +605,6 @@ public class GameService
             ( deck[n], deck[k] ) = ( deck[k], deck[n] );
         }
         return deck;
-    }
-    
-    private bool IsPlayerInTeam1(IPlayer player)
-    {
-        return Players.Contains(player) && (player == Player1 || player == Player3);
     }
     
     private List<ICard> InitCards()

@@ -5,167 +5,38 @@ import { ImExit } from "react-icons/im";
 import React, { useState, useRef } from "react";
 import { createPortal } from "react-dom";
 
-import type { Card, Player, ChatMessage, GameUserContext, UpdateContext } from "./Models";
+import type { Card, ChatMessage, GameUserContext, UpdateContext } from "./Models";
+import BetModal from "../components/BetModal";
+import PlayerPosition from "../components/PlayerPosition";
+import CardHand from "../components/CardHand";
 
-const CARD_SVG_PATH = import.meta.env.VITE_CARD_SVG_PATH || "/public/assets/poker-qr/";
-const SUIT_ICONS: Record<number, string> = {
+export const CARD_SVG_PATH = import.meta.env.VITE_CARD_SVG_PATH || "/public/assets/poker-qr/";
+
+export const SUIT_ICONS: Record<number, string> = {
     1: '♠', // Spades
     2: '♣', // Clubs
     3: '♥', // Hearts
     4: '♦'  // Diamonds
 };
 
-// const CARD_RANKS: Record<number, string> = {
-//     1: 'A',
-//     2: 'K',
-//     3: 'Q',
-//     4: 'J',
-//     5: '10',
-//     6: '9'
-// };
+export const CARD_RANKS: Record<number, string> = {
+    1: 'A',
+    2: 'K',
+    3: 'Q',
+    4: 'J',
+    5: '10',
+    6: '9'
+};
 
-// const GAME_STAGES: Record<number, string> = {
-//     0: "Start",
-//     1: "Auction",
-//     2: "Card Distribution",
-//     3: "Playing",
-//     4: "End"
-// }
-function CardHand({ cards, onCardSelect, disabled = false, canPlayCard }: {
-    cards: Card[],
-    onCardSelect: (card: string) => void,
-    disabled?: boolean,
-    canPlayCard?: (card: Card) => boolean
-}) {
-    return (
-        <div className="flex gap-4 justify-center items-end w-full pb-8">
-            {cards.map(card => (
-                <button
-                    key={card.shortName}
-                    disabled={disabled || (canPlayCard ? !canPlayCard(card) : false)}
-                    onClick={() => onCardSelect(card.shortName)}
-                    className={`transition-all duration-200 transform hover:-translate-y-2 hover:scale-105 
-                                ${(disabled || (canPlayCard && !canPlayCard(card))) ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-                >
-                    <img
-                        src={`${CARD_SVG_PATH}${card.shortName}.svg`}
-                        alt={card.shortName}
-                        className="w-20 h-28 drop-shadow-lg"
-                    />
-                </button>
-            ))}
-        </div>
-    );
-}
-function PlayerPosition({ player, position, cardCount = 0, cardDirection, highlightGold, isSelectable, isSelected, onSelect }: {
-    player?: Player,
-    position: string,
-    isCurrentPlayer?: boolean,
-    cardCount?: number,
-    cardDirection?: 'normal' | 'left' | 'right',
-    highlightGold?: boolean,
-    isSelectable?: boolean,
-    isSelected?: boolean,
-    onSelect?: () => void
-}) {
-    if (!player) return null;
-
-    // Ustal styl rotacji kart
-    let cardStyle = '';
-    if (cardDirection === 'left') cardStyle = 'rotate-[-90deg] origin-bottom left';
-    if (cardDirection === 'right') cardStyle = 'rotate-[90deg] origin-bottom right';
-
-    // Ustal flex-row dla linii kart
-    let cardRowClass = 'flex gap-0.5'; // zmniejsz gap
-    if (cardDirection === 'left') cardRowClass += ' flex-col-reverse';
-    if (cardDirection === 'right') cardRowClass += ' flex-col';
-
-    // Poprawne podświetlenie nicka na złoto
-    let playerClass = 'rounded-full px-4 py-2 mb-2 cursor-pointer ';
-    if (isSelected) {
-        playerClass += 'bg-red-600 text-white font-bold border-2 border-red-400 animate-pulse ';
-    } else if (highlightGold) {
-        playerClass += 'bg-yellow-400 text-black font-bold border-2 border-yellow-300 animate-pulse ';
-    } else {
-        playerClass += 'bg-gray-800 ';
-    }
-    if (!isSelectable) playerClass += ' cursor-default ';
-
-    return (
-        <div className={`absolute ${position} flex flex-col items-center`}>
-            <div className={playerClass} onClick={isSelectable && onSelect ? onSelect : undefined}>{player.nickname}</div>
-            <div className={cardRowClass}>
-                {Array.from({ length: cardCount }).map((_, idx) => (
-                    <div
-                        key={idx}
-                        className={`w-10 h-14 bg-blue-900 border-2 border-blue-700 rounded-md shadow-md ${cardStyle}`}
-                    />
-                ))}
-            </div>
-        </div>
-    );
+const GAME_STAGES: Record<number, string> = {
+    0: "Start",
+    1: "Auction",
+    2: "Card Distribution",
+    3: "Playing",
+    4: "End",
+    5: "undefined"
 }
 
-// Modal do betowania
-function BetModal({
-    open,
-    currentBet,
-    onRaise,
-    onLower,
-    onPass,
-    onAccept,
-    disabled,
-    minBet,
-}: {
-    open: boolean,
-    currentBet: number,
-    onRaise: () => void,
-    onLower: () => void,
-    onPass: () => void,
-    onAccept: () => void,
-    disabled?: boolean,
-    minBet: number,
-}) {
-    if (!open) return null;
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-            <div className="bg-gradient-to-br from-blue-900 via-gray-900 to-green-900 rounded-2xl p-8 shadow-2xl min-w-[340px] flex flex-col items-center border-4 border-blue-700 animate-fade-in">
-                <h2 className="text-3xl font-bold mb-4 text-white drop-shadow">Licytacja</h2>
-                <div className="mb-6 text-lg text-blue-200">Wybrany zakład: <span className="font-bold text-yellow-300 text-2xl">{currentBet}</span></div>
-                <div className="flex gap-4 mb-2">
-                    <button
-                        className="px-5 py-2 bg-gradient-to-r from-blue-500 to-blue-700 hover:from-blue-600 hover:to-blue-800 rounded-lg text-white font-semibold shadow-md text-lg transition-all duration-150 cursor-pointer"
-                        onClick={onRaise}
-                        disabled={disabled}
-                    >
-                        +10
-                    </button>
-                    <button
-                        className="px-5 py-2 bg-gradient-to-r from-blue-500 to-blue-700 hover:from-blue-600 hover:to-blue-800 rounded-lg text-white font-semibold shadow-md text-lg transition-all duration-150 cursor-pointer"
-                        onClick={onLower}
-                        disabled={disabled || currentBet <= minBet}
-                    >
-                        -10
-                    </button>
-                    <button
-                        className="px-5 py-2 bg-gradient-to-r from-gray-500 to-gray-700 hover:from-gray-600 hover:to-gray-800 rounded-lg text-white font-semibold shadow-md text-lg transition-all duration-150 cursor-pointer"
-                        onClick={onPass}
-                        disabled={disabled}
-                    >
-                        Pass
-                    </button>
-                    <button
-                        className="px-5 py-2 bg-gradient-to-r from-yellow-500 to-yellow-700 hover:from-yellow-600 hover:to-yellow-800 rounded-lg text-white font-semibold shadow-md text-lg transition-all duration-150 cursor-pointer"
-                        onClick={onAccept}
-                        disabled={disabled}
-                    >
-                        Akceptuj
-                    </button>
-                </div>
-            </div>
-        </div>
-    );
-}
 
 const Table = ({
     chatMessages,
@@ -178,7 +49,7 @@ const Table = ({
 }) => {
     const navigate = useNavigate();
     const [message, setMessage] = useState("");
-    const [showChat, setShowChat] = useState(true);
+    const [showChat, setShowChat] = useState(false);
     const gameCtx = updateCtx?.gameCtx;
     const gameUserCtx = updateCtx?.userCtx || null;
     // const [betModalOpen, setBetModalOpen] = useState(false);
@@ -194,6 +65,7 @@ const Table = ({
         if (gameCtx?.gamePhase === 2) {
             setPlayersGivenCard([]);
         }
+        console.log("Game phase:", GAME_STAGES[gameCtx?.gamePhase ?? 5])
     }, [gameCtx?.gamePhase]);
 
     const [selectedPlayer, setSelectedPlayer] = useState<string | null>(null);
@@ -249,11 +121,21 @@ const Table = ({
     };
     const handleLeaveRoom = () => {
         GameService.connection?.invoke("LeaveGame", gameCode)
-            .catch(err => console.error("Error leaving room:", err));
+            .catch(err => console.error("Error leaving game:", err));
         navigate("/", { replace: true })
     }
 
     const tableRef = useRef<HTMLDivElement>(null);
+    // Ref do zapamiętania kto zaczynał lewę (pierwszy gracz w tej lewie)
+    const firstPlayerInTrick = useRef<string | null>(null);
+    // Ustawiamy na początku lewy
+    React.useEffect(() => {
+        if (gameCtx?.cardsOnTable?.length === 0) {
+            firstPlayerInTrick.current = null;
+        } else if (gameCtx?.cardsOnTable?.length === 1) {
+            firstPlayerInTrick.current = gameCtx.currentPlayer.connectionId;
+        }
+    }, [gameCtx?.cardsOnTable?.length, gameCtx?.currentPlayer.connectionId]);
     const [flyingCard, setFlyingCard] = useState<null | { card: Card, to: string, from: string }>(null);
 
     // Function for handling card selection
@@ -441,15 +323,51 @@ const Table = ({
                                 onSelect={() => handleSelectPlayer(gameUserCtx?.rightPlayer?.connectionId)}
                             />
                             {/* Cards on table (center) */}
-                            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex gap-4">
-                                {gameCtx?.cardsOnTable?.map((card, idx) => (
-                                    <img
-                                        key={card.shortName + idx}
-                                        src={`${CARD_SVG_PATH}${card.shortName}.svg`}
-                                        alt={card.shortName}
-                                        className="w-16 h-24 drop-shadow-lg"
-                                    />
-                                ))}
+                            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full pointer-events-none">
+                                {(() => {
+                                    if (!gameCtx?.cardsOnTable?.length || !gameUserCtx) return null;
+                                    // Kolejność graczy w tej lewie (me, left, teammate, right)
+                                    const playerOrder = [
+                                        gameUserCtx.me?.connectionId,
+                                        gameUserCtx.leftPlayer?.connectionId,
+                                        gameUserCtx.teammate?.connectionId,
+                                        gameUserCtx.rightPlayer?.connectionId
+                                    ];
+                                    // Indeks gracza, który był pierwszy w tej lewie
+                                    const firstIdx = firstPlayerInTrick.current ? playerOrder.indexOf(firstPlayerInTrick.current) : 0;
+                                    // Pozycje na stole w plusa
+                                    const positions = ['right', 'bottom', 'left', 'top'];
+                                    const shiftedPositions = positions.slice(firstIdx).concat(positions.slice(0, firstIdx));
+                                    // Render kart
+                                    return gameCtx.cardsOnTable.map((card, idx) => {
+                                        let style: React.CSSProperties = {
+                                            position: 'absolute',
+                                            left: '50%',
+                                            top: '50%',
+                                            width: '64px',
+                                            height: '96px',
+                                            transform: 'translate(-50%, -50%)',
+                                            zIndex: 10 + idx,
+                                        };
+                                        let rotation = 0;
+                                        let offsetX = 0, offsetY = 0;
+                                        const pos = shiftedPositions[idx];
+                                        if (pos === 'bottom') { offsetY = 60; rotation = 0; }
+                                        if (pos === 'left') { offsetX = -70; rotation = -90; }
+                                        if (pos === 'top') { offsetY = -60; rotation = 180; }
+                                        if (pos === 'right') { offsetX = 70; rotation = 90; }
+                                        style.transform = `translate(-50%, -50%) translate(${offsetX}px, ${offsetY}px) rotate(${rotation}deg)`;
+                                        return (
+                                            <img
+                                                key={card.shortName + idx}
+                                                src={`${CARD_SVG_PATH}${card.shortName}.svg`}
+                                                alt={card.shortName}
+                                                style={style}
+                                                className="drop-shadow-lg"
+                                            />
+                                        );
+                                    });
+                                })()}
                             </div>
                         </div>
                         {/* Card Hand */}
@@ -461,7 +379,7 @@ const Table = ({
                                 canPlayCard={canPlayCard}
                             />
                         </div>
-                        {/* Bet Modal - restyled */}
+                        {/* Bet Modal */}
                         <BetModal
                             open={gameCtx?.gamePhase === 1 && isCurrentPlayer}
                             currentBet={bet}
@@ -495,11 +413,8 @@ const Table = ({
 
 export default Table;
 
-// Animacje do tailwind.config.js lub index.css:
-
-// Komponent animacji lecenia karty
 function FlyingCardAnimation({ card, to, tableRef, gameUserCtx }: { card: Card, to: string, tableRef: React.RefObject<HTMLDivElement>, gameUserCtx: GameUserContext | null }) {
-    // Ustal pozycje startową (środek ręki) i końcową (gracz lub środek stołu)
+
     const getTargetPos = () => {
         if (!tableRef.current) return { x: 0, y: 0 };
         const rect = tableRef.current.getBoundingClientRect();
@@ -532,7 +447,3 @@ function FlyingCardAnimation({ card, to, tableRef, gameUserCtx }: { card: Card, 
         />
     );
 }
-
-// Do index.css:
-// @keyframes fly-card { from { transform: translate(0,0) scale(1); opacity: 1; } to { transform: translate(var(--fly-x), var(--fly-y)) scale(0.7) rotate(10deg); opacity: 0.7; } }
-// .animate-fly-card { animation: fly-card 0.45s cubic-bezier(0.22,1,0.36,1) forwards; }
