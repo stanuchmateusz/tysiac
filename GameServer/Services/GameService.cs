@@ -66,12 +66,21 @@ public class GameService
         
         
     }
+    
+    /// <summary>
+    /// Pauses the game and increments the count of disconnected players.
+    /// </summary>
     public void PauseGame()
     {
         DisconnectedPlayersCount++;
         _logger.LogInformation("[{Room}] Game paused", RoomCode);
     }
     
+    /// <summary>
+    /// Attempts to resume a paused game.
+    /// Decrements the count of disconnected players. If all players are reconnected (DisconnectedPlayersCount is 0),
+    /// the game is resumed. Otherwise, it remains paused.
+    /// </summary>
     public void TryResumeGame()
     {
         DisconnectedPlayersCount--;
@@ -226,6 +235,13 @@ public class GameService
         return enemy ? Round.Team1Points : Round.Team2Points;
     }
     
+    /// <summary>
+    /// Retrieves the current overall state of the game.
+    /// This includes information about whose turn it is, the current game phase,
+    /// cards currently on the table, the trump suit, the current bid, and the count of disconnected players.
+    /// </summary>
+    /// <returns>A <see cref="GameContext"/> object representing the current state of the game.</returns>
+    /// <exception cref="InvalidOperationException">Thrown if the turn queue is empty, which can happen in certain uninitialized states.</exception>
     public GameContext GetGameState()
     {
         return new GameContext(
@@ -237,7 +253,15 @@ public class GameService
                 DisconnectedPlayersCount
             );
     }
-
+    
+    /// <summary>
+    /// Retrieves the context for a specific player, including their identity, teammate, adjacent players,
+    /// and current team scores (both overall and for the current round).
+    /// </summary>
+    /// <param name="player">The player for whom to get the user context.</param>
+    /// <returns>A <see cref="UserContext"/> object containing player-specific game state information.</returns>
+    /// <exception cref="ArgumentNullException">Thrown if the input <paramref name="player"/> is null.</exception>
+    /// <exception cref="ArgumentException">Thrown if the <paramref name="player"/>'s teammate cannot be found (which implies an invalid game state).</exception>
     public UserContext GetUserState(IPlayer player)
     {
         var teammate = GetTeammate(player);
@@ -264,12 +288,22 @@ public class GameService
         Round.Musik = _deck.ToList();
         _deck.Clear();
     }
-
+    
+    /// <summary>
+    /// Retrieves a player from the current game room based on their connection ID.
+    /// </summary>
+    /// <param name="contextConnectionId">The connection ID of the player to find.</param>
+    /// <returns>The <see cref="IPlayer"/> object if found; otherwise, <c>null</c>.</returns>
     public IPlayer? GetPlayerFromRoom(string contextConnectionId)
     {
         return Players.FirstOrDefault(p => p.ConnectionId == contextConnectionId);
     }
     
+    /// <summary>
+    /// Starts the game if there are exactly four players.
+    /// Deals cards to all players and transitions the game to the <c>GamePhase.Auction</c> phase.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">Thrown if the number of players is not equal to 4.</exception>
     public void StartGame()
     {
         if (Players.Count != 4)
@@ -285,6 +319,15 @@ public class GameService
         Round.CurrentBet = 100;
     }
     
+    /// <summary>
+    /// Allows a player to place a bid during the auction phase.
+    /// The bid must be higher than the current highest bid.
+    /// If the bid is valid, the player becomes the current highest bidder, and the turn is advanced.
+    /// This method should only be used during the <c>GamePhase.Auction</c>.
+    /// </summary>
+    /// <param name="player">The player placing the bid.</param>
+    /// <param name="bid">The amount of the bid.</param>
+    /// <exception cref="ArgumentException">Thrown if the bid is not higher than the current highest bid.</exception>
     public void PlaceBid(IPlayer player, int bid)
     {
         if (bid <= Round.CurrentBet) throw new ArgumentException("Bid must be higher");
@@ -294,6 +337,13 @@ public class GameService
         AdvanceTurn();
     }
     
+    /// <summary>
+    /// Allows a player to pass their turn during the auction phase.
+    /// If three players have passed, the auction ends, the current highest bidder wins,
+    /// receives the 'musik' cards, and the game transitions to the <c>GamePhase.CardDistribution</c> phase.
+    /// The turn is advanced after the pass. This method should only be used during the <c>GamePhase.Auction</c>.
+    /// </summary>
+    /// <param name="player">The player who is passing the bid.</param>
     public void PassBid(IPlayer player)
     {
         Round.Pass.Add(player);
@@ -313,6 +363,22 @@ public class GameService
         winner.Hand.AddRange(Round.Musik);
     }
     
+    /// <summary>
+    /// Allows the auction winner (distributor) to give one of their surplus cards to another player (target).
+    /// This method is used exclusively during the <c>GamePhase.CardDistribution</c> phase.
+    /// After successfully transferring a card, if the distributor is left with 6 cards, the game phase changes to <c>GamePhase.Playing</c>.
+    /// Otherwise, the turn remains with the distributor to continue distributing cards.
+    /// </summary>
+    /// <param name="distributor">The player distributing the card (the auction winner).</param>
+    /// <param name="cardToGiveShortName">The short name of the card to be given.</param>
+    /// <param name="target">The player who will receive the card.</param>
+    /// <exception cref="InvalidOperationException">Thrown when:
+    /// - The current game phase is not <c>GamePhase.CardDistribution</c>.
+    /// - The distributor attempts to give a card to themselves.
+    /// - It is not the distributor's turn.
+    /// - The distributor has already distributed all their surplus cards (has 6 or fewer cards).
+    /// - The distributor does not have the specified card in their hand.
+    /// </exception>
     public void DistributeCard(IPlayer distributor, string cardToGiveShortName, IPlayer target)
     {
         if (CurrentPhase != GamePhase.CardDistribution)
@@ -320,21 +386,25 @@ public class GameService
 
         if (distributor == target)
             throw new InvalidOperationException("Can't give yourself a card!");
-
-        var distributorRef = distributor;
-        var targetRef = target;
-        if (distributorRef == null || targetRef == null)
-            throw new InvalidOperationException("Invalid player reference");
-        var cardToGive = distributorRef.Hand.FirstOrDefault(c => c.ShortName == cardToGiveShortName);
+        
+        if (distributor != Round.TurnQueue.Peek())
+            throw new InvalidOperationException("It's not your turn");
+        
+        if (distributor.Hand.Count <= 6)
+        {
+            throw new InvalidOperationException("You have already distributed all your cards");
+        }
+        
+        var cardToGive = distributor.Hand.FirstOrDefault(c => c.ShortName == cardToGiveShortName);
         
         if (cardToGive == null)
-            throw new InvalidOperationException($"{distributorRef} doesn't have a card {cardToGive}");
+            throw new InvalidOperationException($"{distributor} doesn't have a card {cardToGive}");
 
-        distributorRef.Hand.Remove(cardToGive);
-        targetRef.Hand.Add(cardToGive);
+        distributor.Hand.Remove(cardToGive);
+        target.Hand.Add(cardToGive);
         
         // check if all cards are distributed
-        if (distributorRef.Hand.Count == 6)
+        if (distributor.Hand.Count == 6)
         {
             // All players should have 6 cards, move to playing phase
             CurrentPhase = GamePhase.Playing;
@@ -346,6 +416,20 @@ public class GameService
         }
     }
     
+    /// <summary>
+    /// Plays a card, and advances the turn.
+    /// Use Only in <c>GamePhase.Playing</c>. 
+    /// <param name="player">Player that is playing the card</param>
+    /// <param name="card">Card to play</param>
+    ///  <exception cref="InvalidOperationException">
+    ///  <list type="bullet">
+    /// <item><term>Thrown when it's not the player's turn</term></item>
+    /// <item><term>Thrown when player doesn't have the card on his hand </term></item>
+    /// <item><term>Thrown when GamePhase is not <c>GamePhase.Playing</c></term></item>
+    /// <item> <term>Thrown when card is not valid to play</term></item>
+    /// </list>
+    /// </exception>
+    /// </summary>
     public void PlayCard(IPlayer player, ICard card)
     {
         if (player != Round.TurnQueue.Peek())
@@ -353,7 +437,10 @@ public class GameService
         
         if (!player.Hand.Contains(card))
             throw new InvalidOperationException("Card not in hand");
-        
+
+        if (CurrentPhase != GamePhase.Playing)
+            throw new InvalidOperationException("Invalid gamePhase:" + CurrentPhase);
+                
         var firstCardOnTheTable = Round.CurrentCardsOnTable.FirstOrDefault();
         var lastCardOnTheTable = Round.CurrentCardsOnTable.LastOrDefault();
         
@@ -422,7 +509,7 @@ public class GameService
         };
     }
 
-    public bool CanPlay(ICard cardToPlay, ICard firstOnStack,List<ICard> playersCards)
+    private bool CanPlay(ICard cardToPlay, ICard firstOnStack,List<ICard> playersCards)
     {
         var isSuitValid = cardToPlay.Suit == firstOnStack.Suit;
         if (isSuitValid)
@@ -449,6 +536,7 @@ public class GameService
     {
         return ((value + 5) / 10) * 10;
     }
+    
     private void CompleteTake()
     {
         var winner = DetermineTakeWinner();

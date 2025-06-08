@@ -192,7 +192,7 @@ public class GameHub(GameManager gameManager, LobbyService lobbyService, ILogger
         if (table == null)
             throw new HubException("Game not found");
         table.StartGame();
-        await Clients.Group(roomCode).SendAsync("GameStarted");//todo sprawdzić czy to jest potrzebne
+        await Clients.Group(roomCode).SendAsync("GameStarted");
         await NotifyUpdatedGameState(roomCode);
     }
     
@@ -225,7 +225,9 @@ public class GameHub(GameManager gameManager, LobbyService lobbyService, ILogger
         var table = gameManager.GetRoom(roomCode);
         if (table == null)
             throw new HubException("Game not found");
-        var player = table.Players.First(p => p.ConnectionId == Context.ConnectionId);
+        var player = table.GetPlayerFromRoom(Context.ConnectionId);
+        if (player == null)
+            throw new HubException("Player not found in room");
         table.PlaceBid(player, bid);
         await NotifyUpdatedGameState(roomCode);
     }
@@ -250,6 +252,8 @@ public class GameHub(GameManager gameManager, LobbyService lobbyService, ILogger
     public async Task PassBid(string roomCode)
     {
         var table = gameManager.GetRoom(roomCode);
+        if (table == null)
+            throw new HubException("Game not found");
         var player = table.GetPlayerFromRoom(Context.ConnectionId);
         if (player == null)
             throw new HubException("Player not found in room");
@@ -285,11 +289,9 @@ public class GameHub(GameManager gameManager, LobbyService lobbyService, ILogger
     
     private async Task NotifyUpdatedGameState(GameService gameService)
     {
-        // await Clients.Group(gameService.RoomCode).SendAsync(GameContextUpdateMethodName, gameService.GetGameState());
         var gameContext = gameService.GetGameState();
         foreach (var player in gameService.Players)
         {
-            // await Clients.Client(player.ConnectionId).SendAsync(GameUserContextUpdateMethodName, gameService.GetUserState(player));
             await Clients.Client(player.ConnectionId).SendAsync(UpdateMethodName, new UpdateContext
             {
                 GameCtx = gameContext,

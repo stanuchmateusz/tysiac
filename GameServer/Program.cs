@@ -10,19 +10,13 @@ builder.Host.UseSerilog((context, configuration) =>
     configuration.ReadFrom.Configuration(context.Configuration));
 
 builder.Services.AddSignalR();
+var corsOrigins = builder.Configuration.GetSection("Cors:Origins").Get<string[]>();
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.WithOrigins(
-            "http://localhost:5173",
-            "http://frontend:80",
-            "http://localhost:5224",
-            "http://localhost",
-            "http://192.168.1.46:5173",
-            "http://maszrum.crabdance.com:5173",
-            "https://maszrum.crabdance.com:5173"
-        )
+        policy.WithOrigins(corsOrigins ?? [])
         .AllowAnyHeader()
         .AllowAnyMethod()
         .AllowCredentials();
