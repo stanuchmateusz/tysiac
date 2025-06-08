@@ -660,14 +660,15 @@ public class GameService
             FinishGame();
             return;
         }
-        
-        if (_pointsTeam1 > 900) 
+
+        const int threshold = WinRequiredPoints - WinRequiredPoints / 10;
+        if (_pointsTeam1 > threshold) 
         { 
-            _pointsTeam1 = 900;
+            _pointsTeam1 = threshold;
         }
-        if (_pointsTeam2 > 900) 
+        if (_pointsTeam2 > threshold) 
         {
-            _pointsTeam2 = 900;
+            _pointsTeam2 = threshold;
         }
         
         CurrentPhase = GamePhase.Auction;

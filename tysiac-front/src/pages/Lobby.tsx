@@ -250,7 +250,7 @@ const Lobby = ({
                             )}
                         </div>
                     </div>
-                    <div className="w-full md:w-80 flex flex-col bg-gray-800 p-3 rounded-lg max-h-80">
+                    <div className="w-full md:w-80 flex flex-col bg-gray-800 p-3 rounded-lg  min-h-80 max-h-80">
                         <h2 className="text-2xl font-semibold mb-2">Chat</h2>
                         <div className="flex-1 overflow-y-auto mb-2">
                             {chatMessages.map((msg, index) => (

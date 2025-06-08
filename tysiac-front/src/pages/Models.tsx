@@ -25,7 +25,7 @@ export interface ChatMessage {
     message: string;
 }
 export interface Card {
-    name: number;
+    rank: number;
     suit: number;
     points: number;
     shortName: string;

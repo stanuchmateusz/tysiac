@@ -63,10 +63,12 @@ const StartGame = () => {
 
         if (!validateNickname(nickname)) {
             console.error("Nieprawidłowy pseudonim. Upewnij się, że ma od 3 do 20 znaków i zawiera tylko litery, cyfry lub podkreślenia.");
+            setRoomError("Nieprawidłowy pseudonim. Upewnij się, że ma od 3 do 20 znaków i zawiera tylko litery, cyfry lub podkreślenia.")
             return;
         }
         if (!isReady) {
             console.warn("Połączenie nie jest jeszcze gotowe.");
+            setConnectionError("Połączenie nie jest jeszcze gotowe.")
             return;
         }
         GameService.createRoom(nickname)

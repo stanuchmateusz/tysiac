@@ -19,7 +19,7 @@ export default function CardHand({ cards, onCardSelect, disabled = false, canPla
                 >
                     <img
                         src={`${CARD_SVG_PATH}${card.shortName}.svg`}
-                        alt={`${CARD_RANKS[card.name]} ${SUIT_ICONS[card.suit]}`}
+                        alt={`${CARD_RANKS[card.rank]} ${SUIT_ICONS[card.suit]}`}
                         className="w-20 h-28 drop-shadow-lg"
                     />
                 </button>
