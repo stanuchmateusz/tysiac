@@ -4,12 +4,8 @@
 ## Todo: 
 * Walidacja w CanPlay nie weryfikuje tego że trzeba przebić - do weryfikacji
 * Brak ładnych animacji
-* Wznawianie sesji
-* Dołączanie przez link
-* lobby - mieszanie teamu
-* chat nie działa w trybie mobilnym - bo tak XD
-* poprawić originsy na backendize
+* Wznawianie sesji + Dołączanie przez link
+* Lobby - mieszanie teamu
 * Failed to copy code: TypeError: navigator.clipboard is undefined - not working if page is not secure
-* layot kart na środku plusik
-* przejście między rundami
-* widac kto spasował
+* Layot kart na środku plusik
+* Przejście między rundami + widac kto spasował
