@@ -9,8 +9,8 @@ public class GameContext(
     List<ICard> cardsOnTable,
     CardSuit trumpSuit,
     int currentBet,
-    int disconnectedPlayerCount
-    )
+    int disconnectedPlayerCount,
+    HashSet<IPlayer> passedPlayers)
 {
     public IPlayerBase CurrentPlayer { get; } = currentPlayer;
     public GamePhase GamePhase { get; } = gamePhase;
@@ -18,4 +18,6 @@ public class GameContext(
     public CardSuit TrumpSuit { get; } = trumpSuit;
     public int CurrentBet { get; } = currentBet;
     public int DisconnectedPlayerCount { get; } = disconnectedPlayerCount;
+    public HashSet<IPlayer> PassedPlayers { get; } = passedPlayers;
+    
 }

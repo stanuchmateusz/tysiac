@@ -181,7 +181,9 @@ const Table = ({
         const trumpSuit = gameCtx.trumpSuit;
         const hand = gameUserCtx.hand;
         const handWithoutPlayedCard = hand.filter(c => c != card)
-        const minReqPoint = firstCardInTake.points;
+        //todo z suit taki jak first in take z najwększą wartościa 
+
+        const minReqPoint = Math.max(...gameCtx.cardsOnTable.filter(c => c.suit == firstCardInTake.suit).map(o => o.points)) ?? firstCardInTake.points;
 
         if (card.suit === firstCardInTake.suit && (card.points > minReqPoint || !(handWithoutPlayedCard.find(c => (c.suit == card.suit && c.points > minReqPoint))))) { //i nie moze przebić inną 
             console.log("Same color - can play", card.shortName);
@@ -330,6 +332,7 @@ const Table = ({
                                 highlightGold={gameCtx?.currentPlayer.connectionId === gameUserCtx?.teammate.connectionId}
                                 isSelectable={gameCtx?.gamePhase === 2 && isCurrentPlayer && !playersGivenCard.includes(gameUserCtx?.teammate?.connectionId || '')}
                                 isSelected={selectedPlayer === gameUserCtx?.teammate?.connectionId}
+                                hasPassed={gameCtx?.gamePhase === 1 && !!gameCtx?.passedPlayers?.find(p => p.connectionId === gameUserCtx?.teammate?.connectionId)}
                                 onSelect={() => handleSelectPlayer(gameUserCtx?.teammate?.connectionId)}
                             />
                             <PlayerPosition
@@ -340,6 +343,7 @@ const Table = ({
                                 highlightGold={gameCtx?.currentPlayer.connectionId === gameUserCtx?.leftPlayer.connectionId}
                                 isSelectable={gameCtx?.gamePhase === 2 && isCurrentPlayer && !playersGivenCard.includes(gameUserCtx?.leftPlayer?.connectionId || '')}
                                 isSelected={selectedPlayer === gameUserCtx?.leftPlayer?.connectionId}
+                                hasPassed={gameCtx?.gamePhase === 1 && !!gameCtx?.passedPlayers?.find(p => p.connectionId === gameUserCtx?.leftPlayer?.connectionId)}
                                 onSelect={() => handleSelectPlayer(gameUserCtx?.leftPlayer?.connectionId)}
                             />
                             <PlayerPosition
@@ -350,6 +354,7 @@ const Table = ({
                                 highlightGold={gameCtx?.currentPlayer.connectionId === gameUserCtx?.rightPlayer.connectionId}
                                 isSelectable={gameCtx?.gamePhase === 2 && isCurrentPlayer && !playersGivenCard.includes(gameUserCtx?.rightPlayer?.connectionId || '')}
                                 isSelected={selectedPlayer === gameUserCtx?.rightPlayer?.connectionId}
+                                hasPassed={gameCtx?.gamePhase === 1 && !!gameCtx?.passedPlayers?.find(p => p.connectionId === gameUserCtx?.rightPlayer?.connectionId)}
                                 onSelect={() => handleSelectPlayer(gameUserCtx?.rightPlayer?.connectionId)}
                             />
                             {/* Cards on table (center) */}

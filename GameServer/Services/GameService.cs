@@ -250,7 +250,8 @@ public class GameService
                 Round.CurrentCardsOnTable,
                 Round.TrumpSuit.GetValueOrDefault(),
                 Round.CurrentBet,
-                DisconnectedPlayersCount
+                DisconnectedPlayersCount,
+                Round.Pass
             );
     }
     
@@ -654,13 +655,18 @@ public class GameService
         }
         
         _logger.LogDebug("[{Room}] Points after round: Team 1: {PointsTeam1}, Team 2: {PointsTeam2}",RoomCode, _pointsTeam1, _pointsTeam2);
-        if (_pointsTeam1 >= WinRequiredPoints || _pointsTeam2 >= WinRequiredPoints) 
+
+        if (
+            (_pointsTeam1 >= WinRequiredPoints && Round.CurrentBidWinner.Team == Team.Team1) ||
+            (_pointsTeam2 >= WinRequiredPoints && Round.CurrentBidWinner.Team == Team.Team2) || 
+            _pointsTeam1 <= -WinRequiredPoints ||
+            _pointsTeam2 <= -WinRequiredPoints
+            ) 
         {
             _logger.LogInformation("[{Room}] Game over! Team 1 points: {PointsTeam1}, Team 2 points: {PointsTeam2}", RoomCode,_pointsTeam1, _pointsTeam2);
             FinishGame();
             return;
         }
-
         const int threshold = WinRequiredPoints - WinRequiredPoints / 10;
         if (_pointsTeam1 > threshold) 
         { 

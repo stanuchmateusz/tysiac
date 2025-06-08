@@ -38,6 +38,7 @@ export interface GameContext {
     trumpSuit: number;
     currentBet: number;
     disconnectedPlayerCount: number;
+    passedPlayers: Player[];
 }
 
 export interface GameUserContext {
