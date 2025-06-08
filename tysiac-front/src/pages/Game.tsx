@@ -20,6 +20,13 @@ const Game = () => {
         const connection = GameService.connection;
 
         if (!connection || connection.state === "Disconnected") {
+
+            var localId = localStorage.getItem("userId");
+
+            if (localId) {
+                console.debug("founf localId", localId)
+                //todo try to reconnect or joing lobby
+            }
             navigate("/");
             return;
         }
@@ -28,7 +35,7 @@ const Game = () => {
         const handleRoomUpdate = (lobbyCtx: LobbyContext) => {
             setLobbyContext(lobbyCtx);
             setMe(lobbyCtx.players.find(p => p.connectionId === connection.connectionId) || null);
-            localStorage.setItem("userId", me?.id || "");
+            // localStorage.setItem("userId", me?.id || "");
 
         };
 

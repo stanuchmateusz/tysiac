@@ -1,6 +1,6 @@
 import type { Player } from "../pages/Models";
 
-export default function PlayerPosition({ player, position, cardCount = 0, cardDirection, highlightGold, isSelectable, isSelected, onSelect, hasPassed }: {
+export default function PlayerPosition({ player, position, cardCount = 0, cardDirection, highlightGold, isSelectable, isTakeWinner, isSelected, onSelect, hasPassed }: {
     player?: Player,
     position: string,
     isCurrentPlayer?: boolean,
@@ -8,6 +8,7 @@ export default function PlayerPosition({ player, position, cardCount = 0, cardDi
     cardDirection?: 'normal' | 'left' | 'right',
     highlightGold?: boolean,
     hasPassed?: boolean,
+    isTakeWinner?: boolean,
     isSelectable?: boolean,
     isSelected?: boolean,
     onSelect?: () => void
@@ -35,7 +36,11 @@ export default function PlayerPosition({ player, position, cardCount = 0, cardDi
     } else if (hasPassed) {
         playerClass += 'bg-gray-800 text-gray-300 ';
         borderColorClass = 'border-green-400';
-    } else {
+    } else if (isTakeWinner) {
+        playerClass += 'bg-green-500 text-white ';
+        borderColorClass = 'border-green-400';
+    }
+    else {
         playerClass += 'bg-gray-800 text-white ';
     }
     playerClass += `border-2 ${borderColorClass} `;

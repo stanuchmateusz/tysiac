@@ -1,6 +1,7 @@
 ﻿using System.Text;
 using GameServer.Models;
 using GameServer.Models.Context;
+using GameServer.Models.Enums;
 using GameServer.Models.impl;
 using GameServer.Services;
 
@@ -276,7 +277,21 @@ public class GameHub(GameManager gameManager, LobbyService lobbyService, ILogger
             throw new HubException("Card not found in player's hand");
         table.PlayCard(player,card);
         
-        await NotifyUpdatedGameState(roomCode);
+        await NotifyUpdatedGameState(table);
+        if (table.CurrentPhase == GamePhase.ShowTable)
+        {
+            logger.LogDebug("GamePhase.ShowTable");
+            var updateCtx = Task.Run( async () =>
+            {
+                logger.LogDebug("Waiting to update");
+                await Task.Delay(2000);
+                table.CurrentPhase = GamePhase.Playing;
+                table.CompleteTake();
+                logger.LogDebug("Finished update");
+                await NotifyUpdatedGameState(table);
+            });
+            await updateCtx;
+        }
     }
 
     private async Task NotifyUpdatedGameState(string roomCode)

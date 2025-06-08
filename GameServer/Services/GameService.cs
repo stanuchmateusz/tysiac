@@ -24,9 +24,9 @@ public class GameService
     private int _pointsTeam1 = 0;
     private int _pointsTeam2 = 0;
 
-    private GamePhase CurrentPhase { get; set; } = GamePhase.Start;
+    public GamePhase CurrentPhase {  get; set; } = GamePhase.Start;
     public string RoomCode { get; }
-    public int DisconnectedPlayersCount { get; set; } = 0;
+    public int DisconnectedPlayersCount { get; private set; } = 0;
     
     public GameService(LobbyContext lobbyCtx, ILogger<GameService> logger)
     {
@@ -63,8 +63,6 @@ public class GameService
         Round.TurnQueue.Enqueue(Player4);
         Round.OrginalTurnQueue = new Queue<IPlayer>(Round.TurnQueue);
         Round.CurrentBidWinner = Player4;
-        
-        
     }
     
     /// <summary>
@@ -157,10 +155,7 @@ public class GameService
                     }
                     else
                     {
-                        // 4 cards on the table, we need to complete the take
-                        //todo pozwolić na przesłanie info o 4 karcie żeby wyświetlić na ui
-                        // i potem timeout 2 sec i znów notyfikacja 
-                        CompleteTake();
+                        throw new InvalidOperationException("Invalid state - you shouldn't be here if there are 4 cards on the table");
                     }
 
                     break;
@@ -168,6 +163,7 @@ public class GameService
                 case GamePhase.Start:
                 case GamePhase.CardDistribution:
                 case GamePhase.GameOver:
+                case GamePhase.ShowTable:
                     break;
                 default:
                     throw new ArgumentOutOfRangeException("Unknown game phase: " + CurrentPhase);
@@ -251,10 +247,10 @@ public class GameService
                 Round.TrumpSuit.GetValueOrDefault(),
                 Round.CurrentBet,
                 DisconnectedPlayersCount,
-                Round.Pass
+                Round.Pass,
+                CurrentPhase == GamePhase.ShowTable ? DetermineTakeWinner() : null
             );
     }
-    
     /// <summary>
     /// Retrieves the context for a specific player, including their identity, teammate, adjacent players,
     /// and current team scores (both overall and for the current round).
@@ -484,7 +480,9 @@ public class GameService
         _logger.LogDebug("[{Room}] Player {Player} played card {Card}, and there are {X} cards on the table", RoomCode,player.Nickname, card.ShortName,Round.CurrentCardsOnTable.Count);
         if (Round.CurrentCardsOnTable.Count == 4)
         {
-            CompleteTake();
+            CurrentPhase = GamePhase.ShowTable;   
+            
+            // CompleteTake();
             //dequeue trump suit (if required)
             if (Round.QueuedTrumpSuit != null)
             {
@@ -538,7 +536,7 @@ public class GameService
         return ((value + 5) / 10) * 10;
     }
     
-    private void CompleteTake()
+    public void CompleteTake()
     {
         var winner = DetermineTakeWinner();
         

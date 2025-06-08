@@ -34,7 +34,8 @@ const GAME_STAGES: Record<number, string> = {
     2: "Card Distribution",
     3: "Playing",
     4: "End",
-    5: "undefined"
+    5: "ShowTable",
+    999: "undefined"
 }
 
 
@@ -66,7 +67,7 @@ const Table = ({
         if (gameCtx?.gamePhase === 2) {
             setPlayersGivenCard([]);
         }
-        console.log("Game phase:", GAME_STAGES[gameCtx?.gamePhase ?? 5])
+        console.log("Game phase:", GAME_STAGES[gameCtx?.gamePhase ?? 999])
         if (gameCtx?.gamePhase === 4) { //end game
             setShowEndGameModal(true);
         }
@@ -331,6 +332,7 @@ const Table = ({
                                 isSelectable={gameCtx?.gamePhase === 2 && isCurrentPlayer && !playersGivenCard.includes(gameUserCtx?.teammate?.connectionId || '')}
                                 isSelected={selectedPlayer === gameUserCtx?.teammate?.connectionId}
                                 hasPassed={gameCtx?.gamePhase === 1 && !!gameCtx?.passedPlayers?.find(p => p.connectionId === gameUserCtx?.teammate?.connectionId)}
+                                isTakeWinner={gameCtx?.gamePhase === 5 && gameCtx?.takeWinner?.connectionId === gameUserCtx?.teammate?.connectionId}
                                 onSelect={() => handleSelectPlayer(gameUserCtx?.teammate?.connectionId)}
                             />
                             <PlayerPosition
@@ -342,6 +344,7 @@ const Table = ({
                                 isSelectable={gameCtx?.gamePhase === 2 && isCurrentPlayer && !playersGivenCard.includes(gameUserCtx?.leftPlayer?.connectionId || '')}
                                 isSelected={selectedPlayer === gameUserCtx?.leftPlayer?.connectionId}
                                 hasPassed={gameCtx?.gamePhase === 1 && !!gameCtx?.passedPlayers?.find(p => p.connectionId === gameUserCtx?.leftPlayer?.connectionId)}
+                                isTakeWinner={gameCtx?.gamePhase === 5 && gameCtx?.takeWinner?.connectionId === gameUserCtx?.leftPlayer?.connectionId}
                                 onSelect={() => handleSelectPlayer(gameUserCtx?.leftPlayer?.connectionId)}
                             />
                             <PlayerPosition
@@ -353,6 +356,7 @@ const Table = ({
                                 isSelectable={gameCtx?.gamePhase === 2 && isCurrentPlayer && !playersGivenCard.includes(gameUserCtx?.rightPlayer?.connectionId || '')}
                                 isSelected={selectedPlayer === gameUserCtx?.rightPlayer?.connectionId}
                                 hasPassed={gameCtx?.gamePhase === 1 && !!gameCtx?.passedPlayers?.find(p => p.connectionId === gameUserCtx?.rightPlayer?.connectionId)}
+                                isTakeWinner={gameCtx?.gamePhase === 5 && gameCtx?.takeWinner?.connectionId === gameUserCtx?.rightPlayer?.connectionId}
                                 onSelect={() => handleSelectPlayer(gameUserCtx?.rightPlayer?.connectionId)}
                             />
                             {/* Cards on table (center) */}

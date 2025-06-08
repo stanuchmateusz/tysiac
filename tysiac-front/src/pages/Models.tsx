@@ -39,6 +39,7 @@ export interface GameContext {
     currentBet: number;
     disconnectedPlayerCount: number;
     passedPlayers: Player[];
+    takeWinner: Player | null;
 }
 
 export interface GameUserContext {

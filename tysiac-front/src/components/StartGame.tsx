@@ -47,6 +47,13 @@ const StartGame = () => {
                     .catch(() => {
                         setConnectionError("Błąd podczas nawiązywania połączenia z serwerem. Sprawdź połączenie internetowe i spróbuj ponownie.");
                         setIsReady(false);
+                        GameService.constructor()
+                        GameService.startConnection()
+                            .then(() => setIsReady(true))
+                            .catch(() => {
+                                setConnectionError("Błąd podczas nawiązywania połączenia z serwerem. Sprawdź połączenie internetowe i spróbuj ponownie.");
+                                setIsReady(false);
+                            });
                     }
                     );
             } else {

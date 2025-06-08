@@ -4,7 +4,6 @@ namespace GameServer.Models;
 
 public class Round
 {
-    
     public int CurrentBet = 100;
     
     public Queue<IPlayer> OrginalTurnQueue = new();

@@ -6,5 +6,6 @@ public enum GamePhase
     Auction,
     CardDistribution,
     Playing,
-    GameOver
+    GameOver,
+    ShowTable,
 }
