@@ -134,12 +134,12 @@ const Table = ({
     const firstPlayerInTrick = useRef<string | null>(null);
     // Ustawiamy na początku lewy
     React.useEffect(() => {
-        if (gameCtx?.cardsOnTable?.length === 0) {
-            firstPlayerInTrick.current = null;
-        } else if (gameCtx?.cardsOnTable?.length === 1) {
+        if (gameCtx && gameCtx.cardsOnTable && gameCtx.cardsOnTable.length === 0 && gameCtx.currentPlayer) {
+            // Nowa lewa się zaczyna, gameCtx.currentPlayer jest prowadzącym.
             firstPlayerInTrick.current = gameCtx.currentPlayer.connectionId;
         }
-    }, [gameCtx?.cardsOnTable?.length, gameCtx?.currentPlayer.connectionId]);
+        // Kiedy cardsOnTable.length > 0, firstPlayerInTrick.current powinien już przechowywać ID prowadzącego w tej lewie.
+    }, [gameCtx?.cardsOnTable, gameCtx?.currentPlayer]);
     const [flyingCard, setFlyingCard] = useState<null | { card: Card, to: string, from: string }>(null);
 
     // Function for handling card selection
@@ -248,7 +248,7 @@ const Table = ({
                     </div>
                 </div>
             )}
-            <div className={`w-full max-w-6xl rounded-3xl shadow-2xl bg-gray-800/90 flex flex-col relative overflow-hidden border border-blue-900 ${showDisconnectedModal ? 'pointer-events-none select-none opacity-60' : ''}`}>
+            <div className={`w-full rounded-3xl shadow-2xl bg-gray-800/90 flex flex-col relative overflow-hidden border border-blue-900 ${showDisconnectedModal ? 'pointer-events-none select-none opacity-60' : ''}`}>
                 {/* Header */}
                 <div className="flex items-center justify-between px-8 py-6 border-b border-gray-700 bg-gradient-to-r from-blue-900/80 to-gray-900/80">
                     <div className="text-3xl font-bold text-white tracking-wide">Stół gry</div>
@@ -261,22 +261,20 @@ const Table = ({
                         </button>
                     </div>
                 </div>
+                {/* Game Info Bar */}
+                <div className="w-full flex justify-end items-center px-8 py-4 border-b border-gray-700 bg-gray-800/70">
+                    <div className="flex gap-4 items-center">
+                        {/* <span className="bg-blue-900/70 text-blue-200 px-4 py-2 rounded-lg font-semibold shadow">Faza: {gameCtx ? GAME_STAGES[gameCtx.gamePhase] : '-'}</span> */}
+                        <span className="bg-yellow-900/70 text-yellow-200 px-4 py-2 rounded-lg font-semibold shadow">Zakład: {gameCtx?.currentBet ?? '-'}</span>
+                        <span className="bg-green-900/70 text-green-200 px-4 py-2 rounded-lg font-semibold shadow">Meldunek: {gameCtx?.trumpSuit ? SUIT_ICONS[gameCtx.trumpSuit] : '-'}</span>
+                        <span className="bg-gradient-to-r from-blue-700 to-blue-900 text-white px-4 py-2 rounded-lg font-bold shadow">MY: {gameUserCtx?.myTeamScore ?? 0}</span>
+                        <span className="bg-gradient-to-r from-pink-700 to-pink-900 text-white px-4 py-2 rounded-lg font-bold shadow">WY: {gameUserCtx?.opponentScore ?? 0}</span>
+                    </div>
+                </div>
                 {/* Main Table Area */}
-                <div className="flex flex-row w-full min-h-[600px]">
+                <div className="flex flex-row w-full min-h-screen">
                     {/* Table Area */}
                     <div className="flex-1 flex flex-col items-center justify-center relative p-8">
-                        {/* Game Info Bar */}
-                        <div className="w-full flex justify-between items-center mb-6">
-                            <div className="flex gap-4 items-center">
-                            </div>
-                            <div className="flex gap-4 items-center">
-                                {/* <span className="bg-blue-900/70 text-blue-200 px-4 py-2 rounded-lg font-semibold shadow">Faza: {gameCtx ? GAME_STAGES[gameCtx.gamePhase] : '-'}</span> */}
-                                <span className="bg-yellow-900/70 text-yellow-200 px-4 py-2 rounded-lg font-semibold shadow">Zakład: {gameCtx?.currentBet ?? '-'}</span>
-                                <span className="bg-green-900/70 text-green-200 px-4 py-2 rounded-lg font-semibold shadow">Meldunek: {gameCtx?.trumpSuit ? SUIT_ICONS[gameCtx.trumpSuit] : '-'}</span>
-                                <span className="bg-gradient-to-r from-blue-700 to-blue-900 text-white px-4 py-2 rounded-lg font-bold shadow">MY: {gameUserCtx?.myTeamScore ?? 0}</span>
-                                <span className="bg-gradient-to-r from-pink-700 to-pink-900 text-white px-4 py-2 rounded-lg font-bold shadow">WY: {gameUserCtx?.opponentScore ?? 0}</span>
-                            </div>
-                        </div>
                         {/* Table and Players */}
                         <div className="relative w-full h-[400px] flex items-center justify-center" ref={tableRef}>
                             {/* Chat on the left, fixed position */}
@@ -326,7 +324,7 @@ const Table = ({
                             {/* Players around the table (without current user's hand) */}
                             <PlayerPosition
                                 player={gameUserCtx?.teammate}
-                                position="top-0 left-1/2 -translate-x-1/2"
+                                position="top-[-5rem] left-1/2 -translate-x-1/2" // Przesunięto wyżej
                                 cardCount={gameUserCtx?.teammateCards}
                                 cardDirection="normal"
                                 highlightGold={gameCtx?.currentPlayer.connectionId === gameUserCtx?.teammate.connectionId}
@@ -361,44 +359,53 @@ const Table = ({
                             <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full pointer-events-none">
                                 {(() => {
                                     if (!gameCtx?.cardsOnTable?.length || !gameUserCtx) return null;
-                                    // Kolejność graczy w tej lewie (me, left, teammate, right)
+
                                     const playerOrder = [
                                         gameUserCtx.me?.connectionId,
                                         gameUserCtx.leftPlayer?.connectionId,
                                         gameUserCtx.teammate?.connectionId,
                                         gameUserCtx.rightPlayer?.connectionId
                                     ];
-                                    // Indeks gracza, który był pierwszy w tej lewie
-                                    const firstIdx = firstPlayerInTrick.current ? playerOrder.indexOf(firstPlayerInTrick.current) : 0;
-                                    // Pozycje na stole w plusa
-                                    const positions = ['right', 'bottom', 'left', 'top'];
-                                    const shiftedPositions = positions.slice(firstIdx).concat(positions.slice(0, firstIdx));
+
+                                    const leaderId = firstPlayerInTrick.current;
+                                    const indexOfLeader = leaderId ? playerOrder.indexOf(leaderId) : -1;
+
+                                    if (indexOfLeader === -1 && gameCtx.cardsOnTable.length > 0) {
+                                        console.error("Lider lewy nie został znaleziony w playerOrder lub firstPlayerInTrick.current nie jest ustawiony.");
+                                        return null;
+                                    }
+
+
+                                    const slotNames = ['bottom', 'left', 'top', 'right'];
+
                                     // Render kart
-                                    return gameCtx.cardsOnTable.map((card, idx) => {
-                                        let style: React.CSSProperties = {
+                                    return gameCtx.cardsOnTable.map((card, cardIndexInTrick) => {
+                                        const style: React.CSSProperties = {
                                             position: 'absolute',
                                             left: '50%',
                                             top: '50%',
-                                            width: '64px',
-                                            height: '96px',
                                             transform: 'translate(-50%, -50%)',
-                                            zIndex: 10 + idx,
+                                            zIndex: 10 + cardIndexInTrick,
                                         };
                                         let rotation = 0;
                                         let offsetX = 0, offsetY = 0;
-                                        const pos = shiftedPositions[idx];
-                                        if (pos === 'bottom') { offsetY = 60; rotation = 0; }
-                                        if (pos === 'left') { offsetX = -70; rotation = -90; }
-                                        if (pos === 'top') { offsetY = -60; rotation = 180; }
-                                        if (pos === 'right') { offsetX = 70; rotation = 90; }
+
+
+                                        const playerVisualIndex = (indexOfLeader + cardIndexInTrick) % playerOrder.length;
+                                        const pos = slotNames[playerVisualIndex];
+
+                                        if (pos === 'bottom') { offsetY = 90; rotation = 0; }
+                                        if (pos === 'left') { offsetX = -90; rotation = -90; }
+                                        if (pos === 'top') { offsetY = -90; rotation = 180; }
+                                        if (pos === 'right') { offsetX = 90; rotation = 90; }
                                         style.transform = `translate(-50%, -50%) translate(${offsetX}px, ${offsetY}px) rotate(${rotation}deg)`;
                                         return (
                                             <img
-                                                key={card.shortName + idx}
+                                                key={card.shortName + cardIndexInTrick}
                                                 src={`${CARD_SVG_PATH}${card.shortName}.svg`}
                                                 alt={card.shortName}
                                                 style={style}
-                                                className="drop-shadow-lg"
+                                                className="drop-shadow-lg w-16 h-24"
                                             />
                                         );
                                     });
@@ -406,7 +413,7 @@ const Table = ({
                             </div>
                         </div>
                         {/* Card Hand */}
-                        <div className="w-full flex justify-center mt-8">
+                        <div className="w-full flex justify-center mt-48">
                             <CardHand
                                 cards={gameUserCtx?.hand || []}
                                 onCardSelect={handleCardSelect}
