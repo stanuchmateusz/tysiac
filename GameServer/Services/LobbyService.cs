@@ -16,6 +16,7 @@ public class LobbyService
         _lobbies.Add(roomCode,lobbyContext);
         return roomCode;
     }
+    
     public void JoinRoom(string roomCode, IPlayer player)
     {
         var lobby = GetRoom(roomCode);
@@ -24,7 +25,12 @@ public class LobbyService
             throw new HubException("Room is full");
     }
     
-    //return tru if lobby got removed
+    /// <summary>
+    ///  Removes player with provided connectionId from lobby
+    /// </summary>
+    /// <param name="roomCode">room code</param>
+    /// <param name="contextConnectionId">connection id of player</param>
+    /// <returns>true if the room was disposed</returns>
     public bool LeaveRoom(string roomCode,string contextConnectionId)
     {
         var lobbyContext = GetRoom(roomCode);
@@ -41,7 +47,7 @@ public class LobbyService
         
         return false;
     }
-    public bool AddToTeam1(LobbyContext lobby,IPlayer player)
+    public static bool AddToTeam1(LobbyContext lobby,IPlayer player)
     {
         if (lobby.Team1.Count == 2 || lobby.Team1.Contains(player))
             return false;
@@ -50,7 +56,7 @@ public class LobbyService
         return true;
     }
 
-    public bool AddToTeam2(LobbyContext lobby,IPlayer player)
+    public static bool AddToTeam2(LobbyContext lobby,IPlayer player)
     {
         if (lobby.Team2.Count == 2 || lobby.Team2.Contains(player))
             return false;
@@ -59,7 +65,7 @@ public class LobbyService
         return true;
     }
     
-    public bool AddPlayer(LobbyContext lobby, IPlayer player)
+    public static bool AddPlayer(LobbyContext lobby, IPlayer player)
     {
         if (lobby.Players.Count  == 4)
         {
@@ -69,7 +75,7 @@ public class LobbyService
         return true;
     }
 
-    public void RemovePlayer(LobbyContext lobby, IPlayer player)
+    public static void RemovePlayer(LobbyContext lobby, IPlayer player)
     {
         lobby.Team1.Remove(player);
         lobby.Team2.Remove(player);
@@ -81,7 +87,7 @@ public class LobbyService
         }
     }
     
-    public IPlayer GetPlayerFromRoom(LobbyContext lobbyContext, string contextConnectionId)
+    public static IPlayer GetPlayerFromRoom(LobbyContext lobbyContext, string contextConnectionId)
     {
         var player = lobbyContext.Players.FirstOrDefault(p => p.ConnectionId == contextConnectionId);
         if (player == null)

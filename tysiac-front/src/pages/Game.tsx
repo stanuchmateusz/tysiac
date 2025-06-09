@@ -4,6 +4,8 @@ import GameService from "../services/GameService";
 import Lobby from "./Lobby";
 import Table, { } from "./Table";
 import type { ChatMessage, LobbyContext, Player, UpdateContext } from "./Models";
+import MusicService from "../services/MusicService";
+import { getCookie, userIdCookieName } from "../utils/Cookies";
 
 
 const Game = () => {
@@ -21,10 +23,10 @@ const Game = () => {
 
         if (!connection || connection.state === "Disconnected") {
 
-            var localId = localStorage.getItem("userId");
+            var localId = getCookie(userIdCookieName);
 
             if (localId) {
-                console.debug("founf localId", localId)
+                console.debug("found localId", localId)
                 //todo try to reconnect or joing lobby
             }
             navigate("/");
@@ -43,7 +45,7 @@ const Game = () => {
             setUpdateContext(update);
             //todo tutaj?
             // localStorage.setItem("userId", update.userContext.me.id);
-            console.log("Update context received:", update);
+            console.debug("Update context received:", update);
         }
 
         // Handle incoming chat messages
@@ -69,6 +71,13 @@ const Game = () => {
             connection.off("GameCreated", handleGameCreated);
             connection.off("MessageRecieve", handleMessageReceive);
             connection.off("LobbyUpdate", handleRoomUpdate);
+        };
+    }, []);
+    useEffect(() => {
+        MusicService.playBackgroundMusic();
+
+        return () => {
+            MusicService.stopBackgroundMusic();
         };
     }, []);
 

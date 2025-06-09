@@ -1,0 +1,119 @@
+import React, { useState, useEffect } from 'react';
+import { IoMdClose } from 'react-icons/io';
+import { FaVolumeUp, FaVolumeMute } from 'react-icons/fa';
+import { getCookie, musicMutedCookieName, musicVolumeCookieName, setCookie, soundMutedCookieName, soundVolumeCookieName, userIdCookieName } from '../utils/Cookies';
+import MusicService from '../services/MusicService';
+
+
+
+
+interface OptionsProps {
+    isOpen: boolean;
+    onClose: () => void;
+}
+
+const Options: React.FC<OptionsProps> = ({ isOpen, onClose }) => {
+
+    const [musicVolume, setMusicVolume] = useState<number>(() => {
+        const savedMusicVolume = getCookie(musicVolumeCookieName);
+        return savedMusicVolume ? parseInt(savedMusicVolume, 10) : 20; // Domyślnie 20%
+    });
+    const [soundVolume, setSoundVolume] = useState<number>(() => {
+        const savedSoundVolume = getCookie(soundVolumeCookieName);
+        return savedSoundVolume ? parseInt(savedSoundVolume, 10) : 50; // Domyślnie 50%
+    });
+
+
+    const [isMusicMuted, setIsMusicMuted] = useState<boolean>(() => {
+        const savedMuteState = getCookie(musicMutedCookieName);
+        return savedMuteState === "true";
+    });
+    const [isSoundMuted, setIsSoundMuted] = useState<boolean>(() => {
+        const savedMuteState = getCookie(soundMutedCookieName);
+        return savedMuteState === "true";
+    });
+
+    const [playerId, setPlayerId] = useState<string | null>(null);
+
+
+    useEffect(() => {
+        setCookie(musicVolumeCookieName, musicVolume.toString(), 365);
+        if (!isMusicMuted) {
+            MusicService.setBackgroundMusicVolume(musicVolume);
+        }
+    }, [musicVolume, isMusicMuted]);
+
+    useEffect(() => {
+        setCookie(soundVolumeCookieName, soundVolume.toString(), 365);
+        if (!isSoundMuted) {
+            MusicService.setEffectsVolume(soundVolume);
+        }
+    }, [soundVolume, isSoundMuted]);
+
+
+    useEffect(() => {
+        setCookie(musicMutedCookieName, isMusicMuted.toString(), 365);
+        MusicService.setBackgroundMusicVolume(isMusicMuted ? 0 : musicVolume);
+    }, [isMusicMuted, musicVolume]);
+
+
+    useEffect(() => {
+        setCookie(soundMutedCookieName, isSoundMuted.toString(), 365);
+        MusicService.setEffectsVolume(isSoundMuted ? 0 : soundVolume);
+    }, [isSoundMuted, soundVolume]);
+
+
+    useEffect(() => {
+        const localId = getCookie(userIdCookieName);
+        if (localId) setPlayerId(localId);
+    }, []);
+
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 animate-fade-in">
+            <div className="bg-gradient-to-br from-gray-800 via-gray-900 to-blue-950 rounded-2xl p-6 shadow-2xl flex flex-col items-center border-2 border-blue-700 min-w-[320px] max-w-md w-full relative">
+                <button
+                    onClick={onClose}
+                    className="cursor-pointer absolute top-3 right-3 text-gray-400 hover:text-white transition-colors"
+                    aria-label="Zamknij ustawienia"
+                >
+                    <IoMdClose size={28} />
+                </button>
+                <h2 className="text-2xl font-bold mb-6 text-blue-300 drop-shadow-lg">Ustawienia</h2>
+                <div className="w-full mb-4">
+                    <div className="flex justify-between items-center mb-2">
+                        <label htmlFor="musicVolume" className="block text-lg text-gray-200">
+                            Głośność muzyki: <span className="font-bold text-blue-300">{isMusicMuted ? 'Wyciszona' : `${musicVolume}%`}</span>
+                        </label>
+                        <button onClick={() => setIsMusicMuted(!isMusicMuted)} className="text-xl p-2 hover:bg-gray-700 rounded-full text-gray-300 hover:text-white transition-colors" aria-label={isMusicMuted ? "Włącz muzykę" : "Wycisz muzykę"}>
+                            {isMusicMuted ? <FaVolumeMute /> : <FaVolumeUp />}
+                        </button>
+                    </div>
+                    <input type="range" id="musicVolume" min="0" max="100" value={musicVolume} onChange={(e) => setMusicVolume(parseInt(e.target.value, 10))} className={`w-full h-3 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500 ${isMusicMuted ? 'opacity-50 cursor-not-allowed' : ''}`} disabled={isMusicMuted} />
+                </div>
+                <div className="w-full mb-6">
+                    <div className="flex justify-between items-center mb-2">
+                        <label htmlFor="soundVolume" className="block text-lg text-gray-200">
+                            Głośność dźwięków: <span className="font-bold text-green-300">{isSoundMuted ? 'Wyciszone' : `${soundVolume}%`}</span>
+                        </label>
+                        <button onClick={() => setIsSoundMuted(!isSoundMuted)} className="text-xl p-2 hover:bg-gray-700 rounded-full text-gray-300 hover:text-white transition-colors" aria-label={isSoundMuted ? "Włącz dźwięki" : "Wycisz dźwięki"}>
+                            {isSoundMuted ? <FaVolumeMute /> : <FaVolumeUp />}
+                        </button>
+                    </div>
+                    <input
+                        type="range" id="soundVolume" min="0" max="100" value={soundVolume}
+                        onChange={(e) => setSoundVolume(parseInt(e.target.value, 10))}
+                        className={`w-full h-3 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-green-500 ${isSoundMuted ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        disabled={isSoundMuted}
+                    />
+                </div>
+                <p>
+                    <i>ID gracza: {playerId}</i>
+                </p>
+            </div>
+        </div>
+    );
+};
+
+export default Options;

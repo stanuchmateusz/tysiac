@@ -14,9 +14,6 @@ public class GameHub(GameManager gameManager, LobbyService lobbyService, ILogger
 {
     private const string LeaveGameMethodName = "LeaveGame";
     private const string GameCreatedMethodName = "GameCreated";
-    private const string GameContextUpdateMethodName = "GameContextUpdate";
-    private const string GameUserContextUpdateMethodName = "GameUserContextUpdate";
-    
     private const string UpdateMethodName = "UpdateContext";
     
     private const string MessageReceiveMethodName = "MessageRecieve";
@@ -90,12 +87,12 @@ public class GameHub(GameManager gameManager, LobbyService lobbyService, ILogger
         if (isTeam1)
         {
             logger.LogInformation("Joining {Nickname} team1", player.Nickname);
-            lobbyService.AddToTeam1(lobby,player );
+            LobbyService.AddToTeam1(lobby,player );
         }
         else
         {
             logger.LogInformation("Joining {Nickname} team2", player.Nickname);
-            lobbyService.AddToTeam2(lobby, player);
+            LobbyService.AddToTeam2(lobby, player);
         }
         await Clients.Groups(roomCode).SendAsync(LobbyUpdateMethodName, lobbyService.GetRoom(roomCode));
 

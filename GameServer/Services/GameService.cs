@@ -508,18 +508,22 @@ public class GameService
         };
     }
 
-    private bool CanPlay(ICard cardToPlay, ICard firstOnStack,List<ICard> playersCards)
+    private bool CanPlay(ICard cardToPlay, ICard firstOnStack, List<ICard> playersCards)
     {
+        var handWithoutPlayedCard = playersCards.Where(card => card != cardToPlay).ToArray();
+        var cardsOnTable = Round.CurrentCardsOnTable;
+        var minReqPoints = cardsOnTable.Where(card => card.Suit == firstOnStack.Suit).MaxBy(card => card.Points)!.Points;
+        
         var isSuitValid = cardToPlay.Suit == firstOnStack.Suit;
-        if (isSuitValid)
+        if (isSuitValid && (cardToPlay.Points > minReqPoints || !handWithoutPlayedCard.Any(card => card.Suit == cardToPlay.Suit && card.Points > minReqPoints))) 
         {
-            _logger.LogDebug("[{Room}] Card {Card} is valid to play - suit is ok",RoomCode, cardToPlay.ShortName);
+            _logger.LogDebug("[{Room}] Card {Card} is valid to play - suit is ok", RoomCode, cardToPlay.ShortName);
             return true;
         }
         var isTrumpValid = cardToPlay.Suit == Round.TrumpSuit;
-        if (isTrumpValid)
+        if (isTrumpValid && handWithoutPlayedCard.All(card => card.Suit != firstOnStack.Suit))
         {
-            _logger.LogDebug("[{Room}] Card {Card} is valid to play - trump suit is ok",RoomCode, cardToPlay.ShortName);
+            _logger.LogDebug("[{Room}] Card {Card} is valid to play - trump suit is ok", RoomCode, cardToPlay.ShortName);
             return true;
         }
         var noOtherOption =
