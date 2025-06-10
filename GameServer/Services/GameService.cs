@@ -467,14 +467,14 @@ public class GameService
                 _logger.LogDebug("[{Room}] New Trump Suit announced by player {Player} with card {Card}", RoomCode,
                     player.Nickname, card.ShortName);
                 Round.TrumpSuit = card.Suit;
-                Round.SuitToTeam.Add(new Tuple<CardSuit, Team>(card.Suit,
-                    player.Team ?? throw new ArgumentException("Team must be set at this point")));
             }
             else
             {
                 _logger.LogDebug("[{Room}] New Trump will be announced next round",RoomCode);
                 Round.QueuedTrumpSuit = card.Suit;
             }
+            Round.SuitToTeam.Add(new Tuple<CardSuit, Team>(card.Suit,
+                player.Team ?? throw new ArgumentException("Team must be set at this point")));
         }
         Round.CurrentCardsOnTable.Add(card);
         _logger.LogDebug("[{Room}] Player {Player} played card {Card}, and there are {X} cards on the table", RoomCode,player.Nickname, card.ShortName,Round.CurrentCardsOnTable.Count);
