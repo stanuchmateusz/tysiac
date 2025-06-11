@@ -1,12 +1,13 @@
 import { useState, useEffect } from "react";
 import GameService from "../services/GameService";
+import { ParseHubExcepion, MapErrorMessage } from "../utils/ErrorParser";
 import { useNavigate } from "react-router-dom";
 import * as signalR from "@microsoft/signalr";
 
-const StartGame = () => {
+const StartGame = ({ code }: { code: string | undefined }) => {
     const [nickname, setNickname] = useState("");
-    const [roomCode, setRoomCode] = useState("");
-    const [roomError, setRoomError] = useState("");
+    const [roomCode, setRoomCode] = useState(code ?? "");
+    const [lobbyJoinError, setLobbyJoinError] = useState("");
     const [isReady, setIsReady] = useState(false);
     const [connectionError, setConnectionError] = useState<string | null>(null);
 
@@ -23,11 +24,17 @@ const StartGame = () => {
                 });
         }
 
-        GameService.onRoomCreated((roomCode: string) => {
-            navigate(`/game/${roomCode}`);
+        GameService.connection?.on("ReconnectState", (state: any) => {
+            console.log("Reconnect state code:", state)
+            navigate("/game/" + state, { replace: true });
+        })
+
+        GameService.onLobbyCreated((roomCode: string) => {
+            navigate(`/lobby/${roomCode}`);
         });
-        GameService.onRoomJoined((roomCode: string) => {
-            navigate(`/game/${roomCode}`);
+
+        GameService.onLobbyJoined((roomCode: string) => {
+            navigate(`/lobby/${roomCode}`);
         });
 
         const ensureConnection = async () => {
@@ -70,7 +77,7 @@ const StartGame = () => {
 
         if (!validateNickname(nickname)) {
             console.error("Nieprawidłowy pseudonim. Upewnij się, że ma od 3 do 20 znaków i zawiera tylko litery, cyfry lub podkreślenia.");
-            setRoomError("Nieprawidłowy pseudonim. Upewnij się, że ma od 3 do 20 znaków i zawiera tylko litery, cyfry lub podkreślenia.")
+            setLobbyJoinError("Nieprawidłowy pseudonim. Upewnij się, że ma od 3 do 20 znaków i zawiera tylko litery, cyfry lub podkreślenia.")
             return;
         }
         if (!isReady) {
@@ -89,23 +96,25 @@ const StartGame = () => {
 
         if (!validateNickname(nickname)) {
             console.error("Nieprawidłowy pseudonim. Upewnij się, że ma od 3 do 20 znaków i zawiera tylko litery, cyfry lub podkreślenia.");
-            setRoomError("Nieprawidłowy pseudonim. Upewnij się, że ma od 3 do 20 znaków i zawiera tylko litery, cyfry lub podkreślenia.");
+            setLobbyJoinError("Nieprawidłowy pseudonim. Upewnij się, że ma od 3 do 20 znaków i zawiera tylko litery, cyfry lub podkreślenia.");
             return;
         }
         if (!validateRoomCode(roomCode)) {
             console.error("Nieprawidłowy kod pokoju. Upewnij się, że ma 8 znaków i zawiera tylko wielkie litery i cyfry.");
-            setRoomError("Nieprawidłowy kod pokoju. Upewnij się, że ma 8 znaków i zawiera tylko wielkie litery i cyfry.");
+            setLobbyJoinError("Nieprawidłowy kod pokoju. Upewnij się, że ma 8 znaków i zawiera tylko wielkie litery i cyfry.");
             return;
         }
         if (!isReady) {
             console.warn("Połączenie nie jest jeszcze gotowe.");
-            setRoomError("Połączenie nie jest jeszcze gotowe.");
+            setLobbyJoinError("Połączenie nie jest jeszcze gotowe.");
             return;
         }
         GameService.joinRoom(roomCode, nickname)
-            .catch(err => {
-                console.error("Błąd podczas dołączania do pokoju:", err);
-                setRoomError("Błąd podczas dołączania do pokoju. Upewnij się, że kod pokoju jest poprawny.");
+            .catch((err: Error) => {
+                var ex = ParseHubExcepion(err);
+
+                console.error("Błąd podczas dołączania do pokoju:", ex);
+                setLobbyJoinError("Błąd podczas dołączania do pokoju. " + MapErrorMessage(ex));
             });
     }
 
@@ -129,7 +138,7 @@ const StartGame = () => {
                         <h2 className="text-xl font-bold text-gray-800 mb-2">Błąd połączenia</h2>
                         <p className="text-gray-600 mb-6 text-center">{connectionError}</p>
                         <button
-                            className="px-6 py-2 bg-gradient-to-r from-red-500 to-red-700 hover:from-red-600 hover:to-red-800 text-white rounded-lg font-semibold shadow-md transition-all duration-150"
+                            className="px-6 cursor-pointer py-2 bg-gradient-to-r from-red-500 to-red-700 hover:from-red-600 hover:to-red-800 text-white rounded-lg font-semibold shadow-md transition-all duration-150"
                             onClick={() => window.location.reload()}
                         >
                             Spróbuj ponownie
@@ -172,9 +181,9 @@ const StartGame = () => {
                         Dołącz do gry
                     </button>
                 </div>
-                {roomError && (
+                {lobbyJoinError && (
                     <div className="mt-2 text-red-500 text-sm">
-                        {roomError}
+                        {lobbyJoinError}
                     </div>
                 )}
                 <div className={`px-4 py-2 text-xs font-semibold select-none transition-all duration-200 ${isReady && !connectionError ? 'text-gray-300' : 'text-red-200 animate-pulse'}`}>

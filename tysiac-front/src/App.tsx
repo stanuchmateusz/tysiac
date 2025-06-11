@@ -4,8 +4,9 @@ import Home from './pages/Home';
 import Forbidden from './pages/errors/Forbidden';
 import NotFound from './pages/errors/NotFound';
 import Footer from './components/Footer';
-import Game from './pages/Game';
 import Rules from './pages/Rules';
+import Lobby from './pages/Lobby';
+import Table from './pages/Table';
 
 function App() {
   return (<>
@@ -13,7 +14,9 @@ function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Home />} />
-          <Route path="/game/:gameCode" element={<Game />} />
+          <Route path="/join/:joinCode?" element={<Home />} />
+          <Route path="/lobby/:gameCode" element={<Lobby />} />
+          <Route path="/game/:gameCode" element={<Table />} />
           <Route path='/rules' element={<Rules />} />
           {/* Error pages */}
           <Route path="/403" element={<Forbidden />} />

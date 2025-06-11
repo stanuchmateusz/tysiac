@@ -1,4 +1,5 @@
 import * as signalR from "@microsoft/signalr"
+import { userIdCookieName } from "../utils/Cookies";
 
 const url = import.meta.env.VITE_BACKEND_URL
 if (!url) {
@@ -17,7 +18,7 @@ export const GameService = {
             return;
         }
         if (!this.connection) {
-            const userId = false//localStorage.getItem('userId');
+            const userId = sessionStorage.getItem(userIdCookieName);
             const connection = new signalR.HubConnectionBuilder()
                 .withUrl(userId ? `${url}/gameHub?userId=${userId}` : `${url}/gameHub`)
                 .withAutomaticReconnect()
@@ -61,7 +62,7 @@ export const GameService = {
             console.error(" Connection is not established or is disconnected.");
         }
     },
-    onRoomCreated: function (callback: (roomCode: string) => void) {
+    onLobbyCreated: function (callback: (roomCode: string) => void) {
         if (this.connection) {
             this.connection.on("RoomCreated", (roomCode: string) => {
                 callback(roomCode);
@@ -76,7 +77,7 @@ export const GameService = {
             this.connection.off("RoomCreated");
         }
     },
-    onRoomJoined: function (callback: (roomCode: string) => void) {
+    onLobbyJoined: function (callback: (roomCode: string) => void) {
         if (this.connection) {
             this.connection.on("RoomJoined", (roomCode: string) => {
                 callback(roomCode);

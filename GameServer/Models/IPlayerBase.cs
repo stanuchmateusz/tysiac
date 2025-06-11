@@ -3,6 +3,6 @@
 public interface IPlayerBase
 {
     string ConnectionId { get; set; }
-    string Id { get; }
-    public string Nickname { get; }
+    string Id { get; set; }
+    public string Nickname { get; set; }
 }

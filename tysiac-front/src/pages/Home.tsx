@@ -1,10 +1,21 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import StartGame from "../components/StartGame";
 import Options from "../components/Options";
 import OptionsButton from "../components/OptionButton";
+import { useParams } from "react-router-dom";
+import MusicService from "../services/MusicService";
 
 export default function Home() {
     const [showOptions, setShowOptions] = useState(false);
+    const { joinCode } = useParams<{ joinCode: string }>();
+
+    useEffect(() => {
+        MusicService.playBackgroundMusic();
+
+        return () => {
+            MusicService.stopBackgroundMusic();
+        };
+    }, []);
 
     return (
         <>
@@ -16,7 +27,7 @@ export default function Home() {
                     Gra karciana dla 4 graczy, rozdzielnych na dwie równe drużyny.<br />
                     Celem jest zdobycie <span className="font-bold text-blue-400">1000 punktów</span> przez jedną z drużyn.
                 </p>
-                <StartGame />
+                <StartGame code={joinCode} />
                 <p className="text-sm text-gray-400 mt-8">
                     <a href="/rules" className="text-blue-400 hover:underline transition-colors duration-150">
                         Zasady gry

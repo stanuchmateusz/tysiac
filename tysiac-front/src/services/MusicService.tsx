@@ -67,14 +67,12 @@ class MusicServiceController {
     playBackgroundMusic() {
         if (this.backgroundMusic && !this.backgroundMusic.playing()) {
             this.backgroundMusic.play();
-            console.log("MusicService: Playing background music with volume:", this.backgroundMusic.volume());
         }
     }
 
     stopBackgroundMusic() {
         if (this.backgroundMusic && this.backgroundMusic.playing()) {
             this.backgroundMusic.stop();
-            console.log("MusicService: Background music stopped.");
         }
     }
 
@@ -83,7 +81,6 @@ class MusicServiceController {
         if (this.backgroundMusic) {
             this.backgroundMusic.volume(newVolume);
         }
-        console.log("MusicService: Background music volume set to:", newVolume);
     }
 
     playBell() {
@@ -91,7 +88,6 @@ class MusicServiceController {
             this.bellSound.volume(this.getSoundVolumeFromCookies())
             this.bellSound.stop();
             this.bellSound.play();
-            console.log("MusicService: Playing bell sound with volume:", this.bellSound.volume());
         }
     }
 
@@ -99,7 +95,6 @@ class MusicServiceController {
         if (this.clickSound) {
             this.clickSound.volume(this.getSoundVolumeFromCookies())
             this.clickSound.play();
-            console.log("MusicService: Playing click sound with volume:", this.clickSound.volume());
         }
     }
 
@@ -107,9 +102,6 @@ class MusicServiceController {
         if (this.placeCardSound) {
             this.placeCardSound.volume(this.getSoundVolumeFromCookies())
             this.placeCardSound.play();
-            console.log("MusicService: Playing place card sound with volume:", this
-                .placeCardSound
-                .volume());
         }
     }
 
@@ -117,9 +109,6 @@ class MusicServiceController {
         if (this.meldSound) {
             this.meldSound.volume(this.getSoundVolumeFromCookies())
             this.meldSound.play();
-            console.log("MusicService: Playing meld sound with volume:", this
-                .meldSound
-                .volume());
         }
     }
 
@@ -133,7 +122,6 @@ class MusicServiceController {
         if (this.bellSound) {
             this.bellSound.volume(newVolume);
         }
-        console.log("MusicService: Effects volume set to:", newVolume);
     }
 }
 

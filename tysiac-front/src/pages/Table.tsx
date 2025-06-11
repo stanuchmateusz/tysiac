@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import GameService from "../services/GameService";
 
 import { ImExit } from "react-icons/im";
@@ -12,7 +12,6 @@ import CardHand from "../components/CardHand";
 import Options from "../components/Options";
 import { CiSettings } from "react-icons/ci";
 import MusicService from "../services/MusicService";
-
 
 export const CARD_SVG_PATH = import.meta.env.VITE_ASSETS_PATH + "poker-qr/" || "/public/assets/poker-qr/";
 
@@ -43,26 +42,61 @@ const GAME_STAGES: Record<number, string> = {
 }
 
 
-const Table = ({
-    chatMessages,
-    gameCode,
-    updateCtx,
-}: {
-    chatMessages: ChatMessage[];
-    gameCode: string;
-    updateCtx: UpdateContext | null;
-}) => {
+const Table = () => {
     const navigate = useNavigate();
     const [message, setMessage] = useState("");
     const [showChat, setShowChat] = useState(false);
+    const [showEndGameModal, setShowEndGameModal] = useState(false);
+    const [showOptions, setShowOptions] = useState(false);
+    const [updateCtx, setUpdateContext] = useState<UpdateContext | null>(null);
+    const [chatMessages, setChatMessages] = useState<ChatMessage[]>([{ nickname: "System", message: "Witaj w grze! Użyj czatu, aby komunikować się z innymi graczami." }]);
+    const { gameCode } = useParams<{ gameCode: string }>();
+
+    useEffect(() => {
+        const connection = GameService.connection;
+
+        if (!connection || connection.state === "Disconnected") {
+
+            navigate("/join/" + gameCode, { replace: true });
+            return
+        }
+
+        //handle updates of context
+        const handleUpdate = (update: UpdateContext) => {
+            setUpdateContext(update);
+            console.debug("Update context received:", update);
+        }
+
+        // Handle incoming chat messages
+        const handleMessageReceive = (message: ChatMessage) => {
+            setChatMessages(prevMessages => [...prevMessages, message]);
+        };
+
+
+        connection.on("UpdateContext", handleUpdate); //update context
+        connection.on("MessageRecieve", handleMessageReceive);//message receive
+
+        //get game ctx -> backend returns UpdateContext
+        if (connection.state === "Connected") {
+            connection.invoke("GetGameContext", gameCode)
+        }
+
+        return () => {
+            connection.off("UpdateContext", handleUpdate);
+            connection.off("MessageRecieve", handleMessageReceive);
+        };
+    }, [GameService.connection]);
+
     const gameCtx = updateCtx?.gameCtx;
     const gameUserCtx = updateCtx?.userCtx || null;
     const minBet = (gameCtx?.currentBet ?? 100) + 10;
     const [bet, setBet] = useState(minBet);
-    const [showEndGameModal, setShowEndGameModal] = useState(false);
-    const [showOptions, setShowOptions] = useState(false);
-    useEffect(() => { console.debug("Table rendered with gameCtx:", gameCtx, "gameUserCtx:", gameUserCtx); }
-        , [gameCtx, gameUserCtx]);
+
+    useEffect(() => {
+        console.debug(
+            "Table rendered with gameCtx:", gameCtx,
+            "gameUserCtx:", gameUserCtx);
+    }, [gameCtx, gameUserCtx]);
 
     const isCurrentPlayer = gameCtx?.currentPlayer.connectionId === GameService.connection?.connectionId;
 
@@ -217,9 +251,8 @@ const Table = ({
         console.debug("No same color or trump - can play any card", card.shortName, hasStackColor, hasTrump);
         return (hasStackColor && hasTrump) // nothing to play - can play any card
     }
-
     // Modal for disconnected players
-    const showDisconnectedModal = !!(gameCtx && gameCtx.disconnectedPlayerCount > 0);
+    const showDisconnectedModal = !!(gameCtx && gameCtx.disconnectedPlayers?.length > 0);
 
     return (
         <>
@@ -239,7 +272,7 @@ const Table = ({
                         <div className="bg-gray-900 rounded-2xl p-8 shadow-2xl flex flex-col items-center border-4 border-red-600 min-w-[340px]">
                             <h2 className="text-3xl font-bold mb-4 text-red-400 drop-shadow">Gra została spauzowana</h2>
                             <div className="mb-6 text-lg text-white text-center">
-                                {(gameCtx?.disconnectedPlayerCount ?? 0)} gracz(y) stracił(y) połączenie.<br />
+                                {(gameCtx?.disconnectedPlayers.length ?? 0)} gracz(y) stracił(y) połączenie.<br />
                                 Zaczekaj na ich powrót lub opuść stół.
                             </div>
                             <button

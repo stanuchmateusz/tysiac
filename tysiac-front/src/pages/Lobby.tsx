@@ -1,15 +1,16 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { GrHide, GrView } from "react-icons/gr";
 import { ImExit } from "react-icons/im";
 import { IoMdAddCircle } from "react-icons/io";
 import { IoMdSend } from "react-icons/io";
 import { FaCrown } from "react-icons/fa";
 import GameService from "../services/GameService";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { CiSettings } from "react-icons/ci";
 import Options from "../components/Options";
 import type { ChatMessage, LobbyContext, Player } from "./Models";
 import MusicService from "../services/MusicService";
+import { userIdCookieName } from "../utils/Cookies";
 
 const JoinTeamHandler = (isTeam1: boolean, gameCode: string) => {
     GameService.connection?.invoke("JoinTeam", gameCode, isTeam1)
@@ -18,23 +19,7 @@ const JoinTeamHandler = (isTeam1: boolean, gameCode: string) => {
         });
 };
 
-const Lobby = ({
-    me,
-    lobbyContext,
-    chatMessages,
-    showCode,
-    setShowCode,
-    gameCode,
-    onStartGame,
-}: {
-    me: Player | null;
-    lobbyContext: LobbyContext | null;
-    chatMessages: ChatMessage[];
-    showCode: boolean;
-    setShowCode: (v: boolean) => void;
-    gameCode: string;
-    onStartGame: () => void;
-}) => {
+const Lobby = () => {
     const navigate = useNavigate();
     // --- Cooldown states ---
     const [chatCooldown, setChatCooldown] = useState(false);
@@ -44,7 +29,65 @@ const Lobby = ({
     const [chatAttempts, setChatAttempts] = useState<number[]>([]); // timestamps
     const [teamAttempts, setTeamAttempts] = useState<number[]>([]); // timestamps
     const [showOptions, setShowOptions] = useState(false);
+
+    const { gameCode } = useParams<{ gameCode: string }>();
+    const [chatMessages, setChatMessages] = useState<ChatMessage[]>([{ nickname: "System", message: "Witaj w grze! Użyj czatu, aby komunikować się z innymi graczami." }]);
+    const [showCode, setShowCode] = useState(false);
     const chatInputRef = useRef<HTMLInputElement>(null);
+    const [lobbyContext, setLobbyContext] = useState<LobbyContext | null>(null);
+    const [me, setMe] = useState<Player | null>(null);
+
+    if (!gameCode) {
+        navigate("/", { replace: true });
+        return;
+    }
+    useEffect(() => {
+        const connection = GameService.connection;
+
+        if (!connection || connection.state === "Disconnected") {
+            //redirest to home join
+            navigate("/join/" + gameCode,);
+            return
+        }
+
+        // Handle lobby updates
+        const handleRoomUpdate = (lobbyCtx: LobbyContext) => {
+            console.debug("Lobby updated:", lobbyCtx);
+            setLobbyContext(lobbyCtx);
+            var newMe = lobbyCtx.players.find(p => p.connectionId === connection.connectionId);
+            setMe(newMe ?? null);
+
+            sessionStorage.setItem(userIdCookieName, newMe?.id || "");
+        };
+
+        // Handle incoming chat messages
+        const handleMessageReceive = (message: ChatMessage) => {
+            setChatMessages(prevMessages => [...prevMessages, message]);
+        };
+
+        // Finish lobby start the game
+        const handleGameCreated = () => {
+            console.log("New game created");
+            navigate("/game/" + gameCode, { replace: true });
+            return;
+        }
+
+        if (connection.state === "Connected") ////request lobby context
+        {
+            connection.invoke("GetLobbyContext", gameCode)
+        }
+
+        connection.on("GameCreated", handleGameCreated); //game created
+        connection.on("MessageRecieve", handleMessageReceive);//message receive
+        connection.on("LobbyUpdate", handleRoomUpdate);//lobby update
+
+        return () => {
+            connection.off("GameCreated", handleGameCreated);
+            connection.off("MessageRecieve", handleMessageReceive);
+            connection.off("LobbyUpdate", handleRoomUpdate);
+        };
+    }, [GameService.connection]);
+
     const host = lobbyContext?.host ?? null;
     const users: Player[] = lobbyContext?.players ?? [];
     const team1: Player[] = lobbyContext?.team1 ?? [];
@@ -114,9 +157,14 @@ const Lobby = ({
         GameService.connection?.invoke("LeaveTeam", gameCode);
         setTeamAttempts([...recent, now]);
     };
+
+    const onStartGame = () => {
+        GameService.connection?.invoke("StartRoom", gameCode);
+    };
+
     return (
         <>
-            <div className="fixed top-4 right-4 z-[60]"> {/* Wyższy z-index dla przycisku ustawień */}
+            <div className="fixed top-4 right-4 z-[60]">
                 <button
                     onClick={() => setShowOptions(true)}
                     className="p-3 bg-gray-700/80 hover:bg-gray-600/80 backdrop-blur-sm rounded-full text-white shadow-lg transition-colors"
@@ -146,7 +194,7 @@ const Lobby = ({
                             </button>
                             <button onClick={async () => {
                                 try {
-                                    await navigator.clipboard.writeText(gameCode);
+                                    await navigator.clipboard.writeText(gameCode ?? '');
                                     MusicService.playClick();
                                 } catch (err) {
                                     console.log("Can't copy - sorry")

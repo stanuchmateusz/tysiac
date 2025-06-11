@@ -37,7 +37,7 @@ export interface GameContext {
     cardsOnTable: Card[];
     trumpSuit: number;
     currentBet: number;
-    disconnectedPlayerCount: number;
+    disconnectedPlayers: Player[];
     passedPlayers: Player[];
     takeWinner: Player | null;
 }

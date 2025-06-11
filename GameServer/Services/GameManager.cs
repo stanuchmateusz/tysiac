@@ -58,8 +58,9 @@ public class GameManager //: IGameManager
         
         foreach (var table in tables)
         {
-            table.PauseGame();
-            if (table.DisconnectedPlayersCount != 4) continue;
+            var player = table.GetPlayerFromRoom(contextConnectionId);
+            table.PauseGame(player ?? throw new InvalidOperationException("Player got removed from table!"));
+            if (table.DisconnectedPlayers.Count != 4) continue;
             _logger.LogInformation("All players disconnected from room {RoomCode} - Removing the room", table.RoomCode);
             RemoveRoom(table.RoomCode);
         }
@@ -67,14 +68,14 @@ public class GameManager //: IGameManager
         return tables;
     }
     
-    public void TryToRestoreConnection(string connectionId, StringValues userId)
+    public string? TryToRestoreConnection(string connectionId, String userId)
     {
         // Find all rooms where the user with this userId is present
         var gameRoom = GetRoomsWithPlayerByUserId(userId);
         if (gameRoom.Count == 0)
         {
             _logger.LogDebug("No rooms found for user {UserId}", userId);
-            return;
+            return null;
         }
         foreach (var room in gameRoom)
         {
@@ -83,12 +84,12 @@ public class GameManager //: IGameManager
             {
                 player.ConnectionId = connectionId; // Update the connection ID
                 _logger.LogInformation("Restored connection for user {UserId} in room {RoomCode}", userId, room.RoomCode);
-                room.TryResumeGame();
+                room.TryResumeGame(player);
+                return room.RoomCode;
             }
-            else
-            {
-                _logger.LogWarning("Player with userId {UserId} not found in room {RoomCode}", userId, room.RoomCode);
-            }
+            _logger.LogWarning("Player with userId {UserId} not found in room {RoomCode}", userId, room.RoomCode);
+            
         }
+        return null;
     }
 }

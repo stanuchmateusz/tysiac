@@ -34,19 +34,25 @@ public class LobbyService
     public bool LeaveRoom(string roomCode,string contextConnectionId)
     {
         var lobbyContext = GetRoom(roomCode);
-      
+        
+        return LeaveRoom(lobbyContext,contextConnectionId);
+    }
+    
+    public bool LeaveRoom(LobbyContext lobbyContext,string contextConnectionId)
+    {
         var player = GetPlayerFromRoom(lobbyContext, contextConnectionId);
         
         RemovePlayer(lobbyContext,player);
         
         if (lobbyContext.Players.Count == 0)
         {
-            _lobbies.Remove(roomCode);
+            _lobbies.Remove(lobbyContext.Code);
             return true;
         }
         
         return false;
     }
+    
     public static bool AddToTeam1(LobbyContext lobby,IPlayer player)
     {
         if (lobby.Team1.Count == 2 || lobby.Team1.Contains(player))
@@ -131,5 +137,17 @@ public class LobbyService
         while (roomCode.Length < 8)
             roomCode.Append(validChars[random.Next(validChars.Length)]);
         return roomCode.ToString();
+    }
+
+    public List<LobbyContext> GetLobbiesWithUser(string contextConnectionId)
+    {
+        return _lobbies
+            .Where(pair => pair.Value.Players.Any(p => p.ConnectionId == contextConnectionId))
+            .Select(lobby => lobby.Value).ToList();
+    }
+
+    public void RemoveRoom(string roomCode)
+    {
+        _lobbies.Remove(roomCode);
     }
 }

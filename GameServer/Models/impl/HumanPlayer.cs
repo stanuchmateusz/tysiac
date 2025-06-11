@@ -5,8 +5,8 @@ namespace GameServer.Models.impl;
 public class HumanPlayer : IPlayer
 {
     public string ConnectionId { get; set; }
-    public string Nickname { get; }
-    public string Id { get; }
+    public string Nickname { get;set; }
+    public string Id { get; set; }
     public List<ICard> Hand { get; set; } = new();
     public Team? Team { get; set; }
 

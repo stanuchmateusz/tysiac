@@ -1,8 +1,9 @@
 # 1000 siadany
-**zmodyfikowana wersja znanej gry w 1000**
+**Zmodyfikowana wersja znanej gry w 1000**
+
 
 ## Todo: 
-* Brak ładnych animacji
+* Więcej animacji
 * Wznawianie sesji + Dołączanie przez link
 * Lobby - mieszanie teamu
 * Dodać AI
@@ -11,4 +12,4 @@
 
 ## Assets:
 [Sounds](https://pixabay.com) \
-[Cards](https://www.me.uk/cards/) \
+[Cards](https://www.me.uk/cards/) 

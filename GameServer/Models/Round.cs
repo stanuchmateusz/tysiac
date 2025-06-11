@@ -16,7 +16,10 @@ public class Round
     public List<ICard> Team1Cards { get; set; } = [];
     public List<ICard> Team2Cards { get; set; } = [];
     public List<Tuple<CardSuit,Team>> SuitToTeam { get; set; } = new List<Tuple<CardSuit, Team>>();
-
+    
+    public bool Team1WonAnyTake { get; set; } = false;
+    public bool Team2WonAnyTake { get; set; } = false;
+    
     public int Team1Points { get; set; }
     public int Team2Points { get; set; }
     public List<ICard> Musik = [];

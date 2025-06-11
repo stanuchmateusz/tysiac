@@ -31,14 +31,35 @@ public class GameHub(GameManager gameManager, LobbyService lobbyService, ILogger
             throw new HubException("HttpContext is null");
         }
         var connectionId = Context.ConnectionId;
-        var userId = httpContext.Request.Query["userId"];
+        var userIdFromQuery = httpContext.Request.Query["userId"];
+        var userId = userIdFromQuery.Count > 0 ? userIdFromQuery[0] : null;
         
         logger.LogDebug("Connected {ConnId}", connectionId );
         
         if (!string.IsNullOrEmpty(userId))
         {
-            logger.LogDebug("Trying to reconnect {ConnID} to {UserId} ", connectionId,userId);
-            gameManager.TryToRestoreConnection(connectionId, userId);
+            logger.LogDebug("{ConnID} is trying to restore connection using userId:{UserId} ", connectionId,userId);
+            var code = gameManager.TryToRestoreConnection(connectionId, userId);
+            if (code != null)
+            {
+                await Groups.AddToGroupAsync(connectionId, code);
+                await Clients.Client(connectionId).SendAsync("ReconnectState", code);
+                var gameService = gameManager.GetRoom(code);
+                if (gameService != null)
+                {
+                    await NotifyUpdatedGameState(gameService);
+                    // var player = gameService.GetPlayerFromRoom(connectionId);
+                    // if (player != null)
+                    // {
+                    //     var gameContext = gameService.GetGameState();
+                    //     await Clients.Caller.SendAsync(UpdateMethodName, new UpdateContext
+                    //     {
+                    //         GameCtx = gameContext,
+                    //         UserCtx = gameService.GetUserState(player)
+                    //     });
+                    // }
+                }
+            }
         }
         
         await base.OnConnectedAsync();
@@ -46,6 +67,23 @@ public class GameHub(GameManager gameManager, LobbyService lobbyService, ILogger
     public override async Task OnDisconnectedAsync(Exception? exception)
     {
         logger.LogDebug("Disconnected {ConnId}", Context.ConnectionId );
+
+        var lobbiesWithUser = lobbyService.GetLobbiesWithUser(Context.ConnectionId);
+        foreach (var lobbyCtx in lobbiesWithUser)
+        {
+            if (lobbyService.LeaveRoom(lobbyCtx, Context.ConnectionId))
+            {
+                logger.LogInformation("Left room {RoomCode} and lobby got disposed", lobbyCtx.Code);
+            }
+            else
+            {
+                logger.LogInformation("Left room {RoomCode}", lobbyCtx.Code);
+                await Groups.RemoveFromGroupAsync(Context.ConnectionId, lobbyCtx.Code);
+                await Clients.Groups(lobbyCtx.Code).SendAsync(LobbyUpdateMethodName,
+                    lobbyService.GetRoom(lobbyCtx.Code));
+            }
+        }
+        
         var games = gameManager.Disconnect(Context.ConnectionId);
         foreach (var game in games)
         {
@@ -60,8 +98,9 @@ public class GameHub(GameManager gameManager, LobbyService lobbyService, ILogger
     {
         // Check if the room exists and the player is in it
         lobbyService.GetPlayerFromRoom(roomCode, Context.ConnectionId);
-        
-        await Clients.Caller.SendAsync(LobbyUpdateMethodName, lobbyService.GetRoom(roomCode));
+        var room = lobbyService.GetRoom(roomCode);
+       
+        await Clients.Caller.SendAsync(LobbyUpdateMethodName, room);
     }
     
     public async Task JoinRoom(string roomCode, string nickname)
@@ -129,33 +168,30 @@ public class GameHub(GameManager gameManager, LobbyService lobbyService, ILogger
         logger.LogInformation("Left room {RoomCode}", roomCode);
     }
     
-    
     public async Task StartRoom(string roomCode)
     {
-        var room = lobbyService.GetRoom(roomCode);
+        var lobbyCtx = lobbyService.GetRoom(roomCode);
         
-        if (room.Host.ConnectionId != Context.ConnectionId)
+        if (lobbyCtx.Host.ConnectionId != Context.ConnectionId)
             throw new HubException("Only host can start the game");
         
-        if (room.Players.Count < 4)
+        if (lobbyCtx.Players.Count < 4)
             throw new HubException("Not enough players to start the game");
         
-        gameManager.CreateNewGame(room);
-        var game = gameManager.GetRoom(roomCode);
-        if (game == null)
+        gameManager.CreateNewGame(lobbyCtx);
+        var gameService = gameManager.GetRoom(roomCode);
+        if (gameService == null)
             throw new HubException("Game not found");
-        
-        var player = game.GetPlayerFromRoom(Context.ConnectionId);
-        
-        if (player == null)
-            throw new HubException("Player not found in room");
         
         logger.LogInformation("Starting room {RoomCode}", roomCode);
         
-        await Clients.Groups(roomCode).SendAsync(GameCreatedMethodName);
-        await StartGame(roomCode);
+        //cleanup lobby
+        lobbyService.RemoveRoom(roomCode);
 
+        await StartGame(roomCode);
+        await Clients.Groups(roomCode).SendAsync(GameCreatedMethodName);
     }
+    
     #endregion
 
     public async Task SendMessage(string roomCode, string message )
@@ -177,6 +213,23 @@ public class GameHub(GameManager gameManager, LobbyService lobbyService, ILogger
 
     #region Game Actions
 
+    public async Task GetGameContext(string roomCode)
+    {
+        var gameService = gameManager.GetRoom(roomCode);
+        if (gameService == null)
+            throw new HubException("Game not found");
+        var player = gameService.GetPlayerFromRoom(Context.ConnectionId);
+        if (player == null)
+            throw new HubException("Player not found in room");
+        var gameContext = gameService.GetGameState();
+        
+        await Clients.Client(player.ConnectionId).SendAsync(UpdateMethodName, new UpdateContext
+        {
+            GameCtx = gameContext,
+            UserCtx = gameService.GetUserState(player)
+        });
+    }
+    
     /// <summary>
     /// Starts the game in the specified room.
     /// Sends a notification to all clients in the room.
@@ -198,16 +251,21 @@ public class GameHub(GameManager gameManager, LobbyService lobbyService, ILogger
     {
         var table = gameManager.GetRoom(roomCode);
         if (table == null)
-            throw new HubException("Game not found");
+            {
+                // throw new HubException("Game not found");
+                return;
+            }
         
         var player = table.GetPlayerFromRoom(Context.ConnectionId);
         if (player == null)
             throw new HubException("Player not found in room");
         
-        logger.LogInformation("Leaving game {RoomCode} for player {Player}", roomCode, player.Nickname);
-
-        table.PauseGame();
-        if (table.DisconnectedPlayersCount == 4)
+        logger.LogInformation("Permanently leaving game {RoomCode} for player {Player}", roomCode, player.Nickname);
+        
+        table.PauseGame(player);
+        table.AbandoneGame(player);
+        
+        if (table.DisconnectedPlayers.Count == 4)
         {
             gameManager.RemoveRoom(roomCode);
             logger.LogInformation("Game {RoomCode} has been removed", roomCode);
@@ -215,8 +273,14 @@ public class GameHub(GameManager gameManager, LobbyService lobbyService, ILogger
         }
         
         await Clients.Group(roomCode).SendAsync(LeaveGameMethodName, player.Nickname);
-        
-        await NotifyUpdatedGameState(roomCode);
+        try
+        {
+            await NotifyUpdatedGameState(roomCode);
+        }
+        catch (Exception e)
+        {
+            //ignore?
+        }
     }
     public async Task PlaceBid(string roomCode, int bid)
     {

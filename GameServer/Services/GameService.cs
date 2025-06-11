@@ -26,7 +26,7 @@ public class GameService
 
     public GamePhase CurrentPhase {  get; set; } = GamePhase.Start;
     public string RoomCode { get; }
-    public int DisconnectedPlayersCount { get; private set; } = 0;
+    public HashSet<IPlayer> DisconnectedPlayers { get; set; } = new HashSet<IPlayer>();
     
     public GameService(LobbyContext lobbyCtx, ILogger<GameService> logger)
     {
@@ -68,10 +68,18 @@ public class GameService
     /// <summary>
     /// Pauses the game and increments the count of disconnected players.
     /// </summary>
-    public void PauseGame()
+    public void PauseGame(IPlayer player)
     {
-        DisconnectedPlayersCount++;
+        DisconnectedPlayers.Add(player);
         _logger.LogInformation("[{Room}] Game paused", RoomCode);
+    }
+    
+    public void AbandoneGame(IPlayer player)
+    {
+        PauseGame(player);
+        player.ConnectionId = "NULL";
+        player.Nickname = "UNKNOWN";
+        player.Id = "NULL";
     }
     
     /// <summary>
@@ -79,12 +87,12 @@ public class GameService
     /// Decrements the count of disconnected players. If all players are reconnected (DisconnectedPlayersCount is 0),
     /// the game is resumed. Otherwise, it remains paused.
     /// </summary>
-    public void TryResumeGame()
+    public void TryResumeGame(IPlayer player)
     {
-        DisconnectedPlayersCount--;
-        if (DisconnectedPlayersCount > 0)
+        DisconnectedPlayers.Remove(player);
+        if (DisconnectedPlayers.Count > 0)
         {
-            _logger.LogInformation("[{Room}] Game cannot be resumed, {X} players are still disconnected", RoomCode, DisconnectedPlayersCount);
+            _logger.LogInformation("[{Room}] Game cannot be resumed, {X} players are still disconnected", RoomCode, DisconnectedPlayers.Count);
             return;
         }
         _logger.LogInformation("[{Room}] Game resumed", RoomCode);
@@ -246,7 +254,7 @@ public class GameService
                 Round.CurrentCardsOnTable,
                 Round.TrumpSuit.GetValueOrDefault(),
                 Round.CurrentBet,
-                DisconnectedPlayersCount,
+                DisconnectedPlayers,
                 Round.Pass,
                 CurrentPhase == GamePhase.ShowTable ? DetermineTakeWinner() : null
             );
@@ -547,11 +555,13 @@ public class GameService
         var trickPoints = Round.CurrentCardsOnTable.Sum(card => card.Points);
         if (winner.Team == Team.Team1)
         {
-            Round.Team1Points += trickPoints ;
+            Round.Team1Points += trickPoints;
+            Round.Team1WonAnyTake = true;
         }
         else
         {
             Round.Team2Points += trickPoints;
+            Round.Team2WonAnyTake = true;
         }
 
         // Clear the current cards on the table 
@@ -573,6 +583,7 @@ public class GameService
 
     private IPlayer DetermineTakeWinner()
     {
+        //bug after trumf
         var cardsOnTable = Round.CurrentCardsOnTable;
         var playersOrder = Round.OrginalTurnQueue.ToArray();
         var trump = Round.TrumpSuit;
@@ -615,8 +626,9 @@ public class GameService
 
     private int TrumpPointsForTeam(Team team)
     {
+        var teamHasAnyPoints = (team == Team.Team1 && Round.Team1WonAnyTake)  ||   (team == Team.Team2 && Round.Team2WonAnyTake);
         var trumps = Round.SuitToTeam.Where(x => x.Item2 == team);
-        return trumps.Sum(tuple => GetTrumpPoints(tuple.Item1));
+        return teamHasAnyPoints ? trumps.Sum(tuple => GetTrumpPoints(tuple.Item1)) : 0;
     }
 
     private void EndRound()
@@ -625,9 +637,12 @@ public class GameService
         
         // Check if the team that won the round has enough points to win the bet
         var betWinner = Round.CurrentBidWinner;
+        const int threshold = WinRequiredPoints - WinRequiredPoints / 10;
         if (betWinner.Team == Team.Team1)
         {
-            var finalPoints = RoundTo10(Round.Team1Points + TrumpPointsForTeam(Team.Team1));
+            // var teamHasAnyPoints = (betWinner.Team == Team.Team1 && Round.Team1AnyTakeWon);
+            var finalPoints = RoundTo10(Round.Team1Points) + TrumpPointsForTeam(Team.Team1);
+            
             if (finalPoints >= Round.CurrentBet)
             {
                 _logger.LogDebug("[{Room}] Team 1 managed to get required points {Points}/{BetAmount} ",RoomCode, finalPoints ,Round.CurrentBet);
@@ -638,11 +653,17 @@ public class GameService
                 _logger.LogDebug("[{Room}] Team 2 failed to get required points {Points}/{BetAmount} ",RoomCode ,finalPoints ,Round.CurrentBet);
                 _pointsTeam1 -= Round.CurrentBet;
             }
-            _pointsTeam2 += RoundTo10(Round.Team2Points + TrumpPointsForTeam(Team.Team2));
+
+            var pointsTeam2 = RoundTo10(Round.Team2Points) + TrumpPointsForTeam(Team.Team2);
+            // jest ponad 900 + nie przebije 1000
+            if (!(_pointsTeam2 >= threshold && pointsTeam2 + _pointsTeam2 < WinRequiredPoints)) 
+            {
+                _pointsTeam2 += RoundTo10(Round.Team2Points) + TrumpPointsForTeam(Team.Team2);
+            }
         }
         else
         {
-           var finalPoints = RoundTo10( Round.Team2Points + TrumpPointsForTeam(Team.Team2));
+           var finalPoints = RoundTo10( Round.Team2Points) + TrumpPointsForTeam(Team.Team2);
             if (finalPoints >= Round.CurrentBet)
             {
                 _logger.LogDebug("[{Room}] Team 2 managed to get required points {Points}/{BetAmount} ",RoomCode,finalPoints ,Round.CurrentBet);
@@ -653,7 +674,11 @@ public class GameService
                 _logger.LogDebug("[{Room}] Team 1 failed to get required points {Points}/{BetAmount} ", RoomCode,finalPoints ,Round.CurrentBet);
                 _pointsTeam2 -= Round.CurrentBet;
             }
-            _pointsTeam1 += RoundTo10(Round.Team1Points + TrumpPointsForTeam(Team.Team1));
+            var pointsTeam1 = RoundTo10(Round.Team1Points) + TrumpPointsForTeam(Team.Team1);
+            if (!(_pointsTeam1 >= threshold && pointsTeam1 + _pointsTeam1 < WinRequiredPoints)) 
+            {
+                _pointsTeam1 += RoundTo10(Round.Team1Points) + TrumpPointsForTeam(Team.Team1);
+            }
         }
         
         _logger.LogDebug("[{Room}] Points after round: Team 1: {PointsTeam1}, Team 2: {PointsTeam2}",RoomCode, _pointsTeam1, _pointsTeam2);
@@ -669,15 +694,14 @@ public class GameService
             FinishGame();
             return;
         }
-        const int threshold = WinRequiredPoints - WinRequiredPoints / 10;
-        if (_pointsTeam1 > threshold) 
-        { 
-            _pointsTeam1 = threshold;
-        }
-        if (_pointsTeam2 > threshold) 
-        {
-            _pointsTeam2 = threshold;
-        }
+        // if (_pointsTeam1 > threshold) 
+        // { 
+        //     _pointsTeam1 = threshold;
+        // }
+        // if (_pointsTeam2 > threshold) 
+        // {
+        //     _pointsTeam2 = threshold;
+        // }
         
         CurrentPhase = GamePhase.Auction;
         _logger.LogInformation("[{Room}] Game reset to start phase", RoomCode);
