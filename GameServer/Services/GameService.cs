@@ -23,7 +23,7 @@ public class GameService
 
     private int _pointsTeam1 = 0;
     private int _pointsTeam2 = 0;
-
+    private CardSuit? cancelLastTrump = null;
     public GamePhase CurrentPhase {  get; set; } = GamePhase.Start;
     public string RoomCode { get; }
     public HashSet<IPlayer> DisconnectedPlayers { get; set; } = new HashSet<IPlayer>();
@@ -490,10 +490,10 @@ public class GameService
         {
             CurrentPhase = GamePhase.ShowTable;   
             
-            // CompleteTake();
             //dequeue trump suit (if required)
             if (Round.QueuedTrumpSuit != null)
             {
+                cancelLastTrump = Round.TrumpSuit;
                 Round.TrumpSuit = Round.QueuedTrumpSuit;
                 Round.QueuedTrumpSuit = null;
             }
@@ -551,7 +551,7 @@ public class GameService
     public void CompleteTake()
     {
         var winner = DetermineTakeWinner();
-        
+        cancelLastTrump = null;
         var trickPoints = Round.CurrentCardsOnTable.Sum(card => card.Points);
         if (winner.Team == Team.Team1)
         {
@@ -583,16 +583,15 @@ public class GameService
 
     private IPlayer DetermineTakeWinner()
     {
-        //bug after trumf
         var cardsOnTable = Round.CurrentCardsOnTable;
         var playersOrder = Round.OrginalTurnQueue.ToArray();
-        var trump = Round.TrumpSuit;
+        var trump = cancelLastTrump ?? Round.TrumpSuit;
         var winnerIdx = 0;
         ICard? highestTrump = null;
         var highestTrumpIdx = -1;
         var highestCard = cardsOnTable[0];
         // First card on the table determines the lead suit
-        if (trump.HasValue)
+        if (trump.HasValue) 
         {
             for (var i = 0; i < cardsOnTable.Count; i++)
             {
@@ -640,7 +639,6 @@ public class GameService
         const int threshold = WinRequiredPoints - WinRequiredPoints / 10;
         if (betWinner.Team == Team.Team1)
         {
-            // var teamHasAnyPoints = (betWinner.Team == Team.Team1 && Round.Team1AnyTakeWon);
             var finalPoints = RoundTo10(Round.Team1Points) + TrumpPointsForTeam(Team.Team1);
             
             if (finalPoints >= Round.CurrentBet)
@@ -655,7 +653,7 @@ public class GameService
             }
 
             var pointsTeam2 = RoundTo10(Round.Team2Points) + TrumpPointsForTeam(Team.Team2);
-            // jest ponad 900 + nie przebije 1000
+            
             if (!(_pointsTeam2 >= threshold && pointsTeam2 + _pointsTeam2 < WinRequiredPoints)) 
             {
                 _pointsTeam2 += RoundTo10(Round.Team2Points) + TrumpPointsForTeam(Team.Team2);
@@ -694,14 +692,6 @@ public class GameService
             FinishGame();
             return;
         }
-        // if (_pointsTeam1 > threshold) 
-        // { 
-        //     _pointsTeam1 = threshold;
-        // }
-        // if (_pointsTeam2 > threshold) 
-        // {
-        //     _pointsTeam2 = threshold;
-        // }
         
         CurrentPhase = GamePhase.Auction;
         _logger.LogInformation("[{Room}] Game reset to start phase", RoomCode);
