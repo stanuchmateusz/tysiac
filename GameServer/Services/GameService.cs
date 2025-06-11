@@ -23,10 +23,10 @@ public class GameService
 
     private int _pointsTeam1 = 0;
     private int _pointsTeam2 = 0;
-    private CardSuit? cancelLastTrump = null;
+    private CardSuit? _cancelLastTrump = null;
     public GamePhase CurrentPhase {  get; set; } = GamePhase.Start;
     public string RoomCode { get; }
-    public HashSet<IPlayer> DisconnectedPlayers { get; set; } = new HashSet<IPlayer>();
+    public HashSet<IPlayer> DisconnectedPlayers { get; set; } = [];
     
     public GameService(LobbyContext lobbyCtx, ILogger<GameService> logger)
     {
@@ -493,7 +493,7 @@ public class GameService
             //dequeue trump suit (if required)
             if (Round.QueuedTrumpSuit != null)
             {
-                cancelLastTrump = Round.TrumpSuit;
+                _cancelLastTrump = Round.TrumpSuit;
                 Round.TrumpSuit = Round.QueuedTrumpSuit;
                 Round.QueuedTrumpSuit = null;
             }
@@ -551,7 +551,7 @@ public class GameService
     public void CompleteTake()
     {
         var winner = DetermineTakeWinner();
-        cancelLastTrump = null;
+        _cancelLastTrump = null;
         var trickPoints = Round.CurrentCardsOnTable.Sum(card => card.Points);
         if (winner.Team == Team.Team1)
         {
@@ -585,7 +585,7 @@ public class GameService
     {
         var cardsOnTable = Round.CurrentCardsOnTable;
         var playersOrder = Round.OrginalTurnQueue.ToArray();
-        var trump = cancelLastTrump ?? Round.TrumpSuit;
+        var trump = _cancelLastTrump ?? Round.TrumpSuit;
         var winnerIdx = 0;
         ICard? highestTrump = null;
         var highestTrumpIdx = -1;

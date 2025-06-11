@@ -72,16 +72,22 @@ const Lobby = () => {
             return;
         }
 
+        const handleGetKicked = () => {
+            confirm("you got kiecked")
+            navigate("/", { replace: true });
+        }
+
         if (connection.state === "Connected") ////request lobby context
         {
             connection.invoke("GetLobbyContext", gameCode)
         }
-
+        connection.on("Kicked", handleGetKicked);
         connection.on("GameCreated", handleGameCreated); //game created
         connection.on("MessageRecieve", handleMessageReceive);//message receive
         connection.on("LobbyUpdate", handleRoomUpdate);//lobby update
 
         return () => {
+            connection.off("Kicked", handleGetKicked);
             connection.off("GameCreated", handleGameCreated);
             connection.off("MessageRecieve", handleMessageReceive);
             connection.off("LobbyUpdate", handleRoomUpdate);
@@ -305,6 +311,12 @@ const Lobby = () => {
                                                 {host && user.connectionId === host.connectionId && (
                                                     <FaCrown className="text-yellow-400 ml-1" title="Host" />
                                                 )}
+                                                {!(host && user.connectionId === host.connectionId) && IsHost() &&
+                                                    <span className="text-red-400 font-bold text-lg cursor-pointer"
+                                                        onClick={() => {
+                                                            GameService.connection?.invoke("KickPlayer", gameCode, user.connectionId);
+                                                        }}
+                                                    >✕</span>}
                                             </li>
                                         ))
                                     ) : (

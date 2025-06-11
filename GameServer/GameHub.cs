@@ -148,6 +148,27 @@ public class GameHub(GameManager gameManager, LobbyService lobbyService, ILogger
         logger.LogInformation("Left {Player} left team in {RoomCode}",player, roomCode);
     }
     
+    public async Task KickPlayer(string roomCode, string connectionId)
+    {
+        var table = lobbyService.GetRoom(roomCode);
+        if (table == null)
+            throw new HubException(GameNotFoundExceptionMessage);
+        var isHost = table.Host.ConnectionId == Context.ConnectionId;
+        if (!isHost)
+            throw new HubException("Only host can kick players");
+        var player = table.GetPlayer(connectionId);
+        if (player == null)
+            throw new HubException(PlayerNotFoundExceptionMessage+roomCode);
+        //kick player 
+        lobbyService.LeaveRoom(roomCode, player.ConnectionId);
+        await Clients.Client(player.ConnectionId).SendAsync("Kicked");
+        //todo ban from reconnecting?
+        await Groups.RemoveFromGroupAsync(connectionId, roomCode);
+        
+        await Clients.Groups(roomCode).SendAsync(LobbyUpdateMethodName, lobbyService.GetRoom(roomCode));
+        logger.LogInformation("Kicked {Player} from {RoomCode}",player, roomCode);
+    }
+    
     public async Task LeaveRoom(string roomCode)
     {
         if (lobbyService.LeaveRoom(roomCode, Context.ConnectionId))
