@@ -17,7 +17,20 @@ public static class CardUtils
             _ => throw new ArgumentException("Invalid suit for trump points")
         };
     }
-    
+
+    public static List<CardSuit> GetTrumps(IEnumerable<ICard> cards)
+    {
+        if (cards == null) throw new ArgumentNullException(nameof(cards));  
+        List<CardSuit> cardSuits = [];
+        foreach (var g in cards.GroupBy(card => card.Suit))
+        {
+            if (g.Any(c => c.Rank == CardRank.Queen) && g.Any(c => c.Rank == CardRank.King))
+            {
+                cardSuits.Add(g.Key);
+            }
+        }
+        return cardSuits;
+    }
     public static bool CanPlay(ICard cardToPlay, ICard firstOnStack, List<ICard> playersCards, List<ICard> cardsOnTable, CardSuit? roundSuit )
     {
         var handWithoutPlayedCard = playersCards.Where(card => card != cardToPlay).ToArray();
@@ -40,5 +53,18 @@ public static class CardUtils
         if (!noOtherOption) return false;
     
         return true;
+    }
+
+    public static IEnumerable<ICard> GetHalfTrumps(List<ICard> botHand)
+    {
+        var suitsToSkip = GetTrumps(botHand);
+        return botHand.Where(c => !suitsToSkip.Contains(c.Suit) && c.Rank is CardRank.Queen or CardRank.King);
+    }
+
+    public static ICard GetCardToPlay(List<ICard> cards)
+    {
+        //todo pref cards != king and try to play queen when cardOnTable.Suit != card.Suit
+        
+        return cards[0];
     }
 }

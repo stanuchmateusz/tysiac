@@ -24,6 +24,9 @@ public class GameHub(GameManager gameManager, LobbyService lobbyService, ILogger
     private const string LobbyCreatedMethodName = "RoomCreated";
     private const string PlayerNotFoundExceptionMessage = "Player not found in room ";
     private const string GameNotFoundExceptionMessage = "Game not found";
+    
+    private const int BotTurnDelay = 1000;
+    private const int AfterTakeDelay = 2000;
 
     public override async Task OnConnectedAsync()
     {
@@ -384,7 +387,7 @@ public class GameHub(GameManager gameManager, LobbyService lobbyService, ILogger
             var updateCtx = Task.Run(async () =>
             {
                 logger.LogDebug("Waiting to update");
-                await Task.Delay(2000);
+                await Task.Delay(AfterTakeDelay);
                 table.CurrentPhase = GamePhase.Playing;
                 table.CompleteTake();
 
@@ -415,9 +418,7 @@ public class GameHub(GameManager gameManager, LobbyService lobbyService, ILogger
             });
         }
 
-        while (gameService.CurrentPhase == GamePhase.Playing ||
-               gameService.CurrentPhase == GamePhase.CardDistribution ||
-               gameService.CurrentPhase == GamePhase.Auction)
+        while (gameService.CurrentPhase is GamePhase.Playing or GamePhase.CardDistribution or GamePhase.Auction)
         {
             var currentPlayer = gameService.GetGameState().CurrentPlayer;
 
@@ -429,9 +430,9 @@ public class GameHub(GameManager gameManager, LobbyService lobbyService, ILogger
                 AiService.ProcessTurn(gameService,
                     bot);
                 
-                await Task.Delay(500); // todo get from config
+                await Task.Delay(BotTurnDelay);
                 
-                GameContext gameContextAfterBotMove = gameService.GetGameState();
+                var gameContextAfterBotMove = gameService.GetGameState();
                 
                 foreach (var player in
                          gameService.Players.Where(p => !p.isBot && !string.IsNullOrEmpty(p.ConnectionId)))

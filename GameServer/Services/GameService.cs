@@ -130,7 +130,7 @@ public class GameService
     {
         _logger.LogDebug("[{Room}] Dequeuing player {Player}",RoomCode, Round.TurnQueue.Peek());
         Round.TurnQueue.Dequeue();
-        _logger.LogDebug("[{Room}] {X} players left in turn queue",RoomCode,Round.TurnQueue.Count);
+        _logger.LogDebug("[{Room}] Queue: {X}",RoomCode,Round.TurnQueue);
         
         if (GamePhase.CardDistribution == CurrentPhase)
         {
@@ -364,7 +364,7 @@ public class GameService
         _logger.LogDebug("[{Room}] Player {Player} passed", RoomCode ,player);
         if (Round.Pass.Count == 3)
         {
-            var winner = Round.CurrentBidWinner;
+            var winner = Round.Pass.Contains(Round.CurrentBidWinner) ? Round.TurnQueue.Peek() : Round.CurrentBidWinner ;
             _logger.LogDebug("[{Room}] Player {Player} won auction", RoomCode,winner);
             MoveMusikToBindWinner(winner);
             SortCards(winner);
