@@ -1,4 +1,6 @@
-﻿namespace GameServer.Models.Context;
+﻿using GameServer.Models.impl;
+
+namespace GameServer.Models.Context;
 
 public class LobbyContext
 {
@@ -29,5 +31,25 @@ public class LobbyContext
     public IPlayer? GetPlayer(string contextConnectionId)
     {
         return Players.FirstOrDefault(x => x.ConnectionId == contextConnectionId);
+    }
+
+    public int AddBots()
+    {
+        var addedBots = 0;
+        while (Team1.Count != 2)
+        {
+            var bot = new AIPlayer("BOT" + addedBots);
+            Players.Add(bot);
+            Team1.Add(bot);
+            addedBots++;
+        }
+        while (Team2.Count != 2)
+        {
+            var bot = new AIPlayer("BOT" + addedBots);
+            Players.Add(bot);
+            Team2.Add(bot);
+            addedBots++;
+        }
+        return addedBots;
     }
 }

@@ -224,7 +224,7 @@ const Table = () => {
             console.log("Selected card:", cardShortName);
         }
     };
-
+    // (trumf serce) ja koniczyna 9 serce 10 serce ma dupka i nie ma do koloru
     function canPlayCard(card: Card): boolean {
         if (!gameCtx || !gameUserCtx) return true;
         if (gameCtx.gamePhase !== 3) return true;

@@ -37,6 +37,12 @@ public class LobbyService
         
         return LeaveRoom(lobbyContext,contextConnectionId);
     }
+
+    public static bool isRoomEmpty(LobbyContext lobbyContext)
+    {
+        var humanPlayers = lobbyContext.Players.Count(player => !player.ConnectionId.Contains("AI_"));
+        return humanPlayers == 0;
+    }
     
     public bool LeaveRoom(LobbyContext lobbyContext,string contextConnectionId)
     {
@@ -44,7 +50,7 @@ public class LobbyService
         
         RemovePlayer(lobbyContext,player);
         
-        if (lobbyContext.Players.Count == 0)
+        if (isRoomEmpty(lobbyContext))
         {
             _lobbies.Remove(lobbyContext.Code);
             return true;

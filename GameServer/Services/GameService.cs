@@ -2,6 +2,7 @@
 using GameServer.Models.Context;
 using GameServer.Models.Enums;
 using GameServer.Models.impl;
+using GameServer.Utils;
 
 namespace GameServer.Services;
 
@@ -11,7 +12,7 @@ public class GameService
     
     private readonly ILogger<GameService> _logger;
     
-    public HashSet<IPlayer> Players;
+    public readonly HashSet<IPlayer> Players;
     private IPlayer Player1 { get; set; }
     private IPlayer Player2 { get; set; }
     private IPlayer Player3 { get; set; }
@@ -23,15 +24,15 @@ public class GameService
 
     private int _pointsTeam1 = 0;
     private int _pointsTeam2 = 0;
-    private CardSuit? _cancelLastTrump = null;
     public GamePhase CurrentPhase {  get; set; } = GamePhase.Start;
     public string RoomCode { get; }
-    public HashSet<IPlayer> DisconnectedPlayers { get; set; } = [];
-    
+    private HashSet<IPlayer> DisconnectedPlayers { get; set; } = [];
+    private readonly int _humanPlayersCount;
     public GameService(LobbyContext lobbyCtx, ILogger<GameService> logger)
     {
         Players = lobbyCtx.Players.ToHashSet();
         RoomCode = lobbyCtx.Code;
+        _humanPlayersCount = Players.Count(player => !player.isBot);
         _logger = logger;
         ShuffleDeck(
             InitCards()
@@ -39,7 +40,11 @@ public class GameService
             .ForEach(card => _deck.Push(card));
         InitGame(lobbyCtx);
     }
-    
+
+    public bool allPlayersLeft()
+    {
+        return DisconnectedPlayers.Count == _humanPlayersCount;
+    }
     private void InitGame(LobbyContext lobbyCtx)
     {
         //ustaw kolejność graczy
@@ -290,6 +295,10 @@ public class GameService
             Player3.Hand.Add(_deck.Pop());
             Player4.Hand.Add(_deck.Pop());
         }
+        SortCards(Player1);
+        SortCards(Player2);
+        SortCards(Player3);
+        SortCards(Player4);
         Round.Musik = _deck.ToList();
         _deck.Clear();
     }
@@ -358,6 +367,7 @@ public class GameService
             var winner = Round.CurrentBidWinner;
             _logger.LogDebug("[{Room}] Player {Player} won auction", RoomCode,winner);
             MoveMusikToBindWinner(winner);
+            SortCards(winner);
             CurrentPhase = GamePhase.CardDistribution;
         }
         AdvanceTurn();
@@ -411,6 +421,10 @@ public class GameService
         // check if all cards are distributed
         if (distributor.Hand.Count == 6)
         {
+            SortCards(Player1);
+            SortCards(Player2);
+            SortCards(Player3);
+            SortCards(Player4);
             // All players should have 6 cards, move to playing phase
             CurrentPhase = GamePhase.Playing;
             _logger.LogDebug("[{Room}] All cards distributed, moving to playing phase", RoomCode);
@@ -420,21 +434,42 @@ public class GameService
             AdvanceTurn();
         }
     }
+
+    private static void SortCards(IPlayer player)
+    {
+        if (player.isBot)
+            return;
+        var suitOrder = new Dictionary<CardSuit, int>
+        {
+            { CardSuit.Hearts, 0 },
+            { CardSuit.Diamonds, 1 },
+            { CardSuit.Clubs, 2 },
+            { CardSuit.Spades, 3 }
+        };
+
+        player.Hand = player.Hand
+            .OrderBy(card => suitOrder[card.Suit])
+            .ThenByDescending(card => card.Points)
+            .ToList();
+    }
     
     /// <summary>
-    /// Plays a card, and advances the turn.
-    /// Use Only in <c>GamePhase.Playing</c>. 
-    /// <param name="player">Player that is playing the card</param>
-    /// <param name="card">Card to play</param>
-    ///  <exception cref="InvalidOperationException">
-    ///  <list type="bullet">
-    /// <item><term>Thrown when it's not the player's turn</term></item>
-    /// <item><term>Thrown when player doesn't have the card on his hand </term></item>
-    /// <item><term>Thrown when GamePhase is not <c>GamePhase.Playing</c></term></item>
-    /// <item> <term>Thrown when card is not valid to play</term></item>
-    /// </list>
-    /// </exception>
+    /// Allows a player to play a card from their hand.
+    /// Validates if it's the player's turn, if the player possesses the card,
+    /// if the game is in the 'Playing' phase, and if the card is a valid play according to game rules.
+    /// Removes the card from the player's hand and adds it to the cards on the table.
+    /// Checks for meld announcements (e.g., King-Queen pair) to set or queue the trump suit.
+    /// If four cards are on the table, the phase changes to 'ShowTable'; otherwise, the turn is advanced.
     /// </summary>
+    /// <param name="player">The player attempting to play the card.</param>
+    /// <param name="card">The card to be played.</param>
+    /// <exception cref="InvalidOperationException">Thrown if:
+    /// - It's not the specified player's turn.
+    /// - The player does not have the specified card in their hand.
+    /// - The current game phase is not <c>GamePhase.Playing</c>.
+    /// - The card is not a valid play according to the current game state and rules (e.g., not following suit when required and able).
+    /// </exception>
+    /// <exception cref="ArgumentException">Thrown if the player's team is not set when a meld is announced (should not happen in a valid game state).</exception>
     public void PlayCard(IPlayer player, ICard card)
     {
         if (player != Round.TurnQueue.Peek())
@@ -489,33 +524,13 @@ public class GameService
         if (Round.CurrentCardsOnTable.Count == 4)
         {
             CurrentPhase = GamePhase.ShowTable;   
-            
-            //dequeue trump suit (if required)
-            if (Round.QueuedTrumpSuit != null)
-            {
-                _cancelLastTrump = Round.TrumpSuit;
-                Round.TrumpSuit = Round.QueuedTrumpSuit;
-                Round.QueuedTrumpSuit = null;
-            }
         }
         else
         {
             AdvanceTurn();
         }
     }
-    
-    private static int GetTrumpPoints(CardSuit cardSuit)
-    {
-        return cardSuit switch
-        {
-            CardSuit.Hearts => 100,
-            CardSuit.Diamonds => 80,
-            CardSuit.Clubs => 60,
-            CardSuit.Spades => 40,
-            _ => throw new ArgumentException("Invalid suit for trump points")
-        };
-    }
-
+    //todo use CardUtils
     private bool CanPlay(ICard cardToPlay, ICard firstOnStack, List<ICard> playersCards)
     {
         var handWithoutPlayedCard = playersCards.Where(card => card != cardToPlay).ToArray();
@@ -551,7 +566,14 @@ public class GameService
     public void CompleteTake()
     {
         var winner = DetermineTakeWinner();
-        _cancelLastTrump = null;
+        
+        //dequeue trump suit (if required)
+        if (Round.QueuedTrumpSuit != null)
+        {
+            Round.TrumpSuit = Round.QueuedTrumpSuit;
+            Round.QueuedTrumpSuit = null;
+        }
+        
         var trickPoints = Round.CurrentCardsOnTable.Sum(card => card.Points);
         if (winner.Team == Team.Team1)
         {
@@ -570,7 +592,7 @@ public class GameService
         // Set the queue that the winner starts the next turn
         Round.TurnQueue.Clear();
         StartQueueFromPlayer(winner);
-
+        
         // check if all players have played their cards
         if (Player1.Hand.Count == 0 &&
             Player2.Hand.Count == 0 &&
@@ -583,9 +605,10 @@ public class GameService
 
     private IPlayer DetermineTakeWinner()
     {
+        //todo check if it works
         var cardsOnTable = Round.CurrentCardsOnTable;
         var playersOrder = Round.OrginalTurnQueue.ToArray();
-        var trump = _cancelLastTrump ?? Round.TrumpSuit;
+        var trump =  Round.TrumpSuit;
         var winnerIdx = 0;
         ICard? highestTrump = null;
         var highestTrumpIdx = -1;
@@ -627,7 +650,7 @@ public class GameService
     {
         var teamHasAnyPoints = (team == Team.Team1 && Round.Team1WonAnyTake)  ||   (team == Team.Team2 && Round.Team2WonAnyTake);
         var trumps = Round.SuitToTeam.Where(x => x.Item2 == team);
-        return teamHasAnyPoints ? trumps.Sum(tuple => GetTrumpPoints(tuple.Item1)) : 0;
+        return teamHasAnyPoints ? trumps.Sum(tuple => CardUtils.GetTrumpPoints(tuple.Item1)) : 0;
     }
 
     private void EndRound()

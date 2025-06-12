@@ -60,7 +60,7 @@ public class GameManager //: IGameManager
         {
             var player = table.GetPlayerFromRoom(contextConnectionId);
             table.PauseGame(player ?? throw new InvalidOperationException("Player got removed from table!"));
-            if (table.DisconnectedPlayers.Count != 4) continue;
+            if (table.allPlayersLeft()) continue;
             _logger.LogInformation("All players disconnected from room {RoomCode} - Removing the room", table.RoomCode);
             RemoveRoom(table.RoomCode);
         }

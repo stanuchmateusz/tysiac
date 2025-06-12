@@ -73,7 +73,7 @@ const Lobby = () => {
         }
 
         const handleGetKicked = () => {
-            confirm("you got kiecked")
+            confirm("You got kiecked")
             navigate("/", { replace: true });
         }
 
@@ -335,7 +335,19 @@ const Lobby = () => {
                                     >
                                         Rozpocznij grę
                                     </button>
-                                )}
+                                )} {
+                                    IsHost() && (<button
+                                        className={`mt-4 px-6 py-2 rounded font-bold text-lg shadow-md transition-all duration-150 
+                                            flex items-center justify-center
+                                            ${(team1.length == 2 && team2.length == 2) ? 'bg-gray-500 text-gray-200 cursor-not-allowed opacity-70' : 'bg-gradient-to-r from-blue-700 to-blue-900 hover:from-blue-800 hover:to-blue-950 text-white cursor-pointer'}`}
+                                        onClick={() => {
+                                            GameService.connection?.invoke("AddBots", gameCode);
+                                        }}
+                                        disabled={(team1.length == 2 && team2.length == 2)}
+                                        style={{ minWidth: 200 }}
+                                    >
+                                        Dodaj boty</button>)
+                                }
                             </div>
                         </div>
                         <div className="w-full md:w-80 flex flex-col bg-gray-800 p-3 rounded-lg  min-h-80 max-h-80">
