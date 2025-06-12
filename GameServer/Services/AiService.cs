@@ -102,7 +102,7 @@ public static class AiService
         {
             cards = botHand;
         }
-        var card = CardUtils.GetCardToPlay(cards); 
+        var card = CardUtils.GetCardToPlay(cards, gameCtx.CardsOnTable.Count > 0 ? gameCtx.CardsOnTable.Last() : null); 
         if (gameCtx.CardsOnTable.Count == 0)
         {
             var trumps = CardUtils.GetTrumps(botHand);
@@ -129,17 +129,17 @@ public static class AiService
     {
         var currentBid = gameCtx.CurrentBet;
         var botHand = userCtx.Hand;
-        const int maxBid = 210;
+        const int maxBid = 220;
                 
         var trumps = CardUtils.GetTrumps(botHand);
         var pointsFromTrumps = trumps.Select(CardUtils.GetTrumpPoints).Sum();
         var halfTrumps = CardUtils.GetHalfTrumps(botHand)
             .Select(c => CardUtils.GetTrumpPoints(c.Suit))
-            .Select(v => v/2).Sum();
+            .Select(v => v*0.3).Sum(); 
                 
-        var possibleToPLay = Math.Min(pointsFromTrumps + halfTrumps, maxBid); // make sure not to bet over 210
+        var possibleToPLay = Math.Min(pointsFromTrumps + halfTrumps, maxBid); // make sure not to bet over MAX
         possibleToPLay += botHand.Select(c => c.Points).Sum(arg => arg);
-        var random = new Random().Next( possibleToPLay/20); // add 20% risk
+        var random = new Random().Next( (int)(possibleToPLay * 0.3)); 
         possibleToPLay += random;
         if (possibleToPLay == 0)
             possibleToPLay = maxBid;

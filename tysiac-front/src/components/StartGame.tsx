@@ -15,7 +15,6 @@ const StartGame = ({ code }: { code: string | undefined }) => {
 
     useEffect(() => {
         if (!GameService.connection || GameService.connection.state === signalR.HubConnectionState.Disconnected) {
-            GameService.constructor()
             GameService.startConnection()
                 .then(() => setIsReady(true))
                 .catch(() => {
@@ -47,22 +46,13 @@ const StartGame = ({ code }: { code: string | undefined }) => {
         if (window.signalR && window.signalR.HubConnectionState) {
             ensureConnection();
         } else {
-
             if (GameService.getConnectionState() !== 'Connected') {
                 GameService.startConnection()
                     .then(() => setIsReady(true))
                     .catch(() => {
                         setConnectionError("Błąd podczas nawiązywania połączenia z serwerem. Sprawdź połączenie internetowe i spróbuj ponownie.");
                         setIsReady(false);
-                        GameService.constructor()
-                        GameService.startConnection()
-                            .then(() => setIsReady(true))
-                            .catch(() => {
-                                setConnectionError("Błąd podczas nawiązywania połączenia z serwerem. Sprawdź połączenie internetowe i spróbuj ponownie.");
-                                setIsReady(false);
-                            });
-                    }
-                    );
+                    });
             } else {
                 setIsReady(true);
             }

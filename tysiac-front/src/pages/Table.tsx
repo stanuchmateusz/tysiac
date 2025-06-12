@@ -331,7 +331,7 @@ const Table = () => {
                         </div>
                     </div>
                 )}
-                <div className={`w-full rounded-3xl shadow-2xl bg-gray-800/90 flex flex-col relative overflow-hidden border border-blue-900 ${showDisconnectedModal || showOptions ? 'pointer-events-none select-none opacity-60' : ''}`}>
+                <div className={`w-full rounded-3xl shadow-2xl bg-gray-800/90 flex flex-col relative overflow-hidden border border-blue-900 ${showDisconnectedModal || showOptions ? 'pointer-events-none select-none opacity-60' : ''} flex-1`}>
                     {/* Header */}
                     <div className="flex items-center justify-between px-8 py-6 border-b border-gray-700 bg-gradient-to-r from-blue-900/80 to-gray-900/80">
                         <div className="text-3xl font-bold text-white tracking-wide">Stół gry</div>
@@ -355,169 +355,171 @@ const Table = () => {
                         </div>
                     </div>
                     {/* Main Table Area */}
-                    <div className="flex flex-row w-full min-h-screen">
+                    {/* Removed flex-row and min-h-screen from here, as the parent already handles flex layout */}
+                    <div className="w-full flex-1 flex">
                         {/* Table Area */}
-                        <div className="flex-1 flex flex-col items-center justify-center relative p-8">
-                            {/* Table and Players */}
-                            <div className="relative w-full h-[400px] flex items-center justify-center" ref={tableRef}>
-                                {/* Chat on the left, fixed position */}
-                                <div className={`absolute left-0 top-0 ml-4 mt-4 w-80 max-w-xs bg-gray-900/90 border border-gray-700 rounded-2xl shadow-xl p-4 z-20 transition-all duration-300 ${showChat ? '' : 'opacity-0 pointer-events-none'}`} style={{ minHeight: '340px' }}>
-                                    <div className="flex items-center justify-between mb-2">
-                                        <h2 className="text-xl font-semibold text-white">Chat</h2>
-                                        <button
-                                            className="text-blue-400 hover:text-blue-200 transition-colors cursor-pointer"
-                                            onClick={() => setShowChat(false)}
-                                        >
-                                            ✕
-                                        </button>
-                                    </div>
-                                    <div className="flex-1 overflow-y-auto bg-gray-800 rounded-lg p-3 mb-2 border border-gray-700" style={{ maxHeight: '180px' }}>
-                                        {chatMessages.map((msg, idx) => (
-                                            <div key={idx} className="mb-2">
-                                                <span className="font-bold text-blue-300">{msg.nickname}:</span> <span className="text-white">{msg.message}</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                    <div className="flex gap-2 mt-2">
-                                        <input
-                                            type="text"
-                                            placeholder="Wiadomość..."
-                                            className="w-full p-2 border border-gray-700 rounded bg-neutral-800 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                            value={message}
-                                            onChange={e => setMessage(e.target.value)}
-                                            onKeyDown={handleKeyPress}
-                                        />
-                                        <button
-                                            className="p-2 bg-gradient-to-r from-blue-800 to-gray-900 hover:from-blue-900 hover:to-black rounded text-white flex items-center justify-center transition-colors duration-150 cursor-pointer"
-                                            onClick={sendMessage}
-                                        >
-                                            ➤
-                                        </button>
-                                    </div>
-                                </div>
-                                {/* Floating show chat button, only if chat is hidden, bottom left */}
-                                {!showChat && (
+                        {/* This div becomes the main reference for absolute positioning of game elements and flying card animations */}
+                        <div className="flex-1 flex flex-col items-center justify-center relative p-4 sm:p-6 md:p-8" ref={tableRef}>
+                            {/* PlayerPositions are now direct children of tableRef and positioned absolutely relative to it */}
+                            {/* Chat on the left, fixed position */}
+                            <div className={`absolute left-0 top-0 ml-4 mt-4 w-80 max-w-xs bg-gray-900/90 border border-gray-700 rounded-2xl shadow-xl p-4 z-20 transition-all duration-300 ${showChat ? '' : 'opacity-0 pointer-events-none'}`} style={{ minHeight: '340px' }}>
+                                <div className="flex items-center justify-between mb-2">
+                                    <h2 className="text-xl font-semibold text-white">Chat</h2>
                                     <button
-                                        className="fixed left-8 bottom-8 z-30 px-5 py-3 bg-gradient-to-r from-gray-800 to-gray-900 hover:from-gray-900 hover:to-black text-white rounded-xl font-semibold shadow-lg border-2 border-blue-900 transition-all duration-150 opacity-90 cursor-pointer"
-                                        onClick={() => setShowChat(true)}
+                                        className="text-blue-400 hover:text-blue-200 transition-colors cursor-pointer"
+                                        onClick={() => setShowChat(false)}
                                     >
-                                        Pokaż chat
+                                        ✕
                                     </button>
-                                )}
-                                {/* Players around the table (without current user's hand) */}
-                                <PlayerPosition
-                                    player={gameUserCtx?.teammate}
-                                    position="top-[-5rem] left-1/2 -translate-x-1/2" // Przesunięto wyżej
-                                    cardCount={gameUserCtx?.teammateCards}
-                                    cardDirection="normal"
-                                    highlightGold={gameCtx?.currentPlayer.connectionId === gameUserCtx?.teammate?.connectionId}
-                                    hasPassed={gameCtx?.gamePhase === 1 && !!gameCtx?.passedPlayers?.find(p => p.connectionId === gameUserCtx?.teammate?.connectionId)}
-                                    isTakeWinner={gameCtx?.gamePhase === 5 && gameCtx?.takeWinner?.connectionId === gameUserCtx?.teammate?.connectionId}
-                                    onDragOver={handleDragOver}
-                                    onDrop={(e) => handleDropOnPlayer(e, gameUserCtx?.teammate?.connectionId)}
-                                    isDropTargetActive={isDraggingCard && gameCtx?.gamePhase === 2 && isCurrentPlayer && !playersGivenCard.includes(gameUserCtx?.teammate?.connectionId || '')}
-                                />
-                                <PlayerPosition
-                                    player={gameUserCtx?.leftPlayer}
-                                    position="left-0 top-1/2 -translate-y-1/2"
-                                    cardCount={gameUserCtx?.leftPlayerCards}
-                                    cardDirection="left"
-                                    highlightGold={gameCtx?.currentPlayer.connectionId === gameUserCtx?.leftPlayer?.connectionId}
-                                    hasPassed={gameCtx?.gamePhase === 1 && !!gameCtx?.passedPlayers?.find(p => p.connectionId === gameUserCtx?.leftPlayer?.connectionId)}
-                                    isTakeWinner={gameCtx?.gamePhase === 5 && gameCtx?.takeWinner?.connectionId === gameUserCtx?.leftPlayer?.connectionId}
-                                    onDragOver={handleDragOver}
-                                    onDrop={(e) => handleDropOnPlayer(e, gameUserCtx?.leftPlayer?.connectionId)}
-                                    isDropTargetActive={isDraggingCard && gameCtx?.gamePhase === 2 && isCurrentPlayer && !playersGivenCard.includes(gameUserCtx?.leftPlayer?.connectionId || '')}
-                                />
-                                <PlayerPosition
-                                    player={gameUserCtx?.rightPlayer}
-                                    position="right-0 top-1/2 -translate-y-1/2"
-                                    cardCount={gameUserCtx?.rightPlayerCards}
-                                    cardDirection="right"
-                                    highlightGold={gameCtx?.currentPlayer.connectionId === gameUserCtx?.rightPlayer?.connectionId}
-                                    hasPassed={gameCtx?.gamePhase === 1 && !!gameCtx?.passedPlayers?.find(p => p.connectionId === gameUserCtx?.rightPlayer?.connectionId)}
-                                    isTakeWinner={gameCtx?.gamePhase === 5 && gameCtx?.takeWinner?.connectionId === gameUserCtx?.rightPlayer?.connectionId}
-                                    onDragOver={handleDragOver}
-                                    onDrop={(e) => handleDropOnPlayer(e, gameUserCtx?.rightPlayer?.connectionId)}
-                                    isDropTargetActive={isDraggingCard && gameCtx?.gamePhase === 2 && isCurrentPlayer && !playersGivenCard.includes(gameUserCtx?.rightPlayer?.connectionId || '')}
-                                />
-                                {/* Cards on table (center) */}
-                                <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full pointer-events-none">
-                                    {/* Drop Zone for playing cards */}
-                                    <div
-                                        onDragOver={handleDragOver}
-                                        onDrop={handleDropOnTable}
-                                        className={`absolute inset-0 m-auto w-32 h-48 border-2 border-dashed rounded-lg transition-all duration-150
-                                            ${isDraggingCard && gameCtx?.gamePhase === 3 && isCurrentPlayer
-                                                ? 'border-green-500 bg-green-700/30 backdrop-blur-sm'
-                                                : 'border-transparent'}
-                                        `}
-                                        style={{
-                                            pointerEvents: (isDraggingCard && gameCtx?.gamePhase === 3 && isCurrentPlayer) ? 'auto' : 'none',
-                                            zIndex: 5 // Below cards on table, but catch drops
-                                        }}
+                                </div>
+                                <div className="flex-1 overflow-y-auto bg-gray-800 rounded-lg p-3 mb-2 border border-gray-700" style={{ maxHeight: '180px' }}>
+                                    {chatMessages.map((msg, idx) => (
+                                        <div key={idx} className="mb-2">
+                                            <span className="font-bold text-blue-300">{msg.nickname}:</span> <span className="text-white">{msg.message}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                                <div className="flex gap-2 mt-2">
+                                    <input
+                                        type="text"
+                                        placeholder="Wiadomość..."
+                                        className="w-full p-2 border border-gray-700 rounded bg-neutral-800 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        value={message}
+                                        onChange={e => setMessage(e.target.value)}
+                                        onKeyDown={handleKeyPress}
+                                    />
+                                    <button
+                                        className="p-2 bg-gradient-to-r from-blue-800 to-gray-900 hover:from-blue-900 hover:to-black rounded text-white flex items-center justify-center transition-colors duration-150 cursor-pointer"
+                                        onClick={sendMessage}
                                     >
-                                        {isDraggingCard && gameCtx?.gamePhase === 3 && isCurrentPlayer && (
-                                            <span className="flex items-center justify-center h-full text-white/70 text-sm">Upuść tutaj</span>
-                                        )}
-                                    </div>
-                                    {(() => {
-                                        if (!gameCtx?.cardsOnTable?.length || !gameUserCtx) return null;
-
-                                        const playerOrder = [
-                                            gameUserCtx.me?.connectionId,
-                                            gameUserCtx.leftPlayer?.connectionId,
-                                            gameUserCtx.teammate?.connectionId,
-                                            gameUserCtx.rightPlayer?.connectionId
-                                        ];
-
-                                        const leaderId = firstPlayerInCurrentTake.current;
-                                        const indexOfLeader = leaderId ? playerOrder.indexOf(leaderId) : -1;
-
-                                        if (indexOfLeader === -1 && gameCtx.cardsOnTable.length > 0) {
-                                            console.error("Lider lewy nie został znaleziony w playerOrder lub firstPlayerInTrick.current nie jest ustawiony.");
-                                            return null;
-                                        }
-
-
-                                        const slotNames = ['bottom', 'left', 'top', 'right'];
-
-                                        // Render kart
-                                        return gameCtx.cardsOnTable.map((card, cardIndexInTrick) => {
-                                            const style: React.CSSProperties = {
-                                                position: 'absolute',
-                                                left: '50%',
-                                                top: '50%',
-                                                transform: 'translate(-50%, -50%)',
-                                                zIndex: 10 + cardIndexInTrick,
-                                            };
-                                            let rotation = 0;
-                                            let offsetX = 0, offsetY = 0;
-
-
-                                            const playerVisualIndex = (indexOfLeader + cardIndexInTrick) % playerOrder.length;
-                                            const pos = slotNames[playerVisualIndex];
-
-                                            if (pos === 'bottom') { offsetY = 90; rotation = 0; }
-                                            if (pos === 'left') { offsetX = -90; rotation = -90; }
-                                            if (pos === 'top') { offsetY = -90; rotation = 180; }
-                                            if (pos === 'right') { offsetX = 90; rotation = 90; }
-                                            style.transform = `translate(-50%, -50%) translate(${offsetX}px, ${offsetY}px) rotate(${rotation}deg)`;
-                                            return (
-                                                <img
-                                                    key={card.shortName + cardIndexInTrick}
-                                                    src={`${CARD_SVG_PATH}${card.shortName}.svg`}
-                                                    alt={card.shortName}
-                                                    style={style}
-                                                    className="drop-shadow-lg w-16 h-24"
-                                                />
-                                            );
-                                        });
-                                    })()}
+                                        ➤
+                                    </button>
                                 </div>
                             </div>
+                            {/* Floating show chat button, only if chat is hidden, bottom left */}
+                            {!showChat && (
+                                <button
+                                    className="fixed left-8 bottom-8 z-30 px-5 py-3 bg-gradient-to-r from-gray-800 to-gray-900 hover:from-gray-900 hover:to-black text-white rounded-xl font-semibold shadow-lg border-2 border-blue-900 transition-all duration-150 opacity-90 cursor-pointer"
+                                    onClick={() => setShowChat(true)}
+                                >
+                                    Pokaż chat
+                                </button>
+                            )}
+                            {/* Players around the table (without current user's hand) */}
+                            <PlayerPosition
+                                player={gameUserCtx?.teammate}
+                                position="absolute top-4 sm:top-6 left-1/2 -translate-x-1/2"
+                                cardCount={gameUserCtx?.teammateCards}
+                                cardDirection="normal"
+                                highlightGold={gameCtx?.currentPlayer.connectionId === gameUserCtx?.teammate?.connectionId}
+                                hasPassed={gameCtx?.gamePhase === 1 && !!gameCtx?.passedPlayers?.find(p => p.connectionId === gameUserCtx?.teammate?.connectionId)}
+                                isTakeWinner={gameCtx?.gamePhase === 5 && gameCtx?.takeWinner?.connectionId === gameUserCtx?.teammate?.connectionId}
+                                onDragOver={handleDragOver}
+                                onDrop={(e) => handleDropOnPlayer(e, gameUserCtx?.teammate?.connectionId)}
+                                isDropTargetActive={isDraggingCard && gameCtx?.gamePhase === 2 && isCurrentPlayer && !playersGivenCard.includes(gameUserCtx?.teammate?.connectionId || '')}
+                            />
+                            <PlayerPosition
+                                player={gameUserCtx?.leftPlayer}
+                                position="absolute left-4 sm:left-6 top-1/2 -translate-y-1/2"
+                                cardCount={gameUserCtx?.leftPlayerCards}
+                                cardDirection="left"
+                                highlightGold={gameCtx?.currentPlayer.connectionId === gameUserCtx?.leftPlayer?.connectionId}
+                                hasPassed={gameCtx?.gamePhase === 1 && !!gameCtx?.passedPlayers?.find(p => p.connectionId === gameUserCtx?.leftPlayer?.connectionId)}
+                                isTakeWinner={gameCtx?.gamePhase === 5 && gameCtx?.takeWinner?.connectionId === gameUserCtx?.leftPlayer?.connectionId}
+                                onDragOver={handleDragOver}
+                                onDrop={(e) => handleDropOnPlayer(e, gameUserCtx?.leftPlayer?.connectionId)}
+                                isDropTargetActive={isDraggingCard && gameCtx?.gamePhase === 2 && isCurrentPlayer && !playersGivenCard.includes(gameUserCtx?.leftPlayer?.connectionId || '')}
+                            />
+                            <PlayerPosition
+                                player={gameUserCtx?.rightPlayer}
+                                position="absolute right-4 sm:right-6 top-1/2 -translate-y-1/2"
+                                cardCount={gameUserCtx?.rightPlayerCards}
+                                cardDirection="right"
+                                highlightGold={gameCtx?.currentPlayer.connectionId === gameUserCtx?.rightPlayer?.connectionId}
+                                hasPassed={gameCtx?.gamePhase === 1 && !!gameCtx?.passedPlayers?.find(p => p.connectionId === gameUserCtx?.rightPlayer?.connectionId)}
+                                isTakeWinner={gameCtx?.gamePhase === 5 && gameCtx?.takeWinner?.connectionId === gameUserCtx?.rightPlayer?.connectionId}
+                                onDragOver={handleDragOver}
+                                onDrop={(e) => handleDropOnPlayer(e, gameUserCtx?.rightPlayer?.connectionId)}
+                                isDropTargetActive={isDraggingCard && gameCtx?.gamePhase === 2 && isCurrentPlayer && !playersGivenCard.includes(gameUserCtx?.rightPlayer?.connectionId || '')}
+                            />
+                            {/* Cards on table (center) */}
+                            {/* This container is now full width/height of tableRef, ensuring cards are centered within the main game area */}
+                            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full pointer-events-none">
+                                {/* Drop Zone for playing cards */}
+                                <div
+                                    onDragOver={handleDragOver}
+                                    onDrop={handleDropOnTable}
+                                    className={`absolute inset-0 m-auto w-32 h-48 border-2 border-dashed rounded-lg transition-all duration-150
+                                            ${isDraggingCard && gameCtx?.gamePhase === 3 && isCurrentPlayer
+                                            ? 'border-green-500 bg-green-700/30 backdrop-blur-sm'
+                                            : 'border-transparent'}
+                                        `}
+                                    style={{
+                                        pointerEvents: (isDraggingCard && gameCtx?.gamePhase === 3 && isCurrentPlayer) ? 'auto' : 'none',
+                                        zIndex: 5 // Below cards on table, but catch drops
+                                    }}
+                                >
+                                    {isDraggingCard && gameCtx?.gamePhase === 3 && isCurrentPlayer && (
+                                        <span className="flex items-center justify-center h-full text-white/70 text-sm">Upuść tutaj</span>
+                                    )}
+                                </div>
+                                {(() => {
+                                    if (!gameCtx?.cardsOnTable?.length || !gameUserCtx) return null;
+
+                                    const playerOrder = [
+                                        gameUserCtx.me?.connectionId,
+                                        gameUserCtx.leftPlayer?.connectionId,
+                                        gameUserCtx.teammate?.connectionId,
+                                        gameUserCtx.rightPlayer?.connectionId
+                                    ];
+
+                                    const leaderId = firstPlayerInCurrentTake.current;
+                                    const indexOfLeader = leaderId ? playerOrder.indexOf(leaderId) : -1;
+
+                                    if (indexOfLeader === -1 && gameCtx.cardsOnTable.length > 0) {
+                                        console.error("Lider lewy nie został znaleziony w playerOrder lub firstPlayerInTrick.current nie jest ustawiony.");
+                                        return null;
+                                    }
+
+
+                                    const slotNames = ['bottom', 'left', 'top', 'right'];
+
+                                    // Render kart
+                                    return gameCtx.cardsOnTable.map((card, cardIndexInTrick) => {
+                                        const style: React.CSSProperties = {
+                                            position: 'absolute',
+                                            left: '50%',
+                                            top: '50%',
+                                            transform: 'translate(-50%, -50%)',
+                                            zIndex: 10 + cardIndexInTrick,
+                                        };
+                                        let rotation = 0;
+                                        let offsetX = 0, offsetY = 0;
+
+
+                                        const playerVisualIndex = (indexOfLeader + cardIndexInTrick) % playerOrder.length;
+                                        const pos = slotNames[playerVisualIndex];
+
+                                        if (pos === 'bottom') { offsetY = 90; rotation = 0; }
+                                        if (pos === 'left') { offsetX = -90; rotation = -90; }
+                                        if (pos === 'top') { offsetY = -90; rotation = 180; }
+                                        if (pos === 'right') { offsetX = 90; rotation = 90; }
+                                        style.transform = `translate(-50%, -50%) translate(${offsetX}px, ${offsetY}px) rotate(${rotation}deg)`;
+                                        return (
+                                            <img
+                                                key={card.shortName + cardIndexInTrick}
+                                                src={`${CARD_SVG_PATH}${card.shortName}.svg`}
+                                                alt={card.shortName}
+                                                style={style}
+                                                className="drop-shadow-lg w-16 h-24"
+                                            />
+                                        );
+                                    });
+                                })()}
+                            </div>
                             {/* Card Hand */}
-                            <div className="w-full flex justify-center mt-48">
+                            {/* Positioned absolutely at the bottom of tableRef */}
+                            <div className="absolute bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2 w-full flex justify-center">
                                 <CardHand
                                     cards={gameUserCtx?.hand || []}
                                     onCardDragStart={handleCardDragStart}
@@ -565,10 +567,12 @@ export default Table;
 function FlyingCardAnimation({ card, to, tableRef, gameUserCtx }: { card: Card, to: string, tableRef: React.RefObject<HTMLDivElement>, gameUserCtx: GameUserContext | null }) {
 
     const getTargetPos = () => {
-        if (!tableRef.current) return { x: 0, y: 0 };
+        if (!tableRef.current || !gameUserCtx) return { x: 0, y: 0 };
         const rect = tableRef.current.getBoundingClientRect();
-        if (to === 'table') return { x: rect.width / 2, y: rect.height / 2 };
-        if (to === gameUserCtx?.teammate?.connectionId) return { x: rect.width / 2, y: 40 };
+        const tablePadding = parseInt(getComputedStyle(tableRef.current).paddingTop) || 24; // Approx padding (p-6)
+
+        if (to === 'table') return { x: rect.width / 2, y: rect.height / 2 }; // Center of tableRef
+        if (to === gameUserCtx?.teammate?.connectionId) return { x: rect.width / 2, y: tablePadding + 16 + 75 }; // top-4 (16px) + half PlayerPosition height (75px)
         if (to === gameUserCtx?.leftPlayer?.connectionId) return { x: 60, y: rect.height / 2 };
         if (to === gameUserCtx?.rightPlayer?.connectionId) return { x: rect.width - 60, y: rect.height / 2 };
         return { x: rect.width / 2, y: rect.height - 80 };

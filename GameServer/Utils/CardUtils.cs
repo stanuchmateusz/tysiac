@@ -57,14 +57,48 @@ public static class CardUtils
 
     public static IEnumerable<ICard> GetHalfTrumps(List<ICard> botHand)
     {
-        var suitsToSkip = GetTrumps(botHand);
+        var suitsToSkip = GetTrumps(botHand); 
         return botHand.Where(c => !suitsToSkip.Contains(c.Suit) && c.Rank is CardRank.Queen or CardRank.King);
     }
 
-    public static ICard GetCardToPlay(List<ICard> cards)
+    public static ICard GetCardToPlay(List<ICard> candidateCards, ICard? firstCardOnTrick)
     {
-        //todo pref cards != king and try to play queen when cardOnTable.Suit != card.Suit
+        if (candidateCards == null || candidateCards.Count == 0)
+        {
+            throw new ArgumentException("List of candidate cards cannot be null or empty.", nameof(candidateCards));
+        }
         
-        return cards[0];
+        if (candidateCards.Count == 1)
+        {
+            return candidateCards[0];
+        }
+
+        // Preference 1: "try to play queen when cardOnTable.Suit != card.Suit"
+        // This applies if following a card and a Queen can be played off-suit (as trump or discard).
+        if (firstCardOnTrick != null)
+        {
+            var preferredQueenPlays = candidateCards
+                .Where(card => card.Rank == CardRank.Queen && card.Suit != firstCardOnTrick.Suit)
+                .ToList();
+
+            if (preferredQueenPlays.Count != 0)
+            {
+                return preferredQueenPlays[0];
+            }
+        }
+        var nonKingOptions = candidateCards
+            .Where(card => card.Rank != CardRank.King)
+            .OrderBy(card => card.Points) // Prefer lower point non-King cards
+            .ToList();
+
+        if (nonKingOptions.Count != 0)
+        {
+            return nonKingOptions[0];
+        }
+
+        // Fallback: If no preferred Queen play was made and all remaining/available options are Kings,
+        // or if leading and all options are Kings.
+        // Play the lowest point card from the (remaining) candidates.
+        return candidateCards.OrderBy(card => card.Points).First();
     }
 }
