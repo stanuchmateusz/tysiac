@@ -125,7 +125,6 @@ const Table = () => {
         }
     }, [gameCtx?.gamePhase]);
 
-    const [selectedPlayer, setSelectedPlayer] = useState<string | null>(null);
     const [playersGivenCard, setPlayersGivenCard] = useState<string[]>([]); // For tracking players to whom cards have been given in Game Phase 2
     const [showTrumpModal, setShowTrumpModal] = useState(false);
     const prevTrumpSuit = useRef<number | null>(null);
@@ -171,59 +170,83 @@ const Table = () => {
         console.log("Accept bid:", bet);
     };
 
-    // Function for selecting a player to give a card to
-    const handleSelectPlayer = (connectionId?: string) => {
-        if (gameCtx?.gamePhase === 2 && connectionId && !playersGivenCard.includes(connectionId)) {
-            setSelectedPlayer(connectionId);
-        }
-    };
     const handleLeaveRoom = () => {
         GameService.connection?.invoke("LeaveGame", gameCode)
             .catch(err => console.error("Error leaving game:", err));
         navigate("/", { replace: true })
     }
 
+    const [isDraggingCard, setIsDraggingCard] = useState(false);
+    const [draggedCardData, setDraggedCardData] = useState<Card | null>(null);
+
+    const handleCardDragStart = (event: React.DragEvent, card: Card) => {
+        event.dataTransfer.setData("application/json", JSON.stringify(card));
+        event.dataTransfer.effectAllowed = "move";
+        setDraggedCardData(card);
+        setIsDraggingCard(true);
+    };
+
+    const handleCardDragEnd = () => {
+        setIsDraggingCard(false);
+        setDraggedCardData(null);
+    };
+
+    const handleDragOver = (event: React.DragEvent) => {
+        event.preventDefault();
+    };
+
+    const handleDropOnPlayer = (event: React.DragEvent, targetPlayerConnectionId: string | undefined) => {
+        event.preventDefault();
+        if (!targetPlayerConnectionId || !draggedCardData) {
+            setIsDraggingCard(false);
+            setDraggedCardData(null);
+            return;
+        }
+
+        const card = draggedCardData;
+
+        if (gameCtx?.gamePhase === 2 && isCurrentPlayer && !playersGivenCard.includes(targetPlayerConnectionId)) {
+            setFlyingCard({ card: card, to: targetPlayerConnectionId, from: 'hand' });
+            setTimeout(() => setFlyingCard(null), 700);
+
+            GameService.connection?.invoke("GiveCard", gameCode, card.shortName, targetPlayerConnectionId);
+            setPlayersGivenCard(prev => [...prev, targetPlayerConnectionId]);
+        }
+        setIsDraggingCard(false);
+        setDraggedCardData(null);
+    };
+
+    const handleDropOnTable = (event: React.DragEvent) => {
+        event.preventDefault();
+        if (!draggedCardData) {
+            setIsDraggingCard(false);
+            setDraggedCardData(null);
+            return;
+        }
+        const card = draggedCardData;
+
+        if (gameCtx?.gamePhase === 3 && isCurrentPlayer) {
+            if (canPlayCard(card)) {
+                setFlyingCard({ card: card, to: 'table', from: 'hand' });
+                setTimeout(() => setFlyingCard(null), 700);
+                GameService.connection?.invoke("PlayCard", gameCode, card.shortName);
+            } else {
+                console.warn("Cannot play this card by drag:", card.shortName);
+            }
+        }
+        setIsDraggingCard(false);
+        setDraggedCardData(null);
+    };
+
     const tableRef = useRef<HTMLDivElement>(null);
     // Ref tu remember who started the take
     const firstPlayerInCurrentTake = useRef<string | null>(null);
-
     useEffect(() => {
         if (gameCtx && gameCtx.cardsOnTable && gameCtx.cardsOnTable.length === 0 && gameCtx.currentPlayer) {
-            // new take setting new first in take
             firstPlayerInCurrentTake.current = gameCtx.currentPlayer.connectionId;
         }
     }, [gameCtx?.cardsOnTable, gameCtx?.currentPlayer]);
-
     const [flyingCard, setFlyingCard] = useState<null | { card: Card, to: string, from: string }>(null);
-
-    // Function for handling card selection
-    const handleCardSelect = (cardShortName: string) => {
-        if (gameCtx?.gamePhase === 2) {
-            if (selectedPlayer) {
-                const cardObj = gameUserCtx?.hand.find(c => c.shortName === cardShortName);
-                if (cardObj) {
-                    setFlyingCard({ card: cardObj, to: selectedPlayer, from: 'hand' });
-                    setTimeout(() => setFlyingCard(null), 700);
-                }
-                GameService.connection?.invoke("GiveCard", gameCode, cardShortName, selectedPlayer);
-                setPlayersGivenCard(prev => [...prev, selectedPlayer]); setSelectedPlayer(null);
-            } else {
-                alert("Najpierw wybierz gracza, któremu chcesz dać kartę!");
-            }
-        }
-        else if (gameCtx?.gamePhase === 3) {
-            const cardObj = gameUserCtx?.hand.find(c => c.shortName === cardShortName);
-            if (cardObj) {
-                setFlyingCard({ card: cardObj, to: 'table', from: 'hand' });
-                setTimeout(() => setFlyingCard(null), 700);
-            }
-            GameService.connection?.invoke("PlayCard", gameCode, cardShortName);
-            console.log(`Playing card: ${cardShortName}`);
-        }
-        else {
-            console.log("Selected card:", cardShortName);
-        }
-    };
     // (trumf serce) ja koniczyna 9 serce 10 serce ma dupka i nie ma do koloru
     function canPlayCard(card: Card): boolean {
         if (!gameCtx || !gameUserCtx) return true;
@@ -387,39 +410,57 @@ const Table = () => {
                                     position="top-[-5rem] left-1/2 -translate-x-1/2" // Przesunięto wyżej
                                     cardCount={gameUserCtx?.teammateCards}
                                     cardDirection="normal"
-                                    highlightGold={gameCtx?.currentPlayer.connectionId === gameUserCtx?.teammate.connectionId}
-                                    isSelectable={gameCtx?.gamePhase === 2 && isCurrentPlayer && !playersGivenCard.includes(gameUserCtx?.teammate?.connectionId || '')}
-                                    isSelected={selectedPlayer === gameUserCtx?.teammate?.connectionId}
+                                    highlightGold={gameCtx?.currentPlayer.connectionId === gameUserCtx?.teammate?.connectionId}
                                     hasPassed={gameCtx?.gamePhase === 1 && !!gameCtx?.passedPlayers?.find(p => p.connectionId === gameUserCtx?.teammate?.connectionId)}
                                     isTakeWinner={gameCtx?.gamePhase === 5 && gameCtx?.takeWinner?.connectionId === gameUserCtx?.teammate?.connectionId}
-                                    onSelect={() => handleSelectPlayer(gameUserCtx?.teammate?.connectionId)}
+                                    onDragOver={handleDragOver}
+                                    onDrop={(e) => handleDropOnPlayer(e, gameUserCtx?.teammate?.connectionId)}
+                                    isDropTargetActive={isDraggingCard && gameCtx?.gamePhase === 2 && isCurrentPlayer && !playersGivenCard.includes(gameUserCtx?.teammate?.connectionId || '')}
                                 />
                                 <PlayerPosition
                                     player={gameUserCtx?.leftPlayer}
                                     position="left-0 top-1/2 -translate-y-1/2"
                                     cardCount={gameUserCtx?.leftPlayerCards}
                                     cardDirection="left"
-                                    highlightGold={gameCtx?.currentPlayer.connectionId === gameUserCtx?.leftPlayer.connectionId}
-                                    isSelectable={gameCtx?.gamePhase === 2 && isCurrentPlayer && !playersGivenCard.includes(gameUserCtx?.leftPlayer?.connectionId || '')}
-                                    isSelected={selectedPlayer === gameUserCtx?.leftPlayer?.connectionId}
+                                    highlightGold={gameCtx?.currentPlayer.connectionId === gameUserCtx?.leftPlayer?.connectionId}
                                     hasPassed={gameCtx?.gamePhase === 1 && !!gameCtx?.passedPlayers?.find(p => p.connectionId === gameUserCtx?.leftPlayer?.connectionId)}
                                     isTakeWinner={gameCtx?.gamePhase === 5 && gameCtx?.takeWinner?.connectionId === gameUserCtx?.leftPlayer?.connectionId}
-                                    onSelect={() => handleSelectPlayer(gameUserCtx?.leftPlayer?.connectionId)}
+                                    onDragOver={handleDragOver}
+                                    onDrop={(e) => handleDropOnPlayer(e, gameUserCtx?.leftPlayer?.connectionId)}
+                                    isDropTargetActive={isDraggingCard && gameCtx?.gamePhase === 2 && isCurrentPlayer && !playersGivenCard.includes(gameUserCtx?.leftPlayer?.connectionId || '')}
                                 />
                                 <PlayerPosition
                                     player={gameUserCtx?.rightPlayer}
                                     position="right-0 top-1/2 -translate-y-1/2"
                                     cardCount={gameUserCtx?.rightPlayerCards}
                                     cardDirection="right"
-                                    highlightGold={gameCtx?.currentPlayer.connectionId === gameUserCtx?.rightPlayer.connectionId}
-                                    isSelectable={gameCtx?.gamePhase === 2 && isCurrentPlayer && !playersGivenCard.includes(gameUserCtx?.rightPlayer?.connectionId || '')}
-                                    isSelected={selectedPlayer === gameUserCtx?.rightPlayer?.connectionId}
+                                    highlightGold={gameCtx?.currentPlayer.connectionId === gameUserCtx?.rightPlayer?.connectionId}
                                     hasPassed={gameCtx?.gamePhase === 1 && !!gameCtx?.passedPlayers?.find(p => p.connectionId === gameUserCtx?.rightPlayer?.connectionId)}
                                     isTakeWinner={gameCtx?.gamePhase === 5 && gameCtx?.takeWinner?.connectionId === gameUserCtx?.rightPlayer?.connectionId}
-                                    onSelect={() => handleSelectPlayer(gameUserCtx?.rightPlayer?.connectionId)}
+                                    onDragOver={handleDragOver}
+                                    onDrop={(e) => handleDropOnPlayer(e, gameUserCtx?.rightPlayer?.connectionId)}
+                                    isDropTargetActive={isDraggingCard && gameCtx?.gamePhase === 2 && isCurrentPlayer && !playersGivenCard.includes(gameUserCtx?.rightPlayer?.connectionId || '')}
                                 />
                                 {/* Cards on table (center) */}
                                 <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full pointer-events-none">
+                                    {/* Drop Zone for playing cards */}
+                                    <div
+                                        onDragOver={handleDragOver}
+                                        onDrop={handleDropOnTable}
+                                        className={`absolute inset-0 m-auto w-32 h-48 border-2 border-dashed rounded-lg transition-all duration-150
+                                            ${isDraggingCard && gameCtx?.gamePhase === 3 && isCurrentPlayer
+                                                ? 'border-green-500 bg-green-700/30 backdrop-blur-sm'
+                                                : 'border-transparent'}
+                                        `}
+                                        style={{
+                                            pointerEvents: (isDraggingCard && gameCtx?.gamePhase === 3 && isCurrentPlayer) ? 'auto' : 'none',
+                                            zIndex: 5 // Below cards on table, but catch drops
+                                        }}
+                                    >
+                                        {isDraggingCard && gameCtx?.gamePhase === 3 && isCurrentPlayer && (
+                                            <span className="flex items-center justify-center h-full text-white/70 text-sm">Upuść tutaj</span>
+                                        )}
+                                    </div>
                                     {(() => {
                                         if (!gameCtx?.cardsOnTable?.length || !gameUserCtx) return null;
 
@@ -479,8 +520,9 @@ const Table = () => {
                             <div className="w-full flex justify-center mt-48">
                                 <CardHand
                                     cards={gameUserCtx?.hand || []}
-                                    onCardSelect={handleCardSelect}
-                                    disabled={!isCurrentPlayer || gameCtx?.gamePhase == 5}
+                                    onCardDragStart={handleCardDragStart}
+                                    onCardDragEnd={handleCardDragEnd}
+                                    disabled={!isCurrentPlayer || ![1, 2, 3, 5].includes(gameCtx?.gamePhase ?? -1) || gameCtx?.gamePhase === 5} // Cards are draggable if phase 2 or 3 and current player
                                     canPlayCard={canPlayCard}
                                 />
                             </div>

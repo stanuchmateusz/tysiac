@@ -1,18 +1,20 @@
 import type { Player } from "../pages/Models";
+import React from 'react';
 
-export default function PlayerPosition({ player, position, cardCount = 0, cardDirection, highlightGold, isSelectable, isTakeWinner, isSelected, onSelect, hasPassed }: {
+export interface PlayerPositionProps {
     player?: Player,
     position: string,
-    isCurrentPlayer?: boolean,
     cardCount?: number,
-    cardDirection?: 'normal' | 'left' | 'right',
+    cardDirection?: 'normal' | 'left' | 'right' | 'none',
     highlightGold?: boolean,
     hasPassed?: boolean,
     isTakeWinner?: boolean,
-    isSelectable?: boolean,
-    isSelected?: boolean,
-    onSelect?: () => void
-}) {
+    onDragOver?: (event: React.DragEvent<HTMLDivElement>) => void;
+    onDrop?: (event: React.DragEvent<HTMLDivElement>) => void;
+    isDropTargetActive?: boolean;
+}
+
+const PlayerPosition: React.FC<PlayerPositionProps> = ({ player, position, cardCount = 0, cardDirection = 'none', highlightGold, isTakeWinner, hasPassed, onDragOver, onDrop, isDropTargetActive }) => {
     if (!player) return null;
 
     let cardStyle = '';
@@ -24,32 +26,42 @@ export default function PlayerPosition({ player, position, cardCount = 0, cardDi
     if (cardDirection === 'left') cardRowClass += ' flex-col-reverse';
     if (cardDirection === 'right') cardRowClass += ' flex-col';
 
-    let playerClass = 'rounded-full px-4 py-2 mb-2 cursor-pointer transition-all duration-150 ';
+    let playerInfoClass = 'rounded-full px-4 py-2 mb-2 transition-all duration-150 ';
     let borderColorClass = 'border-gray-700';
 
-    if (isSelected) {
-        playerClass += 'bg-red-600 text-white font-bold animate-pulse ';
-        borderColorClass = 'border-red-400';
-    } else if (highlightGold) {
-        playerClass += 'bg-yellow-400 text-black font-bold animate-pulse ';
+    if (highlightGold) {
+        playerInfoClass += 'bg-yellow-400 text-black font-bold animate-pulse ';
         borderColorClass = 'border-yellow-300';
     } else if (hasPassed) {
-        playerClass += 'bg-gray-800 text-gray-300 ';
+        playerInfoClass += 'bg-gray-800 text-gray-300 ';
         borderColorClass = 'border-green-400';
     } else if (isTakeWinner) {
-        playerClass += 'bg-green-500 text-white ';
+        playerInfoClass += 'bg-green-500 text-white ';
         borderColorClass = 'border-green-400';
     }
     else {
-        playerClass += 'bg-gray-800 text-white ';
+        playerInfoClass += 'bg-gray-800 text-white ';
     }
-    playerClass += `border-2 ${borderColorClass} `;
-    if (!isSelectable && !onSelect) playerClass += ' cursor-default ';
+    playerInfoClass += `border-2 ${borderColorClass} cursor-default `;
+
+    const dropZoneClasses = isDropTargetActive
+        ? 'border-green-500 bg-green-700/30 backdrop-blur-sm'
+        : 'border-transparent';
+
     return (
-        <div className={`absolute ${position} flex flex-col items-center`}>
-            <div className="flex flex-col items-center"> {/* Kontener dla napisu PASS i nicku */}
-                {hasPassed && <span className="font-bold text-green-400 mb-1 text-sm">PASS</span>} {/* Napis PASS nad nickiem */}
-                <div className={playerClass} onClick={isSelectable && onSelect ? onSelect : undefined}>{player.nickname}</div>
+        <div
+            className={`absolute ${position} flex flex-col items-center p-2 rounded-lg transition-all duration-150 ${dropZoneClasses}`}
+            onDragOver={onDragOver}
+            onDrop={onDrop}
+            style={{
+                pointerEvents: onDragOver && onDrop && isDropTargetActive ? 'auto' : 'none',
+                minWidth: '120px',
+                minHeight: '150px',
+            }}
+        >
+            <div className="flex flex-col items-center">
+                {hasPassed && <span className="font-bold text-green-400 mb-1 text-sm">PASS</span>}
+                <div className={playerInfoClass}>{player.nickname}</div>
             </div>
             <div className={cardRowClass}>
                 {Array.from({ length: cardCount }).map((_, idx) => (
@@ -59,6 +71,13 @@ export default function PlayerPosition({ player, position, cardCount = 0, cardDi
                     />
                 ))}
             </div>
+            {isDropTargetActive && (
+                <div className="absolute inset-0 flex items-center justify-center text-white/80 text-xs pointer-events-none">
+                    Upuść kartę
+                </div>
+            )}
         </div>
     );
 }
+
+export default PlayerPosition;
