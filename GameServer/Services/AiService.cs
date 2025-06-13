@@ -25,6 +25,11 @@ public static class AiService
                 ProcessAuction(gameService, player, gameCtx, userCtx);
                 break;
             }
+            case GamePhase.IncreaseBet:
+            {
+                ProcessIncreaseBet(gameService, player, gameCtx, userCtx);
+                break;
+            }
             case GamePhase.CardDistribution:
             {
                 ProcessCardDistribution(gameService, player, userCtx);
@@ -82,7 +87,7 @@ public static class AiService
         {
             var card = botHand.OrderBy(card => card.Points).ToList()[0];
             var trumps = CardUtils.GetTrumps(botHand);
-            //daj mu damę nie rozbijając meldunków
+            //daj give away a queen without ruining meld
             var queens = botHand.Where(c => c.Rank == CardRank.Queen).ToList();
             if(queens.Any(c => !trumps.Contains(c.Suit )))
             {
@@ -102,7 +107,7 @@ public static class AiService
         {
             cards = botHand;
         }
-        var card = CardUtils.GetCardToPlay(cards, gameCtx.CardsOnTable.Count > 0 ? gameCtx.CardsOnTable.Last() : null); 
+        var card = CardUtils.GetCardToPlay(cards, gameCtx.CardsOnTable.Count > 0 ? gameCtx.CardsOnTable[^1] : null); 
         if (gameCtx.CardsOnTable.Count == 0)
         {
             var trumps = CardUtils.GetTrumps(botHand);
@@ -112,11 +117,12 @@ public static class AiService
                 card = cards.Where(c => trumps.Contains(c.Suit) && c.Rank == CardRank.Queen).OrderByDescending(c => c.Points)
                     .ToList()[0];
             }
-        }else
+        }
+        else
         {
-            var cardToPlayOn = gameCtx.CardsOnTable.Last();
-            if (cardToPlayOn.Rank == CardRank.Queen && cards.Any(card =>
-                    card.Rank == CardRank.King && card.Suit == cardToPlayOn.Suit))
+            var cardToPlayOn = gameCtx.CardsOnTable[^1];
+            if (cardToPlayOn.Rank == CardRank.Queen && cards.Any(c =>
+                    c.Rank == CardRank.King && c.Suit == cardToPlayOn.Suit))
             {
                 card = cards.First(c => c.Rank == CardRank.King && c.Suit == cardToPlayOn.Suit);
             }
@@ -124,27 +130,32 @@ public static class AiService
         gameService.PlayCard(player, card);
         Log.Debug("Bot plays {Card}", card);
     }
-
+    
+    private static void ProcessIncreaseBet(GameService gameService, AIPlayer player, GameContext gameCtx, UserContext userCtx)
+    {
+        var possibleToPLay = CurrentBid(userCtx);
+        var currentBid = gameCtx.CurrentBet;
+        Log.Debug("Points :{Points}", possibleToPLay);
+                
+        if (currentBid <= possibleToPLay)
+        {
+            // make sure that bid is a multiple of 10
+            var res = (int)possibleToPLay - ((int)possibleToPLay % 10); 
+            gameService.PlaceBid(player,res );
+            Log.Debug("Bot bids {Bid}", res);
+        }
+        else
+        {
+            gameService.PassBid(player);
+            Log.Debug("Bot passes");
+        }
+    }
+    
     private static void ProcessAuction(GameService gameService, AIPlayer player, GameContext gameCtx, UserContext userCtx)
     {
+        var possibleToPLay = CurrentBid(userCtx);
         var currentBid = gameCtx.CurrentBet;
-        var botHand = userCtx.Hand;
-        const int maxBid = 220;
-                
-        var trumps = CardUtils.GetTrumps(botHand);
-        var pointsFromTrumps = trumps.Select(CardUtils.GetTrumpPoints).Sum();
-        var halfTrumps = CardUtils.GetHalfTrumps(botHand)
-            .Select(c => CardUtils.GetTrumpPoints(c.Suit))
-            .Select(v => v*0.3).Sum(); 
-                
-        var possibleToPLay = Math.Min(pointsFromTrumps + halfTrumps, maxBid); // make sure not to bet over MAX
-        possibleToPLay += botHand.Select(c => c.Points).Sum(arg => arg);
-        var random = new Random().Next( (int)(possibleToPLay * 0.3)); 
-        possibleToPLay += random;
-        if (possibleToPLay == 0)
-            possibleToPLay = maxBid;
-                
-        Log.Debug("Points:{Points}", possibleToPLay);
+        Log.Debug("Points :{Points}", possibleToPLay);
                 
         if (currentBid + 10 <= possibleToPLay)
         {
@@ -156,5 +167,27 @@ public static class AiService
             gameService.PassBid(player);
             Log.Debug("Bot passes");
         }
+    }
+
+    private static double CurrentBid(UserContext userCtx)
+    {
+        
+        var botHand = userCtx.Hand;
+        const int maxBid = 250;
+        const double halfTrumpPercentage = 0.3;
+        const double randomieRisc = 0.3;
+        var trumps = CardUtils.GetTrumps(botHand);
+        var pointsFromTrumps = trumps.Select(CardUtils.GetTrumpPoints).Sum();
+        var halfTrumps = CardUtils.GetHalfTrumps(botHand)
+            .Select(c => CardUtils.GetTrumpPoints(c.Suit))
+            .Select(v => (int)(v * halfTrumpPercentage)).Sum(); 
+                
+        var possibleToPLay = Math.Min(pointsFromTrumps + halfTrumps, maxBid); // make sure not to bet over MAX
+        possibleToPLay += botHand.Select(c => c.Points).Sum(arg => arg);
+        var random = new Random().Next( (int)(possibleToPLay * randomieRisc)); 
+        possibleToPLay += random;
+        if (possibleToPLay == 0)
+            possibleToPLay = maxBid;
+        return possibleToPLay;
     }
 }

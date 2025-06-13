@@ -10,7 +10,7 @@ namespace GameServer;
 
 using Microsoft.AspNetCore.SignalR;
 
-public class GameHub(GameManager gameManager, LobbyService lobbyService, ILogger<GameHub> logger)
+public class GameHub(GameManager gameManager, LobbyManager lobbyManager)
     : Hub
 {
     private const string LeaveGameMethodName = "LeaveGame";
@@ -19,13 +19,15 @@ public class GameHub(GameManager gameManager, LobbyService lobbyService, ILogger
 
     private const string MessageReceiveMethodName = "MessageRecieve";
 
+    private const string KickedMethodName = "Kicked";
     private const string LobbyJoinedMethodName = "RoomJoined";
     private const string LobbyUpdateMethodName = "LobbyUpdate";
     private const string LobbyCreatedMethodName = "RoomCreated";
+    
     private const string PlayerNotFoundExceptionMessage = "Player not found in room ";
     private const string GameNotFoundExceptionMessage = "Game not found";
-    
-    private const int BotTurnDelay = 1000;
+
+    private const int BotTurnDelay = 1200;
     private const int AfterTakeDelay = 2000;
 
     public override async Task OnConnectedAsync()
@@ -33,7 +35,7 @@ public class GameHub(GameManager gameManager, LobbyService lobbyService, ILogger
         var httpContext = Context.GetHttpContext();
         if (httpContext == null)
         {
-            logger.LogError("HttpContext is null on connection");
+            Log.Error("HttpContext is null on connection");
             throw new HubException("HttpContext is null");
         }
 
@@ -41,11 +43,11 @@ public class GameHub(GameManager gameManager, LobbyService lobbyService, ILogger
         var userIdFromQuery = httpContext.Request.Query["userId"];
         var userId = userIdFromQuery.Count > 0 ? userIdFromQuery[0] : null;
 
-        logger.LogDebug("Connected {ConnId}", connectionId);
+        Log.Debug("Connected {ConnId}", connectionId);
 
         if (!string.IsNullOrEmpty(userId))
         {
-            logger.LogDebug("{ConnID} is trying to restore connection using userId:{UserId} ", connectionId, userId);
+            Log.Debug("{ConnID} - trying to restore connection - userId:{UserId} ", connectionId, userId);
             var code = gameManager.TryToRestoreConnection(connectionId, userId);
             if (code != null)
             {
@@ -64,21 +66,21 @@ public class GameHub(GameManager gameManager, LobbyService lobbyService, ILogger
 
     public override async Task OnDisconnectedAsync(Exception? exception)
     {
-        logger.LogDebug("Disconnected {ConnId}", Context.ConnectionId);
+        Log.Debug("Disconnected {ConnId}", Context.ConnectionId);
 
-        var lobbiesWithUser = lobbyService.GetLobbiesWithUser(Context.ConnectionId);
+        var lobbiesWithUser = lobbyManager.GetLobbiesWithUser(Context.ConnectionId);
         foreach (var lobbyCtx in lobbiesWithUser)
         {
-            if (lobbyService.LeaveRoom(lobbyCtx, Context.ConnectionId))
+            if (lobbyManager.LeaveRoom(lobbyCtx, Context.ConnectionId))
             {
-                logger.LogInformation("Left room {RoomCode} and lobby got disposed", lobbyCtx.Code);
+                Log.Information("Left room {RoomCode} and lobby got disposed", lobbyCtx.Code);
             }
             else
             {
-                logger.LogInformation("Left room {RoomCode}", lobbyCtx.Code);
+                Log.Information("Left room {RoomCode}", lobbyCtx.Code);
                 await Groups.RemoveFromGroupAsync(Context.ConnectionId, lobbyCtx.Code);
                 await Clients.Groups(lobbyCtx.Code).SendAsync(LobbyUpdateMethodName,
-                    lobbyService.GetRoom(lobbyCtx.Code));
+                    lobbyManager.GetRoom(lobbyCtx.Code));
             }
         }
 
@@ -96,8 +98,8 @@ public class GameHub(GameManager gameManager, LobbyService lobbyService, ILogger
     public async Task GetLobbyContext(string roomCode)
     {
         // Check if the room exists and the player is in it
-        lobbyService.GetPlayerFromRoom(roomCode, Context.ConnectionId);
-        var room = lobbyService.GetRoom(roomCode);
+        lobbyManager.GetPlayerFromRoom(roomCode, Context.ConnectionId);
+        var room = lobbyManager.GetRoom(roomCode);
 
         await Clients.Caller.SendAsync(LobbyUpdateMethodName, room);
     }
@@ -105,72 +107,72 @@ public class GameHub(GameManager gameManager, LobbyService lobbyService, ILogger
     public async Task JoinRoom(string roomCode, string nickname)
     {
         var player = new HumanPlayer(Context.ConnectionId, nickname);
-        lobbyService.JoinRoom(roomCode, player);
+        lobbyManager.JoinRoom(roomCode, player);
 
         await Groups.AddToGroupAsync(Context.ConnectionId, roomCode);
         await Clients.Caller.SendAsync(LobbyJoinedMethodName, roomCode);
         await Clients.Groups(roomCode).SendAsync(LobbyUpdateMethodName,
-            lobbyService.GetRoom(roomCode));
+            lobbyManager.GetRoom(roomCode));
 
-        logger.LogInformation("Joined {Nickname} room {RoomCode}", nickname, roomCode);
+        Log.Information("Joined {Nickname} room {RoomCode}", nickname, roomCode);
     }
 
     public async Task JoinTeam(string roomCode, bool isTeam1)
     {
-        var lobby = lobbyService.GetRoom(roomCode);
+        var lobby = lobbyManager.GetRoom(roomCode);
 
         var player = lobby.GetPlayer(Context.ConnectionId);
         if (player == null)
             throw new HubException(PlayerNotFoundExceptionMessage + roomCode);
         if (isTeam1)
         {
-            logger.LogInformation("Joining {Nickname} team1", player.Nickname);
-            LobbyService.AddToTeam1(lobby, player);
+            Log.Information("Joining {Nickname} team1", player.Nickname);
+            LobbyManager.AddToTeam1(lobby, player);
         }
         else
         {
-            logger.LogInformation("Joining {Nickname} team2", player.Nickname);
-            LobbyService.AddToTeam2(lobby, player);
+            Log.Information("Joining {Nickname} team2", player.Nickname);
+            LobbyManager.AddToTeam2(lobby, player);
         }
 
-        await Clients.Groups(roomCode).SendAsync(LobbyUpdateMethodName, lobbyService.GetRoom(roomCode));
+        await Clients.Groups(roomCode).SendAsync(LobbyUpdateMethodName, lobbyManager.GetRoom(roomCode));
     }
 
     public async Task CreateRoom(string nickname)
     {
         var player = new HumanPlayer(Context.ConnectionId, nickname);
-        var roomCode = lobbyService.CreateRoom(player);
+        var roomCode = lobbyManager.CreateRoom(player);
 
         await Groups.AddToGroupAsync(Context.ConnectionId, roomCode);
         await Clients.Caller.SendAsync(LobbyCreatedMethodName, roomCode);
-        logger.LogInformation("Created room {RoomCode}", roomCode);
+        Log.Information("Created room {RoomCode}", roomCode);
     }
 
     public async Task LeaveTeam(string roomCode)
     {
-        var player = lobbyService.GetPlayerFromRoom(roomCode, Context.ConnectionId);
+        var player = lobbyManager.GetPlayerFromRoom(roomCode, Context.ConnectionId);
 
-        lobbyService.LeaveTeam(roomCode, player);
-        await Clients.Groups(roomCode).SendAsync(LobbyUpdateMethodName, lobbyService.GetRoom(roomCode));
-        logger.LogInformation("Left {Player} left team in {RoomCode}", player, roomCode);
+        lobbyManager.LeaveTeam(roomCode, player);
+        await Clients.Groups(roomCode).SendAsync(LobbyUpdateMethodName, lobbyManager.GetRoom(roomCode));
+        Log.Information("Left {Player} left team in {RoomCode}", player, roomCode);
     }
 
     public async Task AddBots(string roomCode)
     {
-        var table = lobbyService.GetRoom(roomCode);
+        var table = lobbyManager.GetRoom(roomCode);
         if (table == null)
             throw new HubException(GameNotFoundExceptionMessage);
         var isHost = table.Host.ConnectionId == Context.ConnectionId;
         if (!isHost)
             throw new HubException("Only host can add bots!");
         var addedBotsCount = table.AddBots();
-        await Clients.Groups(roomCode).SendAsync(LobbyUpdateMethodName, lobbyService.GetRoom(roomCode));
-        logger.LogInformation("Added {Bots} to {RoomCode}", addedBotsCount, roomCode);
+        await Clients.Groups(roomCode).SendAsync(LobbyUpdateMethodName, lobbyManager.GetRoom(roomCode));
+        Log.Information("Added {Bots} to {RoomCode}", addedBotsCount, roomCode);
     }
 
     public async Task KickPlayer(string roomCode, string connectionId)
     {
-        var table = lobbyService.GetRoom(roomCode);
+        var table = lobbyManager.GetRoom(roomCode);
         if (table == null)
             throw new HubException(GameNotFoundExceptionMessage);
         var isHost = table.Host.ConnectionId == Context.ConnectionId;
@@ -180,22 +182,21 @@ public class GameHub(GameManager gameManager, LobbyService lobbyService, ILogger
         if (player == null)
             throw new HubException(PlayerNotFoundExceptionMessage + roomCode);
         //kick player 
-        lobbyService.LeaveRoom(roomCode, player.ConnectionId);
-        await Clients.Client(player.ConnectionId).SendAsync("Kicked");
-        //todo ban from reconnecting?
+        lobbyManager.LeaveRoom(roomCode, player.ConnectionId);
+        await Clients.Client(player.ConnectionId).SendAsync(KickedMethodName);
         await Groups.RemoveFromGroupAsync(connectionId, roomCode);
 
-        await Clients.Groups(roomCode).SendAsync(LobbyUpdateMethodName, lobbyService.GetRoom(roomCode));
-        logger.LogInformation("Kicked {Player} from {RoomCode}", player, roomCode);
+        await Clients.Groups(roomCode).SendAsync(LobbyUpdateMethodName, lobbyManager.GetRoom(roomCode));
+        Log.Information("Kicked {Player} from {RoomCode}", player, roomCode);
     }
 
     public async Task LeaveRoom(string roomCode)
     {
         try
         {
-            if (lobbyService.LeaveRoom(roomCode, Context.ConnectionId))
+            if (lobbyManager.LeaveRoom(roomCode, Context.ConnectionId))
             {
-                logger.LogInformation("Left room {RoomCode} and lobby got disposed", roomCode);
+                Log.Information("Left room {RoomCode} and lobby got disposed", roomCode);
                 return;
             }
         }
@@ -205,13 +206,13 @@ public class GameHub(GameManager gameManager, LobbyService lobbyService, ILogger
         }
 
         await Groups.RemoveFromGroupAsync(Context.ConnectionId, roomCode);
-        await Clients.Groups(roomCode).SendAsync(LobbyUpdateMethodName, lobbyService.GetRoom(roomCode));
-        logger.LogInformation("Left room {RoomCode}", roomCode);
+        await Clients.Groups(roomCode).SendAsync(LobbyUpdateMethodName, lobbyManager.GetRoom(roomCode));
+        Log.Information("Left room {RoomCode}", roomCode);
     }
 
     public async Task StartRoom(string roomCode)
     {
-        var lobbyCtx = lobbyService.GetRoom(roomCode);
+        var lobbyCtx = lobbyManager.GetRoom(roomCode);
 
         if (lobbyCtx.Host.ConnectionId != Context.ConnectionId)
             throw new HubException("Only host can start the game");
@@ -224,10 +225,10 @@ public class GameHub(GameManager gameManager, LobbyService lobbyService, ILogger
         if (gameService == null)
             throw new HubException(GameNotFoundExceptionMessage);
 
-        logger.LogInformation("Starting room {RoomCode}", roomCode);
+        Log.Information("Starting room {RoomCode}", roomCode);
 
         //cleanup lobby
-        lobbyService.RemoveRoom(roomCode);
+        lobbyManager.RemoveRoom(roomCode);
 
         await StartGame(roomCode);
         await Clients.Groups(roomCode).SendAsync(GameCreatedMethodName);
@@ -241,7 +242,7 @@ public class GameHub(GameManager gameManager, LobbyService lobbyService, ILogger
         IPlayer? player = null;
         if (game == null) //game doesn't exist - send in lobby
         {
-            player = lobbyService.GetPlayerFromRoom(roomCode, Context.ConnectionId);
+            player = lobbyManager.GetPlayerFromRoom(roomCode, Context.ConnectionId);
         }
         else
         {
@@ -280,7 +281,7 @@ public class GameHub(GameManager gameManager, LobbyService lobbyService, ILogger
     /// </summary>
     public async Task StartGame(string roomCode)
     {
-        logger.LogInformation("Starting game in room");
+        Log.Information("Starting game in room");
         var table = gameManager.GetRoom(roomCode);
         if (table == null)
             throw new HubException(GameNotFoundExceptionMessage);
@@ -301,15 +302,15 @@ public class GameHub(GameManager gameManager, LobbyService lobbyService, ILogger
         if (player == null)
             throw new HubException(PlayerNotFoundExceptionMessage + roomCode);
 
-        logger.LogInformation("Permanently leaving game {RoomCode} for player {Player}", roomCode, player.Nickname);
+        Log.Information("Permanently leaving game {RoomCode} for player {Player}", roomCode, player.Nickname);
 
         table.PauseGame(player);
         table.AbandoneGame(player);
 
-        if (table.allPlayersLeft())
+        if (table.AllPlayersLeft())
         {
             gameManager.RemoveRoom(roomCode);
-            logger.LogInformation("Game {RoomCode} has been removed", roomCode);
+            Log.Information("Game {RoomCode} has been removed", roomCode);
             return;
         }
 
@@ -320,7 +321,7 @@ public class GameHub(GameManager gameManager, LobbyService lobbyService, ILogger
         }
         catch (Exception e)
         {
-            //ignore?
+            Log.Warning("[{Code}] {Message}" ,roomCode,e.Message);
         }
     }
 
@@ -347,7 +348,7 @@ public class GameHub(GameManager gameManager, LobbyService lobbyService, ILogger
         var targetPlayer = table.GetPlayerFromRoom(toPlayerId);
         if (targetPlayer == null)
             throw new HubException("Target player not found in room");
-        logger.LogDebug("[{RoomCode}] Giving card {Card} to {PlayerId}", roomCode, card, targetPlayer.Nickname);
+        Log.Debug("[{RoomCode}] Giving card {Card} to {PlayerId}", roomCode, card, targetPlayer.Nickname);
         table.DistributeCard(player, card, targetPlayer);
 
         await NotifyUpdatedGameState(roomCode);
@@ -383,15 +384,15 @@ public class GameHub(GameManager gameManager, LobbyService lobbyService, ILogger
         await NotifyUpdatedGameState(table);
         if (table.CurrentPhase == GamePhase.ShowTable)
         {
-            logger.LogDebug("GamePhase.ShowTable");
+            Log.Debug("GamePhase.ShowTable");
             var updateCtx = Task.Run(async () =>
             {
-                logger.LogDebug("Waiting to update");
+                Log.Debug("Waiting to update");
                 await Task.Delay(AfterTakeDelay);
                 table.CurrentPhase = GamePhase.Playing;
                 table.CompleteTake();
 
-                logger.LogDebug("Finished update");
+                Log.Debug("Finished update");
                 await NotifyUpdatedGameState(table);
             });
             await updateCtx;
@@ -418,13 +419,13 @@ public class GameHub(GameManager gameManager, LobbyService lobbyService, ILogger
             });
         }
 
-        while (gameService.CurrentPhase is GamePhase.Playing or GamePhase.CardDistribution or GamePhase.Auction)
+        while (gameService.CurrentPhase is GamePhase.IncreaseBet or GamePhase.Playing or GamePhase.CardDistribution or GamePhase.Auction)
         {
             var currentPlayer = gameService.GetGameState().CurrentPlayer;
 
             if (currentPlayer is AIPlayer bot)
             {
-                logger.LogDebug("[{RoomCode}] Processing turn for bot: {BotNickname} in phase {GamePhase}",
+                Log.Debug("[{RoomCode}] Processing turn for bot: {BotNickname} in phase {GamePhase}",
                     gameService.RoomCode, bot.Nickname, gameService.CurrentPhase);
                 
                 AiService.ProcessTurn(gameService,
@@ -446,13 +447,13 @@ public class GameHub(GameManager gameManager, LobbyService lobbyService, ILogger
                 
                 if (gameService.CurrentPhase == GamePhase.GameOver)
                 {
-                    logger.LogDebug("[{RoomCode}] Game ended after bot's turn.", gameService.RoomCode);
+                    Log.Debug("[{RoomCode}] Game ended after bot's turn.", gameService.RoomCode);
                     break;
                 }
             }
             else
             {
-                logger.LogDebug(
+                Log.Debug(
                     "[{RoomCode}] Current player {PlayerNickname} is human or null, stopping bot processing loop.",
                     gameService.RoomCode, currentPlayer?.Nickname);
                 break;

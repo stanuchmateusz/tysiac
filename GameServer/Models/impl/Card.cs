@@ -29,7 +29,7 @@ public class Card : ICard
                 CardRank.Jack => "J",
                 CardRank.Ten => "10",
                 CardRank.Nine => "9",
-                _ => throw new ArgumentOutOfRangeException("Invalid card name")
+                _ => throw new ArgumentOutOfRangeException($"Unsupported card suit '{Suit}' for generating short name.")
             })
             .Append(Suit switch
             {
@@ -37,7 +37,7 @@ public class Card : ICard
                 CardSuit.Clubs => "C",
                 CardSuit.Hearts => "H",
                 CardSuit.Diamonds => "D",
-                _ => throw new ArgumentOutOfRangeException("Invalid color")
+                _ => throw new ArgumentOutOfRangeException($"Unsupported card suit '{Suit}' for generating short name.")
             })
             .ToString();
     }

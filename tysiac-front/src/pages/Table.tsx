@@ -7,6 +7,7 @@ import { createPortal } from "react-dom";
 
 import type { Card, ChatMessage, GameUserContext, UpdateContext } from "./Models";
 import BetModal from "../components/BetModal";
+import IncreaseBetModal from "../components/IncreaseBetModal"; // Założenie, że ten komponent istnieje
 import PlayerPosition from "../components/PlayerPosition";
 import CardHand from "../components/CardHand";
 import Options from "../components/Options";
@@ -38,6 +39,7 @@ const GAME_STAGES: Record<number, string> = {
     3: "Playing",
     4: "End",
     5: "ShowTable",
+    6: "Increase Bet",
     999: "undefined"
 }
 
@@ -206,8 +208,8 @@ const Table = () => {
         const card = draggedCardData;
 
         if (gameCtx?.gamePhase === 2 && isCurrentPlayer && !playersGivenCard.includes(targetPlayerConnectionId)) {
-            setFlyingCard({ card: card, to: targetPlayerConnectionId, from: 'hand' });
-            setTimeout(() => setFlyingCard(null), 700);
+            // setFlyingCard({ card: card, to: targetPlayerConnectionId, from: 'hand' });
+            // setTimeout(() => setFlyingCard(null), 700);
 
             GameService.connection?.invoke("GiveCard", gameCode, card.shortName, targetPlayerConnectionId);
             setPlayersGivenCard(prev => [...prev, targetPlayerConnectionId]);
@@ -227,8 +229,8 @@ const Table = () => {
 
         if (gameCtx?.gamePhase === 3 && isCurrentPlayer) {
             if (canPlayCard(card)) {
-                setFlyingCard({ card: card, to: 'table', from: 'hand' });
-                setTimeout(() => setFlyingCard(null), 700);
+                // setFlyingCard({ card: card, to: 'table', from: 'hand' });
+                // setTimeout(() => setFlyingCard(null), 700);
                 GameService.connection?.invoke("PlayCard", gameCode, card.shortName);
             } else {
                 console.warn("Cannot play this card by drag:", card.shortName);
@@ -246,7 +248,7 @@ const Table = () => {
             firstPlayerInCurrentTake.current = gameCtx.currentPlayer.connectionId;
         }
     }, [gameCtx?.cardsOnTable, gameCtx?.currentPlayer]);
-    const [flyingCard, setFlyingCard] = useState<null | { card: Card, to: string, from: string }>(null);
+    // const [flyingCard, setFlyingCard] = useState<null | { card: Card, to: string, from: string }>(null);
     // (trumf serce) ja koniczyna 9 serce 10 serce ma dupka i nie ma do koloru
     function canPlayCard(card: Card): boolean {
         if (!gameCtx || !gameUserCtx) return true;
@@ -538,6 +540,16 @@ const Table = () => {
                                 onAccept={handleAccept}
                                 minBet={minBet}
                             />
+                            {/* IncreaseBet Modal */}
+                            <IncreaseBetModal
+                                open={gameCtx?.gamePhase === 6 && isCurrentPlayer}
+                                currentBet={bet}
+                                onRaise={handleRaise}
+                                onLower={handleLower}
+                                onPass={handlePass}
+                                minBet={minBet}
+                                onAccept={handleAccept}
+                            />
                             {/* Trump Modal */}
                             {showTrumpModal && (
                                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 animate-fade-in-fast">
@@ -548,11 +560,11 @@ const Table = () => {
                                     </div>
                                 </div>
                             )}
-                            {/* Animacja lecenia karty */}
+                            {/* Animacja lecenia karty
                             {flyingCard && tableRef.current && createPortal(
                                 <FlyingCardAnimation card={flyingCard.card} to={flyingCard.to} tableRef={tableRef as React.RefObject<HTMLDivElement>} gameUserCtx={gameUserCtx} />,
                                 tableRef.current
-                            )}
+                            )} */}
                         </div>
                     </div>
                 </div>
@@ -564,39 +576,39 @@ const Table = () => {
 
 export default Table;
 
-function FlyingCardAnimation({ card, to, tableRef, gameUserCtx }: { card: Card, to: string, tableRef: React.RefObject<HTMLDivElement>, gameUserCtx: GameUserContext | null }) {
+// function FlyingCardAnimation({ card, to, tableRef, gameUserCtx }: { card: Card, to: string, tableRef: React.RefObject<HTMLDivElement>, gameUserCtx: GameUserContext | null }) {
 
-    const getTargetPos = () => {
-        if (!tableRef.current || !gameUserCtx) return { x: 0, y: 0 };
-        const rect = tableRef.current.getBoundingClientRect();
-        const tablePadding = parseInt(getComputedStyle(tableRef.current).paddingTop) || 24; // Approx padding (p-6)
+//     const getTargetPos = () => {
+//         if (!tableRef.current || !gameUserCtx) return { x: 0, y: 0 };
+//         const rect = tableRef.current.getBoundingClientRect();
+//         const tablePadding = parseInt(getComputedStyle(tableRef.current).paddingTop) || 24; // Approx padding (p-6)
 
-        if (to === 'table') return { x: rect.width / 2, y: rect.height / 2 }; // Center of tableRef
-        if (to === gameUserCtx?.teammate?.connectionId) return { x: rect.width / 2, y: tablePadding + 16 + 75 }; // top-4 (16px) + half PlayerPosition height (75px)
-        if (to === gameUserCtx?.leftPlayer?.connectionId) return { x: 60, y: rect.height / 2 };
-        if (to === gameUserCtx?.rightPlayer?.connectionId) return { x: rect.width - 60, y: rect.height / 2 };
-        return { x: rect.width / 2, y: rect.height - 80 };
-    };
-    const start = { x: tableRef.current!.offsetWidth / 2, y: tableRef.current!.offsetHeight - 40 };
-    const end = getTargetPos();
-    const style = {
-        position: 'absolute' as const,
-        left: start.x,
-        top: start.y,
-        width: '80px',
-        height: '112px',
-        zIndex: 100,
-        pointerEvents: 'none',
-        animation: `fly-card 0.45s cubic-bezier(0.22,1,0.36,1) forwards`,
-        '--fly-x': `${end.x - start.x}px`,
-        '--fly-y': `${end.y - start.y}px`
-    };
-    return (
-        <img
-            src={`${CARD_SVG_PATH}${card.shortName}.svg`}
-            alt={card.shortName}
-            style={style as any}
-            className="drop-shadow-lg animate-fly-card"
-        />
-    );
-}
+//         if (to === 'table') return { x: rect.width / 2, y: rect.height / 2 }; // Center of tableRef
+//         if (to === gameUserCtx?.teammate?.connectionId) return { x: rect.width / 2, y: tablePadding + 16 + 75 }; // top-4 (16px) + half PlayerPosition height (75px)
+//         if (to === gameUserCtx?.leftPlayer?.connectionId) return { x: 60, y: rect.height / 2 };
+//         if (to === gameUserCtx?.rightPlayer?.connectionId) return { x: rect.width - 60, y: rect.height / 2 };
+//         return { x: rect.width / 2, y: rect.height - 80 };
+//     };
+//     const start = { x: tableRef.current!.offsetWidth / 2, y: tableRef.current!.offsetHeight - 40 };
+//     const end = getTargetPos();
+//     const style = {
+//         position: 'absolute' as const,
+//         left: start.x,
+//         top: start.y,
+//         width: '80px',
+//         height: '112px',
+//         zIndex: 100,
+//         pointerEvents: 'none',
+//         animation: `fly-card 0.45s cubic-bezier(0.22,1,0.36,1) forwards`,
+//         '--fly-x': `${end.x - start.x}px`,
+//         '--fly-y': `${end.y - start.y}px`
+//     };
+//     return (
+//         <img
+//             src={`${CARD_SVG_PATH}${card.shortName}.svg`}
+//             alt={card.shortName}
+//             style={style as any}
+//             className="drop-shadow-lg animate-fly-card"
+//         />
+//     );
+// }

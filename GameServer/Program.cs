@@ -25,7 +25,7 @@ builder.Services.AddCors(options =>
 
 // builder.Services.AddSingleton<IGameManager,GameManager>();
 builder.Services.AddSingleton<GameManager>();
-builder.Services.AddSingleton<LobbyService>();
+builder.Services.AddSingleton<LobbyManager>();
 
 var app = builder.Build();
 

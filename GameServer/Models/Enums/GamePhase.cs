@@ -8,4 +8,5 @@ public enum GamePhase
     Playing,
     GameOver,
     ShowTable,
+    IncreaseBet
 }

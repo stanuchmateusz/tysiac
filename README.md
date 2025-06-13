@@ -1,12 +1,11 @@
 # 1000 siadany
 **Zmodyfikowana wersja znanej gry w 1000**
 
-
 ## Todo: 
 * Więcej animacji
-* Wznawianie sesji + Dołączanie przez link
+* Ban after kick
 * Lobby - mieszanie teamu
-* Dodać AI
+* Uplaszyć AI
 * Chat autoscroll
 * Failed to copy code: TypeError: navigator.clipboard is undefined - not working if page is not secure
 

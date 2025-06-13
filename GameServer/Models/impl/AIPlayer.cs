@@ -5,7 +5,7 @@ namespace GameServer.Models.impl;
 
 public class AIPlayer : IPlayer
 {
-    public const string AiPrefix = "AI_";
+    private const string AiPrefix = "AI_";
     public string ConnectionId { get; set; }
     public string Nickname { get; set; }
     public string Id { get; set; }
