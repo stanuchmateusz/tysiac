@@ -3,9 +3,8 @@ import GameService from "../services/GameService";
 
 import { ImExit } from "react-icons/im";
 import React, { useState, useRef, useEffect } from "react";
-import { createPortal } from "react-dom";
 
-import type { Card, ChatMessage, GameUserContext, UpdateContext } from "./Models";
+import type { Card, ChatMessage, UpdateContext } from "./Models";
 import BetModal from "../components/BetModal";
 import IncreaseBetModal from "../components/IncreaseBetModal"; // Założenie, że ten komponent istnieje
 import PlayerPosition from "../components/PlayerPosition";
