@@ -450,7 +450,7 @@ const Table = () => {
                                 <div
                                     onDragOver={handleDragOver}
                                     onDrop={handleDropOnTable}
-                                    className={`absolute inset-0 m-auto w-32 h-48 border-2 border-dashed rounded-lg transition-all duration-150
+                                    className={`absolute inset-0 m-auto w-1/2 h-1/2 border-2 border-dashed rounded-lg transition-all duration-150
                                             ${isDraggingCard && gameCtx?.gamePhase === 3 && isCurrentPlayer
                                             ? 'border-green-500 bg-green-700/30 backdrop-blur-sm'
                                             : 'border-transparent'}
@@ -574,40 +574,3 @@ const Table = () => {
 };
 
 export default Table;
-
-// function FlyingCardAnimation({ card, to, tableRef, gameUserCtx }: { card: Card, to: string, tableRef: React.RefObject<HTMLDivElement>, gameUserCtx: GameUserContext | null }) {
-
-//     const getTargetPos = () => {
-//         if (!tableRef.current || !gameUserCtx) return { x: 0, y: 0 };
-//         const rect = tableRef.current.getBoundingClientRect();
-//         const tablePadding = parseInt(getComputedStyle(tableRef.current).paddingTop) || 24; // Approx padding (p-6)
-
-//         if (to === 'table') return { x: rect.width / 2, y: rect.height / 2 }; // Center of tableRef
-//         if (to === gameUserCtx?.teammate?.connectionId) return { x: rect.width / 2, y: tablePadding + 16 + 75 }; // top-4 (16px) + half PlayerPosition height (75px)
-//         if (to === gameUserCtx?.leftPlayer?.connectionId) return { x: 60, y: rect.height / 2 };
-//         if (to === gameUserCtx?.rightPlayer?.connectionId) return { x: rect.width - 60, y: rect.height / 2 };
-//         return { x: rect.width / 2, y: rect.height - 80 };
-//     };
-//     const start = { x: tableRef.current!.offsetWidth / 2, y: tableRef.current!.offsetHeight - 40 };
-//     const end = getTargetPos();
-//     const style = {
-//         position: 'absolute' as const,
-//         left: start.x,
-//         top: start.y,
-//         width: '80px',
-//         height: '112px',
-//         zIndex: 100,
-//         pointerEvents: 'none',
-//         animation: `fly-card 0.45s cubic-bezier(0.22,1,0.36,1) forwards`,
-//         '--fly-x': `${end.x - start.x}px`,
-//         '--fly-y': `${end.y - start.y}px`
-//     };
-//     return (
-//         <img
-//             src={`${CARD_SVG_PATH}${card.shortName}.svg`}
-//             alt={card.shortName}
-//             style={style as any}
-//             className="drop-shadow-lg animate-fly-card"
-//         />
-//     );
-// }
