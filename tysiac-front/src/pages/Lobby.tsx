@@ -10,7 +10,7 @@ import { CiSettings } from "react-icons/ci";
 import Options from "../components/Options";
 import type { ChatMessage, LobbyContext, Player } from "./Models";
 import MusicService from "../services/MusicService";
-import { userIdCookieName } from "../utils/Cookies";
+import { setCookie, userIdCookieName } from "../utils/Cookies";
 
 const JoinTeamHandler = (isTeam1: boolean, gameCode: string) => {
     GameService.connection?.invoke("JoinTeam", gameCode, isTeam1)
@@ -57,7 +57,7 @@ const Lobby = () => {
             var newMe = lobbyCtx.players.find(p => p.connectionId === connection.connectionId);
             setMe(newMe ?? null);
 
-            sessionStorage.setItem(userIdCookieName, newMe?.id || "");
+            setCookie(userIdCookieName, newMe?.id || "", 1);
         };
 
         // Handle incoming chat messages

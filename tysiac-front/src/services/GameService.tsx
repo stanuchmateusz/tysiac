@@ -1,5 +1,5 @@
 import * as signalR from "@microsoft/signalr"
-import { userIdCookieName } from "../utils/Cookies";
+import { getCookie, userIdCookieName } from "../utils/Cookies";
 
 const url = import.meta.env.VITE_BACKEND_URL
 if (!url) {
@@ -18,7 +18,7 @@ export const GameService = {
             return;
         }
         if (!this.connection) {
-            const userId = sessionStorage.getItem(userIdCookieName);
+            const userId = getCookie(userIdCookieName);
             const connection = new signalR.HubConnectionBuilder()
                 .withUrl(userId ? `${url}/gameHub?userId=${userId}` : `${url}/gameHub`)
                 .withAutomaticReconnect()
