@@ -562,13 +562,18 @@ public class GameService
             AdvanceTurn();
         }
     }
-    //todo use CardUtils
     
     private static int RoundTo10(int value)
     {
         return ((value + 5) / 10) * 10;
     }
     
+    /// <summary>
+    /// Finalizes the current take (trick) in the game.
+    /// This involves determining the winner of the take, awarding points,
+    /// updating the trump suit if a new one was announced, clearing the table,
+    /// and setting up the next turn. If all cards have been played, it proceeds to end the round.
+    /// </summary>
     public void CompleteTake()
     {
         var winner = DetermineTakeWinner();
@@ -623,14 +628,10 @@ public class GameService
         {
             for (var i = 0; i < cardsOnTable.Count; i++)
             {
-                if (cardsOnTable[i].Suit == trump)
-                {
-                    if (highestTrump == null || cardsOnTable[i].Points > highestTrump.Points)
-                    {
-                        highestTrump = cardsOnTable[i];
-                        highestTrumpIdx = i;
-                    }
-                }
+                if (cardsOnTable[i].Suit != trump ||
+                    (highestTrump != null && cardsOnTable[i].Points <= highestTrump.Points)) continue;
+                highestTrump = cardsOnTable[i];
+                highestTrumpIdx = i;
             }
             if (highestTrump != null)
             {
@@ -642,11 +643,9 @@ public class GameService
         var leadSuit = cardsOnTable[0].Suit;
         for (var i = 1; i < cardsOnTable.Count; i++)
         {
-            if (cardsOnTable[i].Suit == leadSuit && cardsOnTable[i].Points > highestCard.Points)
-            {
-                highestCard = cardsOnTable[i];
-                winnerIdx = i;
-            }
+            if (cardsOnTable[i].Suit != leadSuit || cardsOnTable[i].Points <= highestCard.Points) continue;
+            highestCard = cardsOnTable[i];
+            winnerIdx = i;
         }
         return playersOrder[winnerIdx];
     }
@@ -667,7 +666,7 @@ public class GameService
         const int threshold = WinRequiredPoints - WinRequiredPoints / 10;
         if (betWinner.Team == Team.Team1)
         {
-            var finalPoints = RoundTo10(Round.Team1Points) + TrumpPointsForTeam(Team.Team1);
+            var finalPoints = Round.Team1Points + TrumpPointsForTeam(Team.Team1);
             
             if (finalPoints >= Round.CurrentBet)
             {
@@ -689,7 +688,7 @@ public class GameService
         }
         else
         {
-           var finalPoints = RoundTo10( Round.Team2Points) + TrumpPointsForTeam(Team.Team2);
+           var finalPoints = Round.Team2Points + TrumpPointsForTeam(Team.Team2);
             if (finalPoints >= Round.CurrentBet)
             {
                 Log.Debug("[{Room}] Team 2 managed to get required points {Points}/{BetAmount} ",RoomCode,finalPoints ,Round.CurrentBet);
@@ -753,18 +752,16 @@ public class GameService
     private List<ICard> InitCards()
     {
         Log.Information("[{Room}] Initializing TableService", RoomCode);
-        var tempDeck = new List<ICard>();
-        foreach (var color in Enum.GetValues<CardSuit>())
-        {
-            foreach (var name in Enum.GetValues<CardRank>())
-            {
-                if (name is CardRank.As or CardRank.King or CardRank.Queen or CardRank.Jack or CardRank.Ten or CardRank.Nine)
-                {
-                    tempDeck.Add(new Card(name, color));
-                }
-            }
-        }
 
-        return tempDeck;
+        var allowedRanks = new[]
+        {
+            CardRank.As, CardRank.King, CardRank.Queen, CardRank.Jack, CardRank.Ten, CardRank.Nine
+        };
+
+        return Enum.GetValues<CardSuit>()
+            .SelectMany(suit => allowedRanks.Select(rank => new Card(rank, suit)))
+            .Cast<ICard>()
+            .ToList();
     }
+    
 }
