@@ -663,7 +663,7 @@ public class GameService
         
         // Check if the team that won the round has enough points to win the bet
         var betWinner = Round.CurrentBidWinner;
-        const int threshold = WinRequiredPoints - WinRequiredPoints / 10;
+        const int threshold = WinRequiredPoints - WinRequiredPoints / 10; //900 
         if (betWinner.Team == Team.Team1)
         {
             var finalPoints = Round.Team1Points + TrumpPointsForTeam(Team.Team1);
@@ -686,7 +686,7 @@ public class GameService
                 _pointsTeam2 += RoundTo10(Round.Team2Points) + TrumpPointsForTeam(Team.Team2);
             }
         }
-        else
+        else // betWinner.Team == Team.Team2
         {
            var finalPoints = Round.Team2Points + TrumpPointsForTeam(Team.Team2);
             if (finalPoints >= Round.CurrentBet)
@@ -725,8 +725,8 @@ public class GameService
     private bool IsGameOver()
     {
         return
-            (_pointsTeam1 >= WinRequiredPoints && Round.CurrentBidWinner.Team == Team.Team1) ||
-            (_pointsTeam2 >= WinRequiredPoints && Round.CurrentBidWinner.Team == Team.Team2) ||
+            _pointsTeam1 >= WinRequiredPoints  ||
+            _pointsTeam2 >= WinRequiredPoints  ||
             _pointsTeam1 <= -WinRequiredPoints ||
             _pointsTeam2 <= -WinRequiredPoints;
     }

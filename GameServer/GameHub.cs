@@ -47,7 +47,7 @@ public class GameHub(GameManager gameManager, LobbyManager lobbyManager)
 
         if (!string.IsNullOrEmpty(userId))
         {
-            Log.Debug("{ConnID} - trying to restore connection - userId:{UserId} ", connectionId, userId);
+            Log.Debug("Connection: {ConnID} - trying to restore connection - userId: {UserId} ", connectionId, userId);
             var code = gameManager.TryToRestoreConnection(connectionId, userId);
             if (code != null)
             {
