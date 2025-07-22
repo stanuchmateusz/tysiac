@@ -280,7 +280,7 @@ const Table = () => {
 
     return (
         <>
-            <div className="fixed top-4 right-4 z-[60]"> {/* Wyższy z-index dla przycisku ustawień */}
+            <div className="fixed top-4 right-4 z-[60] flex gap-3">
                 <button
                     onClick={() => setShowOptions(true)}
                     className="p-3 bg-gray-700/80 hover:bg-gray-600/80 backdrop-blur-sm rounded-full text-white shadow-lg transition-colors"
@@ -335,18 +335,6 @@ const Table = () => {
                 <div className={`w-full rounded-3xl shadow-2xl bg-gray-800/90 flex flex-col relative overflow-hidden border border-blue-900 ${showDisconnectedModal || showOptions ? 'pointer-events-none select-none opacity-60' : ''} flex-1`}>
                     {/* Header */}
                     <div className="flex items-center justify-between px-8 py-6 border-b border-gray-700 bg-gradient-to-r from-blue-900/80 to-gray-900/80">
-                        <div className="text-3xl font-bold text-white tracking-wide">Stół gry</div>
-                        <div className="flex gap-4 items-center">
-                            <button
-                                className="px-4 py-2 bg-gradient-to-r from-red-500 to-red-700 hover:from-red-600 hover:to-red-800 text-white rounded-lg font-semibold shadow-md flex items-center gap-2 transition-all duration-150 cursor-pointer"
-                                onClick={handleLeaveRoom}
-                            >
-                                Wyjdź <ImExit />
-                            </button>
-                        </div>
-                    </div>
-                    {/* Game Info Bar */}
-                    <div className="w-full flex justify-end items-center px-8 py-4 border-b border-gray-700 bg-gray-800/70">
                         <div className="flex gap-4 items-center">
                             {/* <span className="bg-blue-900/70 text-blue-200 px-4 py-2 rounded-lg font-semibold shadow">Faza: {gameCtx ? GAME_STAGES[gameCtx.gamePhase] : '-'}</span> */}
                             <span className="bg-yellow-900/70 text-yellow-200 px-4 py-2 rounded-lg font-semibold shadow">Zakład: {gameCtx?.currentBet ?? '-'}</span>
@@ -354,14 +342,19 @@ const Table = () => {
                             <span className="bg-gradient-to-r from-blue-700 to-blue-900 text-white px-4 py-2 rounded-lg font-bold shadow">MY: {gameUserCtx?.myTeamScore ?? 0}</span>
                             <span className="bg-gradient-to-r from-pink-700 to-pink-900 text-white px-4 py-2 rounded-lg font-bold shadow">WY: {gameUserCtx?.opponentScore ?? 0}</span>
                         </div>
+                        <button
+                            onClick={handleLeaveRoom}
+                            className="px-4 py-2 bg-gradient-to-r from-red-500 to-red-700 hover:from-red-600 hover:to-red-800 text-white rounded-lg font-semibold shadow-md flex items-center gap-2 transition-all duration-150 cursor-pointer"
+                            aria-label="Wyjdź"
+                        >
+                            Wyjdź <ImExit />
+                        </button>
                     </div>
                     {/* Main Table Area */}
-                    {/* Removed flex-row and min-h-screen from here, as the parent already handles flex layout */}
+
                     <div className="w-full flex-1 flex">
                         {/* Table Area */}
-                        {/* This div becomes the main reference for absolute positioning of game elements and flying card animations */}
                         <div className="flex-1 flex flex-col items-center justify-center relative p-4 sm:p-6 md:p-8" ref={tableRef}>
-                            {/* PlayerPositions are now direct children of tableRef and positioned absolutely relative to it */}
                             {/* Chat on the left, fixed position */}
                             <div className={`absolute left-0 top-0 ml-4 mt-4 w-80 max-w-xs bg-gray-900/90 border border-gray-700 rounded-2xl shadow-xl p-4 z-20 transition-all duration-300 ${showChat ? '' : 'opacity-0 pointer-events-none'}`} style={{ minHeight: '340px' }}>
                                 <div className="flex items-center justify-between mb-2">
