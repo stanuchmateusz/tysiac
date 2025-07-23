@@ -141,7 +141,7 @@ public static class AiService
         {
             // make sure that bid is a multiple of 10
             var res = (int)possibleToPLay - ((int)possibleToPLay % 10); 
-            gameService.PlaceBid(player,res );
+            gameService.PlaceBid(player, Math.Max(res,(int)possibleToPLay) );
             Log.Debug("Bot bids {Bid}", res);
         }
         else

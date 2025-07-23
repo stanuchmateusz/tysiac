@@ -10,13 +10,13 @@ public class UserContext
     public int LeftPlayerCards { get; }    // Cards held by player to left
     public int RightPlayerCards { get; }   // Cards held by player to right
     public List<ICard> Hand { get; }  
-    public int MyTeamScore { get; }        // Current team score
-    public int OpponentScore { get; }
+    public Stack<int> MyTeamScore { get; }        // Current team score
+    public Stack<int> OpponentScore { get; }
     public int MyTeamRoundScore { get; }        // Current team score
     public int OpponentRoundScore { get; }
 
-    public UserContext(IPlayer me, IPlayer teammate, IPlayer leftPlayer, IPlayer rightPlayer, int myTeamScore,
-        int opponentScore, int myTeamRoundScore, int opponentRoundScore)
+    public UserContext(IPlayer me, IPlayer teammate, IPlayer leftPlayer, IPlayer rightPlayer, Stack<int> myTeamScore,
+        Stack<int> opponentScore, int myTeamRoundScore, int opponentRoundScore)
     {
         Me = me;
         Teammate = teammate;

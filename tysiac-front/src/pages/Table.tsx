@@ -48,6 +48,7 @@ const Table = () => {
     const [message, setMessage] = useState("");
     const [showChat, setShowChat] = useState(false);
     const [showEndGameModal, setShowEndGameModal] = useState(false);
+    const [showScoreModal, setShowScoreModal] = useState(false);
     const [showOptions, setShowOptions] = useState(false);
     const [updateCtx, setUpdateContext] = useState<UpdateContext | null>(null);
     const [chatMessages, setChatMessages] = useState<ChatMessage[]>([{ nickname: "System", message: "Witaj w grze! Użyj czatu, aby komunikować się z innymi graczami." }]);
@@ -315,8 +316,8 @@ const Table = () => {
                             <h2 className="text-3xl font-bold mb-4 text-white drop-shadow">Koniec Gry!</h2>
                             <div className="mb-6 text-lg text-blue-200 text-center">
                                 <p>Ostateczny wynik:</p>
-                                <p><span className="font-bold text-yellow-300">Twoja drużyna:</span> {gameUserCtx?.myTeamScore ?? 0}</p>
-                                <p><span className="font-bold text-pink-300">Przeciwnicy:</span> {gameUserCtx?.opponentScore ?? 0}</p>
+                                <p><span className="font-bold text-yellow-300">Twoja drużyna:</span> {gameUserCtx?.myTeamScore[0] ?? 0}</p>
+                                <p><span className="font-bold text-pink-300">Przeciwnicy:</span> {gameUserCtx?.opponentScore[0] ?? 0}</p>
                                 {gameUserCtx && gameUserCtx.myTeamScore > gameUserCtx.opponentScore ? (
                                     <p className="text-green-400 font-bold mt-2">Gratulacje, wygraliście!</p>
                                 ) : gameUserCtx && gameUserCtx.myTeamScore < gameUserCtx.opponentScore ? (
@@ -332,6 +333,68 @@ const Table = () => {
                         </div>
                     </div>
                 )}
+                {showScoreModal && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 animate-fade-in">
+                        <div className="bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 rounded-2xl p-8 shadow-2xl flex flex-col items-center border-4 border-blue-700 min-w-[360px] max-w-[90%]">
+                            <h2 className="text-3xl font-bold mb-4 text-blue-300 drop-shadow">Wyniki Rund</h2>
+                            <table className="w-full text-white text-sm border border-gray-700">
+                                <thead>
+                                    <tr className="bg-blue-800 text-white">
+                                        <th className="px-4 py-2 border border-gray-700">Runda</th>
+                                        <th className="px-4 py-2 border border-gray-700">My</th>
+                                        <th className="px-4 py-2 border border-gray-700">Wy</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {(gameUserCtx?.myTeamScore || [])
+                                        .map((_, i, arr) => {
+                                            const reversedIndex = arr.length - 1 - i;
+                                            const prevMy = arr[reversedIndex + 1];
+                                            const prevOpp = gameUserCtx?.opponentScore[reversedIndex + 1];
+
+                                            const myVal = arr[reversedIndex];
+                                            const oppVal = gameUserCtx?.opponentScore[reversedIndex] ?? 0;
+
+                                            const myColor =
+                                                prevMy === undefined
+                                                    ? "text-white"
+                                                    : myVal > prevMy
+                                                        ? "text-green-400"
+                                                        : myVal < prevMy
+                                                            ? "text-red-400"
+                                                            : "text-white";
+
+                                            const oppColor =
+                                                prevOpp === undefined
+                                                    ? "text-white"
+                                                    : oppVal > prevOpp
+                                                        ? "text-green-400"
+                                                        : oppVal < prevOpp
+                                                            ? "text-red-400"
+                                                            : "text-white";
+
+                                            return (
+                                                i != 0 ? (
+                                                    <tr key={reversedIndex} className="odd:bg-gray-800 even:bg-gray-700">
+                                                        <td className="px-4 py-2 border border-gray-700 text-center">{i}</td>
+                                                        <td className={`px-4 py-2 border border-gray-700 text-center ${myColor}`}>{myVal}</td>
+                                                        <td className={`px-4 py-2 border border-gray-700 text-center ${oppColor}`}>{oppVal}</td>
+                                                    </tr>) : <></>
+                                            );
+                                        })}
+                                </tbody>
+
+                            </table>
+                            <button
+                                className="mt-6 px-6 py-3 bg-gradient-to-r from-gray-600 to-gray-800 hover:from-gray-500 hover:to-gray-700 rounded-lg text-white font-semibold shadow-md text-lg transition-all duration-150 cursor-pointer"
+                                onClick={() => setShowScoreModal(false)}
+                            >
+                                Zamknij
+                            </button>
+                        </div>
+                    </div>
+                )}
+
                 <div className={`w-full rounded-3xl shadow-2xl bg-gray-800/90 flex flex-col relative overflow-hidden border border-blue-900 ${showDisconnectedModal || showOptions ? 'pointer-events-none select-none opacity-60' : ''} flex-1`}>
                     {/* Header */}
                     <div className="flex items-center justify-between px-8 py-6 border-b border-gray-700 bg-gradient-to-r from-blue-900/80 to-gray-900/80">
@@ -339,8 +402,8 @@ const Table = () => {
                             {/* <span className="bg-blue-900/70 text-blue-200 px-4 py-2 rounded-lg font-semibold shadow">Faza: {gameCtx ? GAME_STAGES[gameCtx.gamePhase] : '-'}</span> */}
                             <span className="bg-yellow-900/70 text-yellow-200 px-4 py-2 rounded-lg font-semibold shadow">Zakład: {gameCtx?.currentBet ?? '-'}</span>
                             <span className="bg-green-900/70 text-green-200 px-4 py-2 rounded-lg font-semibold shadow">Meldunek: {gameCtx?.trumpSuit ? SUIT_ICONS[gameCtx.trumpSuit] : '-'}</span>
-                            <span className="bg-gradient-to-r from-blue-700 to-blue-900 text-white px-4 py-2 rounded-lg font-bold shadow">MY: {gameUserCtx?.myTeamScore ?? 0}</span>
-                            <span className="bg-gradient-to-r from-pink-700 to-pink-900 text-white px-4 py-2 rounded-lg font-bold shadow">WY: {gameUserCtx?.opponentScore ?? 0}</span>
+                            <span className="bg-gradient-to-r from-blue-700 to-blue-900 text-white px-4 py-2 rounded-lg font-bold shadow">MY: {gameUserCtx?.myTeamScore[0] ?? 0}</span>
+                            <span className="bg-gradient-to-r from-pink-700 to-pink-900 text-white px-4 py-2 rounded-lg font-bold shadow">WY: {gameUserCtx?.opponentScore[0] ?? 0}</span>
                         </div>
                         <button
                             onClick={handleLeaveRoom}
@@ -392,12 +455,20 @@ const Table = () => {
                             </div>
                             {/* Floating show chat button, only if chat is hidden, bottom left */}
                             {!showChat && (
-                                <button
-                                    className="fixed left-8 bottom-8 z-30 px-5 py-3 bg-gradient-to-r from-gray-800 to-gray-900 hover:from-gray-900 hover:to-black text-white rounded-xl font-semibold shadow-lg border-2 border-blue-900 transition-all duration-150 opacity-90 cursor-pointer"
-                                    onClick={() => setShowChat(true)}
-                                >
-                                    Pokaż chat
-                                </button>
+                                <div className="fixed left-8 bottom-8 z-30 flex flex-col gap-4">
+                                    <button
+                                        className="px-5 py-3 bg-gradient-to-r from-gray-800 to-gray-900 hover:from-gray-900 hover:to-black text-white rounded-xl font-semibold shadow-lg border-2 border-blue-900 transition-all duration-150 opacity-90 cursor-pointer"
+                                        onClick={() => setShowChat(true)}
+                                    >
+                                        Pokaż chat
+                                    </button>
+                                    <button
+                                        className="px-5 py-3 bg-gradient-to-r from-blue-800 to-gray-900 hover:from-gray-900 hover:to-black text-white rounded-xl font-semibold shadow-lg border-2 border-blue-900 transition-all duration-150 opacity-90 cursor-pointer"
+                                        onClick={() => setShowScoreModal(true)}
+                                    >
+                                        Wyniki
+                                    </button>
+                                </div>
                             )}
                             {/* Players around the table (without current user's hand) */}
                             <PlayerPosition

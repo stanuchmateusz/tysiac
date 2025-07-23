@@ -26,8 +26,8 @@ public class GameService
 
     private readonly Stack<ICard> _deck = [];
 
-    private int _pointsTeam1 = 0;
-    private int _pointsTeam2 = 0;
+    private Stack<int> _pointsTeam1 = new ();
+    private Stack<int> _pointsTeam2 = new ();
     public GamePhase CurrentPhase {  get; set; } = GamePhase.Start;
     public string RoomCode { get; }
     private HashSet<IPlayer> DisconnectedPlayers { get; set; } = [];
@@ -38,6 +38,8 @@ public class GameService
         Players = lobbyCtx.Players.ToHashSet();
         RoomCode = lobbyCtx.Code;
         _humanPlayersCount = Players.Count(player => !player.isBot);
+        _pointsTeam1.Push(0);
+        _pointsTeam2.Push(0);
         ShuffleDeck(
             InitCards()
             )
@@ -237,7 +239,7 @@ public class GameService
         throw new ArgumentException("Unknown player");
     }
     
-    private int GetTeamPoints(IPlayer player, bool enemy = false)
+    private Stack<int> GetTeamPoints(IPlayer player, bool enemy = false)
     {
 
         if (player.Team == Team.Team1)
@@ -671,19 +673,20 @@ public class GameService
             if (finalPoints >= Round.CurrentBet)
             {
                 Log.Debug("[{Room}] Team 1 managed to get required points {Points}/{BetAmount} ",RoomCode, finalPoints ,Round.CurrentBet);
-                _pointsTeam1 += Round.CurrentBet;
+                _pointsTeam1.Push(_pointsTeam1.Peek() + Round.CurrentBet);
             }
             else
             {
                 Log.Debug("[{Room}] Team 2 failed to get required points {Points}/{BetAmount} ",RoomCode ,finalPoints ,Round.CurrentBet);
-                _pointsTeam1 -= Round.CurrentBet;
+                _pointsTeam1.Push(_pointsTeam1.Peek() - Round.CurrentBet);
             }
 
             var pointsTeam2 = RoundTo10(Round.Team2Points) + TrumpPointsForTeam(Team.Team2);
             
-            if (!(_pointsTeam2 >= threshold && pointsTeam2 + _pointsTeam2 < WinRequiredPoints)) 
+            if (!(_pointsTeam2.Peek() >= threshold && pointsTeam2 + _pointsTeam2.Peek() < WinRequiredPoints)) 
             {
-                _pointsTeam2 += RoundTo10(Round.Team2Points) + TrumpPointsForTeam(Team.Team2);
+                
+                _pointsTeam2.Push(_pointsTeam2.Peek()+ RoundTo10(Round.Team2Points) + TrumpPointsForTeam(Team.Team2));
             }
         }
         else // betWinner.Team == Team.Team2
@@ -692,17 +695,18 @@ public class GameService
             if (finalPoints >= Round.CurrentBet)
             {
                 Log.Debug("[{Room}] Team 2 managed to get required points {Points}/{BetAmount} ",RoomCode,finalPoints ,Round.CurrentBet);
-                _pointsTeam2 += Round.CurrentBet;
+                _pointsTeam2.Push(_pointsTeam2.Peek() + Round.CurrentBet);
             }
             else
             {
                 Log.Debug("[{Room}] Team 1 failed to get required points {Points}/{BetAmount} ", RoomCode,finalPoints ,Round.CurrentBet);
-                _pointsTeam2 -= Round.CurrentBet;
+                _pointsTeam2.Push(_pointsTeam2.Peek() - Round.CurrentBet);
             }
             var pointsTeam1 = RoundTo10(Round.Team1Points) + TrumpPointsForTeam(Team.Team1);
-            if (!(_pointsTeam1 >= threshold && pointsTeam1 + _pointsTeam1 < WinRequiredPoints)) 
+            if (!(_pointsTeam1.Peek() >= threshold && pointsTeam1 + _pointsTeam1.Peek() < WinRequiredPoints)) 
             {
-                _pointsTeam1 += RoundTo10(Round.Team1Points) + TrumpPointsForTeam(Team.Team1);
+                
+                _pointsTeam1.Push(_pointsTeam1.Peek() + RoundTo10(Round.Team1Points) + TrumpPointsForTeam(Team.Team1));
             }
         }
         
@@ -725,10 +729,10 @@ public class GameService
     private bool IsGameOver()
     {
         return
-            _pointsTeam1 >= WinRequiredPoints  ||
-            _pointsTeam2 >= WinRequiredPoints  ||
-            _pointsTeam1 <= -WinRequiredPoints ||
-            _pointsTeam2 <= -WinRequiredPoints;
+            _pointsTeam1.Peek() >= WinRequiredPoints  ||
+            _pointsTeam2.Peek() >= WinRequiredPoints  ||
+            _pointsTeam1.Peek() <= -WinRequiredPoints ||
+            _pointsTeam2.Peek() <= -WinRequiredPoints;
     }
     
     private void FinishGame()

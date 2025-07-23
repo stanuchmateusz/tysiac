@@ -51,8 +51,8 @@ export interface GameUserContext {
     leftPlayerCards: number;
     rightPlayerCards: number;
     hand: Card[];
-    myTeamScore: number; //my
-    opponentScore: number; //wy
+    myTeamScore: number[]; //my
+    opponentScore: number[]; //wy
     myTeamRoundScore: number;
     opponentRoundScore: number;
 }
