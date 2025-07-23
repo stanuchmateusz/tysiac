@@ -8,6 +8,7 @@ export default
         onAccept,
         disabled,
         minBet,
+        maxBet,
     }: {
         open: boolean,
         currentBet: number,
@@ -17,6 +18,7 @@ export default
         onAccept: () => void,
         disabled?: boolean,
         minBet: number,
+        maxBet: number,
     }) {
     if (!open) return null;
     return (
@@ -26,9 +28,9 @@ export default
                 <div className="mb-6 text-lg text-blue-200">Pobij zakład: <span className="font-bold text-yellow-300 text-2xl">{currentBet}</span></div>
                 <div className="flex gap-4 mb-2">
                     <button
-                        className="px-5 py-2 bg-gradient-to-r from-blue-500 to-blue-700 hover:from-blue-600 hover:to-blue-800 rounded-lg text-white font-semibold shadow-md text-lg transition-all duration-150 cursor-pointer"
+                        className={`px-5 py-2 rounded-lg text-white font-semibold shadow-md text-lg transition-all duration-150 ${disabled || currentBet >= maxBet ? 'bg-gray-500 cursor-not-allowed opacity-70' : 'bg-gradient-to-r from-blue-500 to-blue-700 hover:from-blue-600 hover:to-blue-800 cursor-pointer'}`}
                         onClick={onRaise}
-                        disabled={disabled}
+                        disabled={disabled || currentBet >= maxBet}
                     >
                         +10
                     </button>

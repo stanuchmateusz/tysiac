@@ -6,12 +6,13 @@ import React, { useState, useRef, useEffect } from "react";
 
 import type { Card, ChatMessage, UpdateContext } from "./Models";
 import BetModal from "../components/BetModal";
-import IncreaseBetModal from "../components/IncreaseBetModal"; // Założenie, że ten komponent istnieje
+import IncreaseBetModal from "../components/IncreaseBetModal";
 import PlayerPosition from "../components/PlayerPosition";
 import CardHand from "../components/CardHand";
 import Options from "../components/Options";
 import { CiSettings } from "react-icons/ci";
 import MusicService from "../services/MusicService";
+import ScoreTable from "../components/ScoreTable";
 
 export const CARD_SVG_PATH = import.meta.env.VITE_ASSETS_PATH + "poker-qr/" || "/public/assets/poker-qr/";
 
@@ -92,6 +93,7 @@ const Table = () => {
     const gameCtx = updateCtx?.gameCtx;
     const gameUserCtx = updateCtx?.userCtx || null;
     const minBet = (gameCtx?.currentBet ?? 100) + 10;
+    const maxBet = 400;
     const [bet, setBet] = useState(minBet);
 
     useEffect(() => {
@@ -324,6 +326,7 @@ const Table = () => {
                                     <p className="text-red-400 font-bold mt-2">Niestety, tym razem się nie udało.</p>
                                 ) : <p className="text-gray-300 font-bold mt-2">Remis!</p>}
                             </div>
+                            <ScoreTable gameUserCtx={gameUserCtx} />
                             <button
                                 className="px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-700 hover:from-blue-600 hover:to-blue-800 rounded-lg text-white font-semibold shadow-md text-lg transition-all duration-150 cursor-pointer mt-2"
                                 onClick={handleLeaveRoom}
@@ -337,54 +340,7 @@ const Table = () => {
                     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 animate-fade-in">
                         <div className="bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 rounded-2xl p-8 shadow-2xl flex flex-col items-center border-4 border-blue-700 min-w-[360px] max-w-[90%]">
                             <h2 className="text-3xl font-bold mb-4 text-blue-300 drop-shadow">Wyniki Rund</h2>
-                            <table className="w-full text-white text-sm border border-gray-700">
-                                <thead>
-                                    <tr className="bg-blue-800 text-white">
-                                        <th className="px-4 py-2 border border-gray-700">Runda</th>
-                                        <th className="px-4 py-2 border border-gray-700">My</th>
-                                        <th className="px-4 py-2 border border-gray-700">Wy</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {(gameUserCtx?.myTeamScore || [])
-                                        .map((_, i, arr) => {
-                                            const reversedIndex = arr.length - 1 - i;
-                                            const prevMy = arr[reversedIndex + 1];
-                                            const prevOpp = gameUserCtx?.opponentScore[reversedIndex + 1];
-
-                                            const myVal = arr[reversedIndex];
-                                            const oppVal = gameUserCtx?.opponentScore[reversedIndex] ?? 0;
-
-                                            const myColor =
-                                                prevMy === undefined
-                                                    ? "text-white"
-                                                    : myVal > prevMy
-                                                        ? "text-green-400"
-                                                        : myVal < prevMy
-                                                            ? "text-red-400"
-                                                            : "text-white";
-
-                                            const oppColor =
-                                                prevOpp === undefined
-                                                    ? "text-white"
-                                                    : oppVal > prevOpp
-                                                        ? "text-green-400"
-                                                        : oppVal < prevOpp
-                                                            ? "text-red-400"
-                                                            : "text-white";
-
-                                            return (
-                                                i != 0 ? (
-                                                    <tr key={reversedIndex} className="odd:bg-gray-800 even:bg-gray-700">
-                                                        <td className="px-4 py-2 border border-gray-700 text-center">{i}</td>
-                                                        <td className={`px-4 py-2 border border-gray-700 text-center ${myColor}`}>{myVal}</td>
-                                                        <td className={`px-4 py-2 border border-gray-700 text-center ${oppColor}`}>{oppVal}</td>
-                                                    </tr>) : <></>
-                                            );
-                                        })}
-                                </tbody>
-
-                            </table>
+                            <ScoreTable gameUserCtx={gameUserCtx} />
                             <button
                                 className="mt-6 px-6 py-3 bg-gradient-to-r from-gray-600 to-gray-800 hover:from-gray-500 hover:to-gray-700 rounded-lg text-white font-semibold shadow-md text-lg transition-all duration-150 cursor-pointer"
                                 onClick={() => setShowScoreModal(false)}
@@ -602,6 +558,7 @@ const Table = () => {
                                 onPass={handlePass}
                                 onAccept={handleAccept}
                                 minBet={minBet}
+                                maxBet={maxBet}
                             />
                             {/* IncreaseBet Modal */}
                             <IncreaseBetModal
@@ -611,6 +568,7 @@ const Table = () => {
                                 onLower={handleLower}
                                 onPass={handlePass}
                                 minBet={minBet}
+                                maxBet={maxBet}
                                 onAccept={handleAccept}
                             />
                             {/* Trump Modal */}
@@ -623,11 +581,7 @@ const Table = () => {
                                     </div>
                                 </div>
                             )}
-                            {/* Animacja lecenia karty
-                            {flyingCard && tableRef.current && createPortal(
-                                <FlyingCardAnimation card={flyingCard.card} to={flyingCard.to} tableRef={tableRef as React.RefObject<HTMLDivElement>} gameUserCtx={gameUserCtx} />,
-                                tableRef.current
-                            )} */}
+
                         </div>
                     </div>
                 </div>

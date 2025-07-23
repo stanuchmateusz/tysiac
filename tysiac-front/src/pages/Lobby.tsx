@@ -8,6 +8,7 @@ import GameService from "../services/GameService";
 import { useNavigate, useParams } from "react-router-dom";
 import { CiSettings } from "react-icons/ci";
 import Options from "../components/Options";
+import GameSettingsBox from "../components/GameSettingsBox";
 import type { ChatMessage, LobbyContext, Player } from "./Models";
 import MusicService from "../services/MusicService";
 import { setCookie, userIdCookieName } from "../utils/Cookies";
@@ -349,6 +350,8 @@ const Lobby = () => {
                                         Dodaj boty</button>)
                                 }
                             </div>
+                            <GameSettingsBox />
+
                         </div>
                         <div className="w-full md:w-80 flex flex-col bg-gray-800 p-3 rounded-lg  min-h-80 max-h-80">
                             <h2 className="text-2xl font-semibold mb-2">Chat</h2>
