@@ -48,6 +48,7 @@ const Table = () => {
     const navigate = useNavigate();
     const [message, setMessage] = useState("");
     const [showChat, setShowChat] = useState(false);
+    const [hasNewMessage, setHasNewMessage] = useState(false);
     const [showEndGameModal, setShowEndGameModal] = useState(false);
     const [showScoreModal, setShowScoreModal] = useState(false);
     const [showOptions, setShowOptions] = useState(false);
@@ -73,6 +74,7 @@ const Table = () => {
         // Handle incoming chat messages
         const handleMessageReceive = (message: ChatMessage) => {
             setChatMessages(prevMessages => [...prevMessages, message]);
+            if (!showChat) setHasNewMessage(true);
         };
 
 
@@ -380,7 +382,10 @@ const Table = () => {
                                     <h2 className="text-xl font-semibold text-white">Chat</h2>
                                     <button
                                         className="text-blue-400 hover:text-blue-200 transition-colors cursor-pointer"
-                                        onClick={() => setShowChat(false)}
+                                        onClick={() => {
+                                            setShowChat(false);
+                                            setHasNewMessage(false);
+                                        }}
                                     >
                                         ✕
                                     </button>
@@ -413,7 +418,9 @@ const Table = () => {
                             {!showChat && (
                                 <div className="fixed left-8 bottom-8 z-30 flex flex-col gap-4">
                                     <button
-                                        className="px-5 py-3 bg-gradient-to-r from-gray-800 to-gray-900 hover:from-gray-900 hover:to-black text-white rounded-xl font-semibold shadow-lg border-2 border-blue-900 transition-all duration-150 opacity-90 cursor-pointer"
+                                        className={`px-5 py-3 bg-gradient-to-r from-gray-800 to-gray-900 hover:from-gray-900 hover:to-black text-white rounded-xl font-semibold shadow-lg border-2 border-blue-900 transition-all duration-150 opacity-90 cursor-pointer
+                ${hasNewMessage ? 'animate-glow border-yellow-400 shadow-yellow-400/60' : ''}
+            `}
                                         onClick={() => setShowChat(true)}
                                     >
                                         Pokaż chat

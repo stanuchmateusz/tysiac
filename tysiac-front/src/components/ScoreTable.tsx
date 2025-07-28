@@ -6,7 +6,7 @@ type Props = {
 };
 
 const ScoreTable: React.FC<Props> = ({ gameUserCtx }) => (
-    <div className="max-h-72 overflow-y-auto rounded-lg">
+    <div className="w-full max-h-72 overflow-y-auto rounded-lg">
         <table className="w-full text-white text-sm border border-gray-700">
             <thead>
                 <tr className="bg-blue-800 text-white">
