@@ -6,18 +6,17 @@ export default function CardHand({
     cards,
     onCardDragStart,
     onCardDragEnd,
-    onCardClick, // nowy props
+    onCardClick,
     disabled = false,
     canPlayCard
 }: {
     cards: Card[],
     onCardDragStart: (event: React.DragEvent<HTMLDivElement>, card: Card) => void,
     onCardDragEnd: () => void,
-    onCardClick?: (card: Card) => void, // nowy props
+    onCardClick?: (card: Card) => void,
     disabled?: boolean,
     canPlayCard?: (card: Card) => boolean
 }) {
-    // Oblicz raz, które karty można zagrać
     const playableMap = React.useMemo(
         () => Object.fromEntries(cards.map(card => [card.shortName, !canPlayCard || canPlayCard(card)])),
         [cards, canPlayCard]
@@ -36,7 +35,6 @@ export default function CardHand({
                         }}
                         onDragEnd={onCardDragEnd}
                         onClick={() => {
-                            // Obsługa tapnięcia na mobile
                             if (!disabled && isPlayable && onCardClick) onCardClick(card);
                         }}
                         className={`transition-all duration-200 transform hover:-translate-y-2 hover:scale-105 

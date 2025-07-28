@@ -320,9 +320,9 @@ const Table = () => {
                                 <p>Ostateczny wynik:</p>
                                 <p><span className="font-bold text-yellow-300">Twoja drużyna:</span> {gameUserCtx?.myTeamScore[0] ?? 0}</p>
                                 <p><span className="font-bold text-pink-300">Przeciwnicy:</span> {gameUserCtx?.opponentScore[0] ?? 0}</p>
-                                {gameUserCtx && gameUserCtx.myTeamScore > gameUserCtx.opponentScore ? (
+                                {gameUserCtx && gameUserCtx.myTeamScore[0] > gameUserCtx.opponentScore[0] ? (
                                     <p className="text-green-400 font-bold mt-2">Gratulacje, wygraliście!</p>
-                                ) : gameUserCtx && gameUserCtx.myTeamScore < gameUserCtx.opponentScore ? (
+                                ) : gameUserCtx && gameUserCtx.myTeamScore[0] < gameUserCtx.opponentScore[0] ? (
                                     <p className="text-red-400 font-bold mt-2">Niestety, tym razem się nie udało.</p>
                                 ) : <p className="text-gray-300 font-bold mt-2">Remis!</p>}
                             </div>
@@ -464,7 +464,6 @@ const Table = () => {
                                 isDropTargetActive={isDraggingCard && gameCtx?.gamePhase === 2 && isCurrentPlayer && !playersGivenCard.includes(gameUserCtx?.rightPlayer?.connectionId || '')}
                             />
                             {/* Cards on table (center) */}
-                            {/* This container is now full width/height of tableRef, ensuring cards are centered within the main game area */}
                             <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full pointer-events-none">
                                 {/* Drop Zone for playing cards */}
                                 <div
@@ -539,7 +538,6 @@ const Table = () => {
                                 })()}
                             </div>
                             {/* Card Hand */}
-                            {/* Positioned absolutely at the bottom of tableRef */}
                             <div className="absolute bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2 w-full flex justify-center">
                                 <CardHand
                                     cards={gameUserCtx?.hand || []}

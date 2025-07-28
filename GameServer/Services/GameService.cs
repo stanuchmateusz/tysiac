@@ -1,4 +1,5 @@
-﻿using GameServer.Models;
+﻿using System.Collections.Immutable;
+using GameServer.Models;
 using GameServer.Models.Context;
 using GameServer.Models.Enums;
 using GameServer.Models.impl;
@@ -16,7 +17,7 @@ public class GameService
 {
     private const int WinRequiredPoints = 1000;
     
-    public readonly HashSet<IPlayer> Players;
+    public readonly ImmutableHashSet<IPlayer> Players;
     private IPlayer Player1 { get; set; }
     private IPlayer Player2 { get; set; }
     private IPlayer Player3 { get; set; }
@@ -35,7 +36,7 @@ public class GameService
     
     public GameService(LobbyContext lobbyCtx)
     {
-        Players = lobbyCtx.Players.ToHashSet();
+        Players = lobbyCtx.Players.ToImmutableHashSet();
         RoomCode = lobbyCtx.Code;
         _humanPlayersCount = Players.Count(player => !player.isBot);
         _pointsTeam1.Push(0);
@@ -241,7 +242,6 @@ public class GameService
     
     private Stack<int> GetTeamPoints(IPlayer player, bool enemy = false)
     {
-
         if (player.Team == Team.Team1)
         {
             return enemy ? _pointsTeam2 : _pointsTeam1;
@@ -399,7 +399,8 @@ public class GameService
             CurrentPhase = GamePhase.IncreaseBet;
             MoveMusikToBindWinner(winner);
             SortCards(winner);
-        }else if (CurrentPhase == GamePhase.IncreaseBet)
+        }
+        else if (CurrentPhase == GamePhase.IncreaseBet)
         {
             CurrentPhase = GamePhase.CardDistribution;
         }
@@ -661,7 +662,7 @@ public class GameService
 
     private void EndRound()
     {
-        Log.Debug("[{Room}]  Round ended. Team 1 points: {PointsTeam1}, Team 2 points: {PointsTeam2}",RoomCode, Round.Team1Points, Round.Team2Points);
+        Log.Information("[{Room}]  Round ended. Team 1 points: {PointsTeam1}, Team 2 points: {PointsTeam2}",RoomCode, Round.Team1Points, Round.Team2Points);
         
         // Check if the team that won the round has enough points to win the bet
         var betWinner = Round.CurrentBidWinner;
@@ -677,16 +678,16 @@ public class GameService
             }
             else
             {
-                Log.Debug("[{Room}] Team 2 failed to get required points {Points}/{BetAmount} ",RoomCode ,finalPoints ,Round.CurrentBet);
+                Log.Debug("[{Room}] Team 1 failed to get required points {Points}/{BetAmount} ",RoomCode ,finalPoints ,Round.CurrentBet);
                 _pointsTeam1.Push(_pointsTeam1.Peek() - Round.CurrentBet);
             }
 
             var pointsTeam2 = RoundTo10(Round.Team2Points) + TrumpPointsForTeam(Team.Team2);
             
-            if (!(_pointsTeam2.Peek() >= threshold && pointsTeam2 + _pointsTeam2.Peek() < WinRequiredPoints)) 
+            if (_pointsTeam2.Peek() < threshold) 
             {
-                
-                _pointsTeam2.Push(_pointsTeam2.Peek()+ RoundTo10(Round.Team2Points) + TrumpPointsForTeam(Team.Team2));
+                Log.Debug("[{Room}] Team 2 got {Points} ",RoomCode, pointsTeam2);
+                _pointsTeam2.Push(_pointsTeam2.Peek() + pointsTeam2);
             }
         }
         else // betWinner.Team == Team.Team2
@@ -699,17 +700,16 @@ public class GameService
             }
             else
             {
-                Log.Debug("[{Room}] Team 1 failed to get required points {Points}/{BetAmount} ", RoomCode,finalPoints ,Round.CurrentBet);
+                Log.Debug("[{Room}] Team 2 failed to get required points {Points}/{BetAmount} ", RoomCode,finalPoints ,Round.CurrentBet);
                 _pointsTeam2.Push(_pointsTeam2.Peek() - Round.CurrentBet);
             }
             var pointsTeam1 = RoundTo10(Round.Team1Points) + TrumpPointsForTeam(Team.Team1);
-            if (!(_pointsTeam1.Peek() >= threshold && pointsTeam1 + _pointsTeam1.Peek() < WinRequiredPoints)) 
+            if (_pointsTeam1.Peek() < threshold) 
             {
-                
-                _pointsTeam1.Push(_pointsTeam1.Peek() + RoundTo10(Round.Team1Points) + TrumpPointsForTeam(Team.Team1));
+                Log.Debug("[{Room}] Team 1 got {Points} ",RoomCode, pointsTeam1);
+                _pointsTeam1.Push(_pointsTeam1.Peek() + pointsTeam1);
             }
         }
-        
         Log.Debug("[{Room}] Points after round: Team 1: {PointsTeam1}, Team 2: {PointsTeam2}",RoomCode, _pointsTeam1, _pointsTeam2);
 
         if (IsGameOver()) 
@@ -720,10 +720,10 @@ public class GameService
         }
         
         CurrentPhase = GamePhase.Auction;
-        Log.Information("[{Room}] Game reset to start phase", RoomCode);
+        Log.Debug("[{Room}] Game reset to start phase", RoomCode);
         var lastRoomStartPlayer = Round.OrginalTurnQueue.First();
         CreateAndInitNewRound(lastRoomStartPlayer);
-        Log.Information("[{Room}] New round created, starting player: {Player}",RoomCode, Round.TurnQueue.FirstOrDefault());
+        Log.Debug("[{Room}] New round created, starting player: {Player}",RoomCode, Round.TurnQueue.FirstOrDefault());
     }
     
     private bool IsGameOver()
@@ -755,7 +755,7 @@ public class GameService
     
     private List<ICard> InitCards()
     {
-        Log.Information("[{Room}] Initializing TableService", RoomCode);
+        Log.Debug("[{Room}] Initializing TableService", RoomCode);
 
         var allowedRanks = new[]
         {

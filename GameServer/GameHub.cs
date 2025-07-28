@@ -114,7 +114,7 @@ public class GameHub(GameManager gameManager, LobbyManager lobbyManager)
         await Clients.Groups(roomCode).SendAsync(LobbyUpdateMethodName,
             lobbyManager.GetRoom(roomCode));
 
-        Log.Information("Joined {Nickname} room {RoomCode}", nickname, roomCode);
+        Log.Debug("Joined {Nickname} room {RoomCode}", nickname, roomCode);
     }
 
     public async Task JoinTeam(string roomCode, bool isTeam1)
@@ -126,12 +126,12 @@ public class GameHub(GameManager gameManager, LobbyManager lobbyManager)
             throw new HubException(PlayerNotFoundExceptionMessage + roomCode);
         if (isTeam1)
         {
-            Log.Information("Joining {Nickname} team1", player.Nickname);
+            Log.Debug("Joining {Nickname} team1", player.Nickname);
             LobbyManager.AddToTeam1(lobby, player);
         }
         else
         {
-            Log.Information("Joining {Nickname} team2", player.Nickname);
+            Log.Debug("Joining {Nickname} team2", player.Nickname);
             LobbyManager.AddToTeam2(lobby, player);
         }
 
@@ -154,7 +154,7 @@ public class GameHub(GameManager gameManager, LobbyManager lobbyManager)
 
         lobbyManager.LeaveTeam(roomCode, player);
         await Clients.Groups(roomCode).SendAsync(LobbyUpdateMethodName, lobbyManager.GetRoom(roomCode));
-        Log.Information("Left {Player} left team in {RoomCode}", player, roomCode);
+        Log.Debug("{Player} left team in {RoomCode}", player, roomCode);
     }
 
     public async Task AddBots(string roomCode)

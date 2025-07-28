@@ -1,25 +1,24 @@
-export default // Modal do betowania
-    function BetModal({
-        open,
-        currentBet,
-        onRaise,
-        onLower,
-        onPass,
-        onAccept,
-        disabled,
-        minBet,
-        maxBet,
-    }: {
-        open: boolean,
-        currentBet: number,
-        onRaise: () => void,
-        onLower: () => void,
-        onPass: () => void,
-        onAccept: () => void,
-        disabled?: boolean,
-        minBet: number,
-        maxBet: number,
-    }) {
+export default function BetModal({
+    open,
+    currentBet,
+    onRaise,
+    onLower,
+    onPass,
+    onAccept,
+    disabled,
+    minBet,
+    maxBet,
+}: {
+    open: boolean,
+    currentBet: number,
+    onRaise: () => void,
+    onLower: () => void,
+    onPass: () => void,
+    onAccept: () => void,
+    disabled?: boolean,
+    minBet: number,
+    maxBet: number,
+}) {
     if (!open) return null;
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
