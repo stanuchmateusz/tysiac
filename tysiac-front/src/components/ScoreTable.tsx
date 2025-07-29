@@ -17,7 +17,7 @@ type Props = {
 
 const ScoreTable: React.FC<Props> = ({ gameUserCtx }) => {
     const rounds = (gameUserCtx?.myTeamScore || []).length;
-    const labels = Array.from({ length: rounds - 1 }).map((_, i) => i + 1); // rundy od 1
+    const labels = Array.from({ length: rounds - 1 }).map((_, i) => i + 1);
     const myScores = (gameUserCtx?.myTeamScore || []).slice(0, rounds).reverse().slice(1);
     const oppScores = (gameUserCtx?.opponentScore || []).slice(0, rounds).reverse().slice(1);
 

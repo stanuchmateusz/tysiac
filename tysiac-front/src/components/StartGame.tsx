@@ -3,9 +3,10 @@ import GameService from "../services/GameService";
 import { ParseHubExcepion, MapErrorMessage } from "../utils/ErrorParser";
 import { useNavigate } from "react-router-dom";
 import * as signalR from "@microsoft/signalr";
+import { getCookie, setCookie, userNicknameCookieName } from "../utils/Cookies";
 
 const StartGame = ({ code }: { code: string | undefined }) => {
-    const [nickname, setNickname] = useState("");
+    const [nickname, setNickname] = useState(getCookie(userNicknameCookieName) || "");
     const [roomCode, setRoomCode] = useState(code ?? "");
     const [lobbyJoinError, setLobbyJoinError] = useState("");
     const [isReady, setIsReady] = useState(false);
@@ -85,6 +86,7 @@ const StartGame = ({ code }: { code: string | undefined }) => {
             setConnectionError("Połączenie nie jest jeszcze gotowe.")
             return;
         }
+        setCookie(userNicknameCookieName, nickname, 30);
         GameService.createRoom(nickname)
             .catch(err => {
                 console.error("Błąd podczas tworzenia pokoju:", err);
@@ -109,6 +111,7 @@ const StartGame = ({ code }: { code: string | undefined }) => {
             setLobbyJoinError("Połączenie nie jest jeszcze gotowe.");
             return;
         }
+        setCookie(userNicknameCookieName, nickname, 30);
         GameService.joinRoom(roomCode, nickname)
             .catch((err: Error) => {
                 var ex = ParseHubExcepion(err);
@@ -119,8 +122,11 @@ const StartGame = ({ code }: { code: string | undefined }) => {
     }
 
     const validateNickname = (nickname: string) => {
-        return nickname.length >= 3 && nickname.length <= 20 && /^[a-zA-Z0-9_]+$/.test(nickname);
+        return nickname.length >= 3 &&
+            nickname.length <= 25 &&
+            /^[a-zA-Z0-9ąćęłńóśźżĄĆĘŁŃÓŚŹŻ _]+$/.test(nickname);
     }
+
     const validateRoomCode = (roomCode: string) => {
         return roomCode.length === 8 && /^[A-Z0-9]{8}$/.test(roomCode);
     }

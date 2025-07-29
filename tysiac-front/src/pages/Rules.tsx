@@ -8,9 +8,11 @@ const Rules = () => {
                 "Tysiąc siadnay" to gra karciana dla 4 graczy, rozdzielnych na dwie równe drużyny.<br />
                 Celem jest zdobycie <span className="font-bold text-blue-400">1000 punktów</span> przez jedną z drużyn.
             </p>
-
             <p className="text-lg text-gray-200 mb-4 text-justify">
-                Gra składa się z kilku faz:
+                Gracze z drużyny siedzą naprzeciwko siebie. Punkty nie liczą się indywidualnie, lecz drużynowo. Gra polega na licytacji, rozdawaniu kart i grze w karty. Poniżej przedstawione są zasady gry oraz punktacja.
+            </p>
+            <p className="text-lg text-gray-200 mb-4 text-justify">
+                Fazy gry:
                 <p><strong>Rozdanie kart: </strong>Każdy z graczy dostaje po 5 kart. Pozostałe 4 idą do tak zwanego Musika</p>
                 <p><strong>Faza licytacji: </strong> Gracze mogą podbijać stawkę lub spasować. Licytacja kończy się, gdy wszyscy gracze spasują lub gdy jedna z drużyn osiągnie minimalną stawkę.
                     Zależnie od ustawień gry, po otrzymaniu kart można podnieść stawkę. <i>jesli gramy "ile się ugra" faza ta zostaje pominięta.</i>
@@ -92,6 +94,9 @@ const Rules = () => {
             </div>
             <p className="text-lg text-gray-200 mb-4 text-justify">
                 Wartości punktów są zaokrąglane do 10 <strong>PO SPRAWDZENIU CZY WYNIK JEST WYŻSZY/RÓWNY licytacji</strong>
+            </p>
+            <p className="text-lg text-gray-200 mb-4 text-justify">
+                <strong>Zasady melodwania:</strong> Meldunkiem nazywamy parę damy i króla tego samego koloru. W klasycznej wersji gry, meldować można wychodząc damą mając króla na ręce, tylko zaczynając kolejkę. Natomiast w wersji siadanej można meldować na przeciwniku. To znaczy że jeżeli osoba przed tobą zagra damę, a ty posiadasz króla tego samego koloru, możesz zameldować. Nowy meldunek liczy się od następnej rundy.
             </p>
             <p className="text-sm text-gray-400 mt-8">
                 <a href="/" className="text-blue-400 hover:underline transition-colors duration-150">

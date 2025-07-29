@@ -9,7 +9,7 @@ public class AIPlayer : IPlayer
     public string ConnectionId { get; set; }
     public string Nickname { get; set; }
     public string Id { get; set; }
-    public bool isBot { get; set; } = true;
+    public bool IsBot { get; set; } = true;
     public List<ICard> Hand { get; set; } = new();
     public Team? Team { get; set; }
     

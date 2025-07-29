@@ -3,7 +3,7 @@ export const soundVolumeCookieName = "soundVolume"
 export const musicMutedCookieName = "musicMuted"
 export const soundMutedCookieName = "soundMuted"
 export const userIdCookieName = "tysiac_userId"
-
+export const userNicknameCookieName = "tysiac_nickname"
 
 export const getCookie = (name: string): string | null => {
     const nameEQ = name + "=";

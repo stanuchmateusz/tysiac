@@ -38,7 +38,7 @@ public class GameService
     {
         Players = lobbyCtx.Players.ToImmutableHashSet();
         RoomCode = lobbyCtx.Code;
-        _humanPlayersCount = Players.Count(player => !player.isBot);
+        _humanPlayersCount = Players.Count(player => !player.IsBot);
         _pointsTeam1.Push(0);
         _pointsTeam2.Push(0);
         ShuffleDeck(
@@ -471,7 +471,7 @@ public class GameService
 
     private static void SortCards(IPlayer player)
     {
-        if (player.isBot)
+        if (player.IsBot)
             return;
         var suitOrder = new Dictionary<CardSuit, int>
         {

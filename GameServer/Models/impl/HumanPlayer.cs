@@ -9,7 +9,7 @@ public class HumanPlayer : IPlayer
     public string Id { get; set; }
     public List<ICard> Hand { get; set; } = new();
     public Team? Team { get; set; }
-    public bool isBot { get; set; } = false;
+    public bool IsBot { get; set; } = false;
 
     public HumanPlayer(string connectionId, string nickname, string? id = null)
     {

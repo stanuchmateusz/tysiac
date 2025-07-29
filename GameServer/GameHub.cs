@@ -1,4 +1,5 @@
 ﻿using System.Text;
+using System.Text.RegularExpressions;
 using GameServer.Models;
 using GameServer.Models.Context;
 using GameServer.Models.Enums;
@@ -106,6 +107,9 @@ public class GameHub(GameManager gameManager, LobbyManager lobbyManager)
 
     public async Task JoinRoom(string roomCode, string nickname)
     {
+        if (!ValidateNickname(nickname))
+            throw new HubException("Invalid nickname");
+
         var player = new HumanPlayer(Context.ConnectionId, nickname);
         lobbyManager.JoinRoom(roomCode, player);
 
@@ -116,7 +120,7 @@ public class GameHub(GameManager gameManager, LobbyManager lobbyManager)
 
         Log.Debug("Joined {Nickname} room {RoomCode}", nickname, roomCode);
     }
-
+    
     public async Task JoinTeam(string roomCode, bool isTeam1)
     {
         var lobby = lobbyManager.GetRoom(roomCode);
@@ -140,6 +144,9 @@ public class GameHub(GameManager gameManager, LobbyManager lobbyManager)
 
     public async Task CreateRoom(string nickname)
     {
+        if (!ValidateNickname(nickname))
+            throw new HubException("Invalid nickname");
+
         var player = new HumanPlayer(Context.ConnectionId, nickname);
         var roomCode = lobbyManager.CreateRoom(player);
 
@@ -398,6 +405,14 @@ public class GameHub(GameManager gameManager, LobbyManager lobbyManager)
             await updateCtx;
         }
     }
+    
+    private static bool ValidateNickname(string nickname)
+    {
+        if (nickname.Length is < 3 or > 25)
+            return false;
+
+        return Regex.IsMatch(nickname, @"^[a-zA-Z0-9ąćęłńóśźżĄĆĘŁŃÓŚŹŻ _]+$");
+    }
 
     private async Task NotifyUpdatedGameState(string roomCode)
     {
@@ -410,7 +425,7 @@ public class GameHub(GameManager gameManager, LobbyManager lobbyManager)
     private async Task NotifyUpdatedGameState(GameService gameService)
     {
         var gameContext = gameService.GetGameState();
-        foreach (var player in gameService.Players.Where(p => !p.isBot))
+        foreach (var player in gameService.Players.Where(p => !p.IsBot))
         {
             await Clients.Client(player.ConnectionId).SendAsync(UpdateMethodName, new UpdateContext
             {
@@ -436,7 +451,7 @@ public class GameHub(GameManager gameManager, LobbyManager lobbyManager)
                 var gameContextAfterBotMove = gameService.GetGameState();
                 
                 foreach (var player in
-                         gameService.Players.Where(p => !p.isBot && !string.IsNullOrEmpty(p.ConnectionId)))
+                         gameService.Players.Where(p => !p.IsBot && !string.IsNullOrEmpty(p.ConnectionId)))
                 {
                     await Clients.Client(player.ConnectionId).SendAsync(UpdateMethodName, new UpdateContext
                     {
