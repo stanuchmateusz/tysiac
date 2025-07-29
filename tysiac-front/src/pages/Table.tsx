@@ -13,8 +13,9 @@ import Options from "../components/Options";
 import { CiSettings } from "react-icons/ci";
 import MusicService from "../services/MusicService";
 import ScoreTable from "../components/ScoreTable";
+import { deckSkinCookieName, getCookie } from "../utils/Cookies";
 
-export const CARD_SVG_PATH = import.meta.env.VITE_ASSETS_PATH + "poker-qr/" || "/public/assets/poker-qr/";
+export const CARD_SVG_PATH = import.meta.env.VITE_ASSETS_PATH + `${getCookie(deckSkinCookieName) ?? 'default'}/` || "/public/assets/default/";
 
 export const SUIT_ICONS: Record<number, string> = {
     1: '♠', // Spades
@@ -65,7 +66,7 @@ const Table = () => {
             return
         }
 
-        //handle updates of context
+        //Handle updates of context
         const handleUpdate = (update: UpdateContext) => {
             setUpdateContext(update);
             console.debug("Update context received:", update);
@@ -78,10 +79,10 @@ const Table = () => {
         };
 
 
-        connection.on("UpdateContext", handleUpdate); //update context
-        connection.on("MessageRecieve", handleMessageReceive);//message receive
+        connection.on("UpdateContext", handleUpdate);
+        connection.on("MessageRecieve", handleMessageReceive);
 
-        //get game ctx -> backend returns UpdateContext
+        //Get game ctx -> backend returns UpdateContext
         if (connection.state === "Connected") {
             connection.invoke("GetGameContext", gameCode)
         }
@@ -90,6 +91,7 @@ const Table = () => {
             connection.off("UpdateContext", handleUpdate);
             connection.off("MessageRecieve", handleMessageReceive);
         };
+
     }, [GameService.connection]);
 
     const gameCtx = updateCtx?.gameCtx;
@@ -245,14 +247,13 @@ const Table = () => {
     };
 
     const tableRef = useRef<HTMLDivElement>(null);
-    // Ref tu remember who started the take
+    // Ref to remember who started the take
     const firstPlayerInCurrentTake = useRef<string | null>(null);
     useEffect(() => {
         if (gameCtx && gameCtx.cardsOnTable && gameCtx.cardsOnTable.length === 0 && gameCtx.currentPlayer) {
             firstPlayerInCurrentTake.current = gameCtx.currentPlayer.connectionId;
         }
     }, [gameCtx?.cardsOnTable, gameCtx?.currentPlayer]);
-    // const [flyingCard, setFlyingCard] = useState<null | { card: Card, to: string, from: string }>(null);
     // (trumf serce) ja koniczyna 9 serce 10 serce ma dupka i nie ma do koloru
     function canPlayCard(card: Card): boolean {
         if (!gameCtx || !gameUserCtx) return true;
@@ -338,6 +339,7 @@ const Table = () => {
                         </div>
                     </div>
                 )}
+                {/* Score Modal */}
                 {showScoreModal && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 animate-fade-in">
                         <div className="bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 rounded-2xl p-8 shadow-2xl flex flex-col items-center border-4 border-blue-700 min-w-[360px] max-w-[90%]">
@@ -357,7 +359,6 @@ const Table = () => {
                     {/* Header */}
                     <div className="flex items-center justify-between px-8 py-6 border-b border-gray-700 bg-gradient-to-r from-blue-900/80 to-gray-900/80">
                         <div className="flex gap-4 items-center">
-                            {/* <span className="bg-blue-900/70 text-blue-200 px-4 py-2 rounded-lg font-semibold shadow">Faza: {gameCtx ? GAME_STAGES[gameCtx.gamePhase] : '-'}</span> */}
                             <span className="bg-yellow-900/70 text-yellow-200 px-4 py-2 rounded-lg font-semibold shadow">Zakład: {gameCtx?.currentBet ?? '-'}</span>
                             <span className="bg-green-900/70 text-green-200 px-4 py-2 rounded-lg font-semibold shadow">Meldunek: {gameCtx?.trumpSuit ? SUIT_ICONS[gameCtx.trumpSuit] : '-'}</span>
                             <span className="bg-gradient-to-r from-blue-700 to-blue-900 text-white px-4 py-2 rounded-lg font-bold shadow">MY: {gameUserCtx?.myTeamScore[0] ?? 0}</span>
@@ -419,8 +420,8 @@ const Table = () => {
                                 <div className="fixed left-8 bottom-8 z-30 flex flex-col gap-4">
                                     <button
                                         className={`px-5 py-3 bg-gradient-to-r from-gray-800 to-gray-900 hover:from-gray-900 hover:to-black text-white rounded-xl font-semibold shadow-lg border-2 border-blue-900 transition-all duration-150 opacity-90 cursor-pointer
-                ${hasNewMessage ? 'animate-glow border-yellow-400 shadow-yellow-400/60' : ''}
-            `}
+                                         ${hasNewMessage ? 'animate-glow border-yellow-400 shadow-yellow-400/60' : ''}
+                                     `}
                                         onClick={() => setShowChat(true)}
                                     >
                                         Pokaż chat

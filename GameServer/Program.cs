@@ -22,15 +22,15 @@ builder.Services.AddCors(options =>
         .AllowCredentials();
     });
 });
-
+builder.Services.AddControllers();
 // builder.Services.AddSingleton<IGameManager,GameManager>();
 builder.Services.AddSingleton<GameManager>();
 builder.Services.AddSingleton<LobbyManager>();
 
 var app = builder.Build();
 
-app.MapHub<GameHub>("/gameHub");
-
 app.UseCors("AllowFrontend");
+app.MapHub<GameHub>("/gameHub");
+app.MapControllers();
 
 await app.RunAsync();

@@ -1,11 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { IoMdClose } from 'react-icons/io';
 import { FaVolumeUp, FaVolumeMute } from 'react-icons/fa';
-import { getCookie, musicMutedCookieName, musicVolumeCookieName, setCookie, soundMutedCookieName, soundVolumeCookieName, userIdCookieName } from '../utils/Cookies';
+import { deckSkinCookieName, getCookie, musicMutedCookieName, musicVolumeCookieName, setCookie, soundMutedCookieName, soundVolumeCookieName, userIdCookieName } from '../utils/Cookies';
 import MusicService from '../services/MusicService';
-
-
-
+import getAvailableDeckSkins from '../services/BackendService';
 
 interface OptionsProps {
     isOpen: boolean;
@@ -22,7 +20,17 @@ const Options: React.FC<OptionsProps> = ({ isOpen, onClose }) => {
         const savedSoundVolume = getCookie(soundVolumeCookieName);
         return savedSoundVolume ? parseInt(savedSoundVolume, 10) : 50; // Domyślnie 50%
     });
+    const [availableDeckSkins, setAvailableDeckSkins] = useState<string[]>([]);
 
+    useEffect(() => {
+        getAvailableDeckSkins()
+            .then(skins => {
+                setAvailableDeckSkins(skins);
+            })
+            .catch(error => {
+                console.error('Error fetching deck skins:', error);
+            });
+    }, []);
 
     const [isMusicMuted, setIsMusicMuted] = useState<boolean>(() => {
         const savedMuteState = getCookie(musicMutedCookieName);
@@ -107,6 +115,19 @@ const Options: React.FC<OptionsProps> = ({ isOpen, onClose }) => {
                         className={`w-full h-3 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-green-500 ${isSoundMuted ? 'opacity-50 cursor-not-allowed' : ''}`}
                         disabled={isSoundMuted}
                     />
+                </div>
+                <div className="w-full mb-4">
+                    <label htmlFor="deckSkin" className="block text-lg text-gray-200 mb-2">Wybierz skórkę talii:</label>
+                    <select
+                        id="deckSkin"
+                        className="w-full p-2 bg-gray-700 text-gray-200 rounded-lg border border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        onChange={(e) => setCookie(deckSkinCookieName, e.target.value, 365)}
+                        defaultValue={getCookie(deckSkinCookieName) || availableDeckSkins[0] || ''}
+                    >
+                        {availableDeckSkins.map((skin) => (
+                            <option key={skin} value={skin}>{skin}</option>
+                        ))}
+                    </select>
                 </div>
                 <p>
                     <i>ID gracza: {playerId}</i>
