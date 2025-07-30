@@ -1,4 +1,5 @@
 import { Line } from "react-chartjs-2";
+import type { UpdateContext } from "../pages/Models";
 import {
     Chart as ChartJS,
     CategoryScale,
@@ -8,8 +9,8 @@ import {
     Tooltip,
     Legend,
 } from "chart.js";
+
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend);
-import type { UpdateContext } from "../pages/Models";
 
 type Props = {
     gameUserCtx: UpdateContext["userCtx"] | null;

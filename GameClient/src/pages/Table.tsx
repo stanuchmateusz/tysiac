@@ -15,7 +15,9 @@ import MusicService from "../services/MusicService";
 import ScoreTable from "../components/ScoreTable";
 import { deckSkinCookieName, getCookie } from "../utils/Cookies";
 
-export const CARD_SVG_PATH = import.meta.env.VITE_ASSETS_PATH + `${getCookie(deckSkinCookieName) ?? 'default'}/` || "/public/assets/default/";
+const CookieSkin = getCookie(deckSkinCookieName)
+const CARD_ASSETS_PATH = CookieSkin !== 'default' ? "custom/" + CookieSkin : 'default'
+export const CARD_SVG_PATH = import.meta.env.VITE_ASSETS_PATH + `${CARD_ASSETS_PATH}/` || "/public/assets/default/";
 
 export const SUIT_ICONS: Record<number, string> = {
     1: '♠', // Spades

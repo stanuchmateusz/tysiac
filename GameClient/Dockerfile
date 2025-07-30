@@ -10,6 +10,10 @@ COPY ${ENV_FILE} .env
 COPY index.html ./
 COPY public ./public
 COPY src ./src
+COPY generate_skins_json.sh ./generate_skins_json.sh
+RUN chmod +x ./generate_skins_json.sh
+COPY customs /customs
+RUN ./generate_skins_json.sh /customs
 RUN npm ci
 RUN npm run build
 

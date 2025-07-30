@@ -6,7 +6,7 @@ namespace GameServer.Controllers;
 [ApiController]
 public class GameDataController : ControllerBase
 {
-    private static readonly string[] AvailableDeckNames = ["default","custom1"];
+    private static readonly string[] AvailableDeckNames = ["default"];
 
     [HttpGet]
     [Route("skins")]

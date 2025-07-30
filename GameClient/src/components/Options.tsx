@@ -3,7 +3,7 @@ import { IoMdClose } from 'react-icons/io';
 import { FaVolumeUp, FaVolumeMute } from 'react-icons/fa';
 import { deckSkinCookieName, getCookie, musicMutedCookieName, musicVolumeCookieName, setCookie, soundMutedCookieName, soundVolumeCookieName, userIdCookieName } from '../utils/Cookies';
 import MusicService from '../services/MusicService';
-import getAvailableDeckSkins from '../services/BackendService';
+import getAvailableDeckSkins from '../services/CustomsService';
 
 interface OptionsProps {
     isOpen: boolean;
@@ -14,17 +14,18 @@ const Options: React.FC<OptionsProps> = ({ isOpen, onClose }) => {
 
     const [musicVolume, setMusicVolume] = useState<number>(() => {
         const savedMusicVolume = getCookie(musicVolumeCookieName);
-        return savedMusicVolume ? parseInt(savedMusicVolume, 10) : 20; // Domyślnie 20%
+        return savedMusicVolume ? parseInt(savedMusicVolume, 10) : 20; // Default 20%
     });
     const [soundVolume, setSoundVolume] = useState<number>(() => {
         const savedSoundVolume = getCookie(soundVolumeCookieName);
-        return savedSoundVolume ? parseInt(savedSoundVolume, 10) : 50; // Domyślnie 50%
+        return savedSoundVolume ? parseInt(savedSoundVolume, 10) : 50; // Default 50%
     });
     const [availableDeckSkins, setAvailableDeckSkins] = useState<string[]>([]);
 
     useEffect(() => {
         getAvailableDeckSkins()
             .then(skins => {
+                (skins as string[]).push('default');
                 setAvailableDeckSkins(skins);
             })
             .catch(error => {

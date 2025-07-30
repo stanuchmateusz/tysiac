@@ -10,8 +10,10 @@ services:
       - ASPNETCORE_URLS=http://0.0.0.0:5000
     restart: unless-stopped
   frontend:
+    volumes:
+      - ./GameClient/customs:/usr/share/nginx/html/assets/custom
     build:
-      context: ./tysiac-front
+      context: ./GameClient
       dockerfile: Dockerfile
       args:
         ENV_FILE: .env.production

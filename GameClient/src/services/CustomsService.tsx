@@ -1,6 +1,6 @@
 const getAvailableDeckSkins = async () => {
     try {
-        const response = await fetch(import.meta.env.VITE_BACKEND_URL + '/api/GameData/skins');
+        const response = await fetch('/assets/skins.json');
         if (!response.ok) {
             throw new Error('Network response was not ok');
         }
