@@ -36,14 +36,14 @@ public class LobbyContext
     public int AddBots()
     {
         var addedBots = 0;
-        while (Team1.Count != 2)
+        while (Team1.Count != 2 && addedBots != 3) 
         {
             var bot = new AIPlayer("BOT" + addedBots);
             Players.Add(bot);
             Team1.Add(bot);
             addedBots++;
         }
-        while (Team2.Count != 2)
+        while (Team2.Count != 2 && addedBots != 3)
         {
             var bot = new AIPlayer("BOT" + addedBots);
             Players.Add(bot);

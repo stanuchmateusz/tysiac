@@ -1,25 +1,18 @@
-export default
-    function IncreaseBetModal({
-        open,
-        currentBet,
-        onRaise,
-        onLower,
-        onPass,
-        onAccept,
-        disabled,
-        minBet,
-        maxBet,
-    }: {
-        open: boolean,
-        currentBet: number,
-        onRaise: () => void,
-        onLower: () => void,
-        onPass: () => void,
-        onAccept: () => void,
-        disabled?: boolean,
-        minBet: number,
-        maxBet: number,
-    }) {
+interface IncreaseBetModalProps {
+    open: boolean;
+    currentBet: number;
+    onRaise: () => void;
+    onLower: () => void;
+    onPass: () => void;
+    onAccept: () => void;
+    disabled?: boolean;
+    minBet: number;
+    maxBet: number;
+}
+
+const IncreaseBetModal: React.FC<IncreaseBetModalProps> = (
+    { open, currentBet, onRaise, onLower, onPass, onAccept, disabled = false, minBet, maxBet }
+) => {
     if (!open) return null;
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
@@ -60,3 +53,4 @@ export default
         </div>
     );
 }
+export default IncreaseBetModal;

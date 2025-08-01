@@ -123,7 +123,7 @@ const Options: React.FC<OptionsProps> = ({ isOpen, onClose }) => {
                         id="deckSkin"
                         className="w-full p-2 bg-gray-700 text-gray-200 rounded-lg border border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
                         onChange={(e) => setCookie(deckSkinCookieName, e.target.value, 365)}
-                        defaultValue={getCookie(deckSkinCookieName) || availableDeckSkins[0] || ''}
+                        defaultValue={getCookie(deckSkinCookieName) || "default"}
                     >
                         {availableDeckSkins.map((skin) => (
                             <option key={skin} value={skin}>{skin}</option>

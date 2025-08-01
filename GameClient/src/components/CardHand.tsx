@@ -1,6 +1,7 @@
 import React from 'react';
 import type { Card } from "../pages/Models";
-import { CARD_RANKS, CARD_SVG_PATH, SUIT_ICONS } from "../pages/Table";
+import { CARD_SVG_PATH } from "../pages/Table";
+import { CARD_RANKS,SUIT_ICONS } from "../utils/CardConsts";
 
 export default function CardHand({
     cards,

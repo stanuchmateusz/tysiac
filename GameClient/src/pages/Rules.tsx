@@ -1,4 +1,4 @@
-import { SUIT_ICONS } from "./Table";
+import { SUIT_ICONS } from "../utils/CardConsts";
 
 const Rules = () => {
     return (

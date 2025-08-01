@@ -21,7 +21,7 @@ export default function BetModal({
 }) {
     if (!open) return null;
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+        <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/60">
             <div className="bg-gradient-to-br from-blue-900 via-gray-900 to-green-900 rounded-2xl p-8 shadow-2xl min-w-[340px] flex flex-col items-center border-4 border-blue-700 animate-fade-in">
                 <h2 className="text-3xl font-bold mb-4 text-white drop-shadow">Licytacja</h2>
                 <div className="mb-6 text-lg text-blue-200">Wybrany zakład: <span className="font-bold text-yellow-300 text-2xl">{currentBet}</span></div>

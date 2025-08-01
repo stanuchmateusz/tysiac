@@ -39,7 +39,7 @@ export interface GameContext {
     currentBet: number;
     disconnectedPlayers: Player[];
     passedPlayers: Player[];
-    takeWinner: Player | null;
+    takeWinner: Player | null; //Not null only when gamePhase is 5 (ShowTable) 
 }
 
 export interface GameUserContext {

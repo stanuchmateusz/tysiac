@@ -37,16 +37,24 @@ const Lobby = () => {
     const chatInputRef = useRef<HTMLInputElement>(null);
     const [lobbyContext, setLobbyContext] = useState<LobbyContext | null>(null);
     const [me, setMe] = useState<Player | null>(null);
+    const chatMessagesEndRef = useRef<HTMLDivElement>(null);
 
     if (!gameCode) {
         navigate("/", { replace: true });
         return;
     }
+
+    useEffect(() => {
+        if (chatMessagesEndRef.current) {
+            chatMessagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+        }
+    }, [chatMessages]);
+
     useEffect(() => {
         const connection = GameService.connection;
 
         if (!connection || connection.state === "Disconnected") {
-            //redirest to home join
+            //Redirect to /join
             navigate("/join/" + gameCode,);
             return
         }
@@ -55,10 +63,13 @@ const Lobby = () => {
         const handleRoomUpdate = (lobbyCtx: LobbyContext) => {
             console.debug("Lobby updated:", lobbyCtx);
             setLobbyContext(lobbyCtx);
-            var newMe = lobbyCtx.players.find(p => p.connectionId === connection.connectionId);
-            setMe(newMe ?? null);
-
-            setCookie(userIdCookieName, newMe?.id || "", 1);
+            if (me === null) {
+                console.debug("Setting me in lobby context");
+                var newMe = lobbyCtx.players.find(p => p.connectionId === connection.connectionId);
+                setMe(newMe ?? null);
+                setCookie(userIdCookieName, newMe?.id || "", 1);
+            }
+            
         };
 
         // Handle incoming chat messages
@@ -78,14 +89,15 @@ const Lobby = () => {
             navigate("/", { replace: true });
         }
 
-        if (connection.state === "Connected") ////request lobby context
+        if (connection.state === "Connected") //Request lobby context
         {
             connection.invoke("GetLobbyContext", gameCode)
         }
-        connection.on("Kicked", handleGetKicked);
-        connection.on("GameCreated", handleGameCreated); //game created
-        connection.on("MessageRecieve", handleMessageReceive);//message receive
-        connection.on("LobbyUpdate", handleRoomUpdate);//lobby update
+
+        connection.on("Kicked", handleGetKicked); //Got kicked
+        connection.on("GameCreated", handleGameCreated); //Game was started
+        connection.on("MessageRecieve", handleMessageReceive);//Lobby message received
+        connection.on("LobbyUpdate", handleRoomUpdate);//Lobby updated
 
         return () => {
             connection.off("Kicked", handleGetKicked);
@@ -364,6 +376,7 @@ const Lobby = () => {
                                         }
                                     </div>
                                 ))}
+                                <div ref={chatMessagesEndRef} />
                             </div>
                             <form className="flex gap-2 mt-2" onSubmit={e => { e.preventDefault(); handleSendMessage(); }}>
                                 <input

@@ -5,35 +5,26 @@ import { ImExit } from "react-icons/im";
 import React, { useState, useRef, useEffect } from "react";
 
 import type { Card, ChatMessage, UpdateContext } from "./Models";
-import BetModal from "../components/BetModal";
-import IncreaseBetModal from "../components/IncreaseBetModal";
+import BetModal from "../components/modals/BetModal";
+import IncreaseBetModal from "../components/modals/IncreaseBetModal";
 import PlayerPosition from "../components/PlayerPosition";
 import CardHand from "../components/CardHand";
 import Options from "../components/Options";
 import { CiSettings } from "react-icons/ci";
 import MusicService from "../services/MusicService";
-import ScoreTable from "../components/ScoreTable";
 import { deckSkinCookieName, getCookie } from "../utils/Cookies";
+import { SUIT_ICONS } from "../utils/CardConsts";
+import TrumpModal from "../components/modals/TrumpModal";
+import EndGameModal from "../components/modals/EndGameModal";
+import ScoreModal from "../components/modals/ScoreModal";
+import PassInfo from "../components/PassInfo";
+import ChatBox from "../components/modals/ChatBox";
+import DisconnectedModal from "../components/modals/DisconnectedModal";
 
 const CookieSkin = getCookie(deckSkinCookieName)
-const CARD_ASSETS_PATH = CookieSkin !== 'default' ? "custom/" + CookieSkin : 'default'
+const CARD_ASSETS_PATH = (CookieSkin === 'default' || CookieSkin === null) ? 'default' : "custom/" + CookieSkin 
 export const CARD_SVG_PATH = import.meta.env.VITE_ASSETS_PATH + `${CARD_ASSETS_PATH}/` || "/public/assets/default/";
 
-export const SUIT_ICONS: Record<number, string> = {
-    1: '♠', // Spades
-    2: '♣', // Clubs
-    3: '♥', // Hearts
-    4: '♦'  // Diamonds
-};
-
-export const CARD_RANKS: Record<number, string> = {
-    1: 'A',
-    2: 'K',
-    3: 'Q',
-    4: 'J',
-    5: '10',
-    6: '9'
-};
 
 const GAME_STAGES: Record<number, string> = {
     0: "Start",
@@ -45,7 +36,6 @@ const GAME_STAGES: Record<number, string> = {
     6: "Increase Bet",
     999: "undefined"
 }
-
 
 const Table = () => {
     const navigate = useNavigate();
@@ -79,7 +69,6 @@ const Table = () => {
             setChatMessages(prevMessages => [...prevMessages, message]);
             if (!showChat) setHasNewMessage(true);
         };
-
 
         connection.on("UpdateContext", handleUpdate);
         connection.on("MessageRecieve", handleMessageReceive);
@@ -136,10 +125,11 @@ const Table = () => {
     }, [gameCtx?.gamePhase]);
 
     const [playersGivenCard, setPlayersGivenCard] = useState<string[]>([]); // For tracking players to whom cards have been given in Game Phase 2
+    
+    // Modal for showing trump suit
     const [showTrumpModal, setShowTrumpModal] = useState(false);
     const prevTrumpSuit = useRef<number | null>(null);
     const trumpTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
-
     useEffect(() => {
         if (gameCtx && gameCtx.trumpSuit && prevTrumpSuit.current !== null && gameCtx.trumpSuit !== prevTrumpSuit.current) {
             setShowTrumpModal(true);
@@ -149,6 +139,7 @@ const Table = () => {
         }
         if (gameCtx) prevTrumpSuit.current = gameCtx.trumpSuit;
     }, [gameCtx?.trumpSuit]);
+    // END: Modal for showing trump suit
 
     // Function to send a chat message
     const sendMessage = () => {
@@ -168,6 +159,7 @@ const Table = () => {
     // Functions to raise or lower the bet
     const handleRaise = () => setBet(bet + 10);
     const handleLower = () => setBet(bet > minBet ? bet - 10 : bet);
+
     // Function to pass the current
     const handlePass = () => {
         GameService.connection?.invoke("PassBid", gameCode)
@@ -175,7 +167,6 @@ const Table = () => {
     };
     // Function to accept the current bet
     const handleAccept = () => {
-        // setBetModalOpen(false);
         GameService.connection?.invoke("PlaceBid", gameCode, bet)
         console.log("Accept bid:", bet);
     };
@@ -186,6 +177,7 @@ const Table = () => {
         navigate("/", { replace: true })
     }
 
+    // Handle card drag and drop
     const [isDraggingCard, setIsDraggingCard] = useState(false);
     const [draggedCardData, setDraggedCardData] = useState<Card | null>(null);
 
@@ -213,13 +205,8 @@ const Table = () => {
             return;
         }
 
-        const card = draggedCardData;
-
         if (gameCtx?.gamePhase === 2 && isCurrentPlayer && !playersGivenCard.includes(targetPlayerConnectionId)) {
-            // setFlyingCard({ card: card, to: targetPlayerConnectionId, from: 'hand' });
-            // setTimeout(() => setFlyingCard(null), 700);
-
-            GameService.connection?.invoke("GiveCard", gameCode, card.shortName, targetPlayerConnectionId);
+            GameService.connection?.invoke("GiveCard", gameCode, draggedCardData.shortName, targetPlayerConnectionId);
             setPlayersGivenCard(prev => [...prev, targetPlayerConnectionId]);
         }
         setIsDraggingCard(false);
@@ -237,8 +224,6 @@ const Table = () => {
 
         if (gameCtx?.gamePhase === 3 && isCurrentPlayer) {
             if (canPlayCard(card)) {
-                // setFlyingCard({ card: card, to: 'table', from: 'hand' });
-                // setTimeout(() => setFlyingCard(null), 700);
                 GameService.connection?.invoke("PlayCard", gameCode, card.shortName);
             } else {
                 console.warn("Cannot play this card by drag:", card.shortName);
@@ -247,16 +232,16 @@ const Table = () => {
         setIsDraggingCard(false);
         setDraggedCardData(null);
     };
+    // END: Handle card drag and drop
+    const firstPlayerInCurrentTake = useRef<string>(gameUserCtx?.me.connectionId || "");
 
-    const tableRef = useRef<HTMLDivElement>(null);
-    // Ref to remember who started the take
-    const firstPlayerInCurrentTake = useRef<string | null>(null);
     useEffect(() => {
         if (gameCtx && gameCtx.cardsOnTable && gameCtx.cardsOnTable.length === 0 && gameCtx.currentPlayer) {
             firstPlayerInCurrentTake.current = gameCtx.currentPlayer.connectionId;
         }
     }, [gameCtx?.cardsOnTable, gameCtx?.currentPlayer]);
-    // (trumf serce) ja koniczyna 9 serce 10 serce ma dupka i nie ma do koloru
+
+    // (trumf serce) ja koniczyna 9 serce 10 serce ma jopka i nie ma do koloru
     function canPlayCard(card: Card): boolean {
         if (!gameCtx || !gameUserCtx) return true;
         if (gameCtx.gamePhase !== 3) return true;
@@ -273,7 +258,7 @@ const Table = () => {
             return true;
         };
 
-        if (card.suit === trumpSuit && !handWithoutPlayedCard.find(c => c.suit == firstCardInTake.suit)) { //chyba ze ma jakikolwiek kolor
+        if (card.suit === trumpSuit && !handWithoutPlayedCard.find(c => c.suit == firstCardInTake.suit)) { //player has trump card and no same color cards
             console.debug("Trump card - can play", card.shortName, trumpSuit);
             return true;
         }
@@ -297,66 +282,24 @@ const Table = () => {
                     <CiSettings size={26} />
                 </button>
             </div>
+            {/* Main surface */}
             <div className="min-h-screen w-full flex flex-col items-center justify-center bg-gradient-to-br from-neutral-900 via-gray-900 to-blue-950 p-6">
-                {/* Disconnected Players Modal */}
-                {showDisconnectedModal && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 animate-fade-in">
-                        <div className="bg-gray-900 rounded-2xl p-8 shadow-2xl flex flex-col items-center border-4 border-red-600 min-w-[340px]">
-                            <h2 className="text-3xl font-bold mb-4 text-red-400 drop-shadow">Gra została spauzowana</h2>
-                            <div className="mb-6 text-lg text-white text-center">
-                                {(gameCtx?.disconnectedPlayers.length ?? 0)} gracz(y) stracił(y) połączenie.<br />
-                                Zaczekaj na ich powrót lub opuść stół.
-                            </div>
-                            <button
-                                className="px-6 py-3 bg-gradient-to-r from-red-500 to-red-700 hover:from-red-600 hover:to-red-800 rounded-lg text-white font-semibold shadow-md text-lg transition-all duration-150 cursor-pointer mt-2"
-                                onClick={handleLeaveRoom}
-                            >
-                                Wyjdź ze stołu
-                            </button>
-                        </div>
-                    </div>
-                )}
-                {/* End Game Modal */}
-                {showEndGameModal && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 animate-fade-in">
-                        <div className="bg-gradient-to-br from-blue-900 via-gray-800 to-green-900 rounded-2xl p-8 shadow-2xl flex flex-col items-center border-4 border-blue-700 min-w-[340px]">
-                            <h2 className="text-3xl font-bold mb-4 text-white drop-shadow">Koniec Gry!</h2>
-                            <div className="mb-6 text-lg text-blue-200 text-center">
-                                <p>Ostateczny wynik:</p>
-                                <p><span className="font-bold text-yellow-300">Twoja drużyna:</span> {gameUserCtx?.myTeamScore[0] ?? 0}</p>
-                                <p><span className="font-bold text-pink-300">Przeciwnicy:</span> {gameUserCtx?.opponentScore[0] ?? 0}</p>
-                                {gameUserCtx && gameUserCtx.myTeamScore[0] > gameUserCtx.opponentScore[0] ? (
-                                    <p className="text-green-400 font-bold mt-2">Gratulacje, wygraliście!</p>
-                                ) : gameUserCtx && gameUserCtx.myTeamScore[0] < gameUserCtx.opponentScore[0] ? (
-                                    <p className="text-red-400 font-bold mt-2">Niestety, tym razem się nie udało.</p>
-                                ) : <p className="text-gray-300 font-bold mt-2">Remis!</p>}
-                            </div>
-                            <ScoreTable gameUserCtx={gameUserCtx} />
-                            <button
-                                className="px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-700 hover:from-blue-600 hover:to-blue-800 rounded-lg text-white font-semibold shadow-md text-lg transition-all duration-150 cursor-pointer mt-2"
-                                onClick={handleLeaveRoom}
-                            >
-                                Wyjdź z gry
-                            </button>
-                        </div>
-                    </div>
-                )}
-                {/* Score Modal */}
-                {showScoreModal && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 animate-fade-in">
-                        <div className="bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 rounded-2xl p-8 shadow-2xl flex flex-col items-center border-4 border-blue-700 min-w-[360px] max-w-[90%]">
-                            <h2 className="text-3xl font-bold mb-4 text-blue-300 drop-shadow">Wyniki Rund</h2>
-                            <ScoreTable gameUserCtx={gameUserCtx} />
-                            <button
-                                className="mt-6 px-6 py-3 bg-gradient-to-r from-gray-600 to-gray-800 hover:from-gray-500 hover:to-gray-700 rounded-lg text-white font-semibold shadow-md text-lg transition-all duration-150 cursor-pointer"
-                                onClick={() => setShowScoreModal(false)}
-                            >
-                                Zamknij
-                            </button>
-                        </div>
-                    </div>
-                )}
-
+                <DisconnectedModal
+                    open={showDisconnectedModal}
+                    disconnectedCount={gameCtx?.disconnectedPlayers.length ?? 0}
+                    onLeave={handleLeaveRoom}
+                />
+                <EndGameModal
+                    open={showEndGameModal}
+                    gameUserCtx={gameUserCtx}
+                    onLeave={handleLeaveRoom}
+                />
+                <ScoreModal
+                    open={showScoreModal}
+                    gameUserCtx={gameUserCtx}
+                    onClose={() => setShowScoreModal(false)}
+                />
+                
                 <div className={`w-full rounded-3xl shadow-2xl bg-gray-800/90 flex flex-col relative overflow-hidden border border-blue-900 ${showDisconnectedModal || showOptions ? 'pointer-events-none select-none opacity-60' : ''} flex-1`}>
                     {/* Header */}
                     <div className="flex items-center justify-between px-8 py-6 border-b border-gray-700 bg-gradient-to-r from-blue-900/80 to-gray-900/80">
@@ -374,49 +317,23 @@ const Table = () => {
                             Wyjdź <ImExit />
                         </button>
                     </div>
-                    {/* Main Table Area */}
 
+                    {/* Main Table Area */}
                     <div className="w-full flex-1 flex">
                         {/* Table Area */}
-                        <div className="flex-1 flex flex-col items-center justify-center relative p-4 sm:p-6 md:p-8" ref={tableRef}>
+                        <div className="flex-1 flex flex-col items-center justify-center relative p-4 sm:p-6 md:p-8">
                             {/* Chat on the left, fixed position */}
-                            <div className={`absolute left-0 top-0 ml-4 mt-4 w-80 max-w-xs bg-gray-900/90 border border-gray-700 rounded-2xl shadow-xl p-4 z-20 transition-all duration-300 ${showChat ? '' : 'opacity-0 pointer-events-none'}`} style={{ minHeight: '340px' }}>
-                                <div className="flex items-center justify-between mb-2">
-                                    <h2 className="text-xl font-semibold text-white">Chat</h2>
-                                    <button
-                                        className="text-blue-400 hover:text-blue-200 transition-colors cursor-pointer"
-                                        onClick={() => {
-                                            setShowChat(false);
-                                            setHasNewMessage(false);
-                                        }}
-                                    >
-                                        ✕
-                                    </button>
-                                </div>
-                                <div className="flex-1 overflow-y-auto bg-gray-800 rounded-lg p-3 mb-2 border border-gray-700" style={{ maxHeight: '180px' }}>
-                                    {chatMessages.map((msg, idx) => (
-                                        <div key={idx} className="mb-2">
-                                            <span className="font-bold text-blue-300">{msg.nickname}:</span> <span className="text-white">{msg.message}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                                <div className="flex gap-2 mt-2">
-                                    <input
-                                        type="text"
-                                        placeholder="Wiadomość..."
-                                        className="w-full p-2 border border-gray-700 rounded bg-neutral-800 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                        value={message}
-                                        onChange={e => setMessage(e.target.value)}
-                                        onKeyDown={handleKeyPress}
-                                    />
-                                    <button
-                                        className="p-2 bg-gradient-to-r from-blue-800 to-gray-900 hover:from-blue-900 hover:to-black rounded text-white flex items-center justify-center transition-colors duration-150 cursor-pointer"
-                                        onClick={sendMessage}
-                                    >
-                                        ➤
-                                    </button>
-                                </div>
-                            </div>
+                            <ChatBox
+                                showChat={showChat}
+                                chatMessages={chatMessages}
+                                message={message}
+                                setMessage={setMessage}
+                                handleKeyPress={handleKeyPress}
+                                sendMessage={sendMessage}
+                                setShowChat={setShowChat}
+                                setHasNewMessage={setHasNewMessage}
+                            />
+
                             {/* Floating show chat button, only if chat is hidden, bottom left */}
                             {!showChat && (
                                 <div className="fixed left-8 bottom-8 z-30 flex flex-col gap-4">
@@ -473,6 +390,9 @@ const Table = () => {
                                 onDrop={(e) => handleDropOnPlayer(e, gameUserCtx?.rightPlayer?.connectionId)}
                                 isDropTargetActive={isDraggingCard && gameCtx?.gamePhase === 2 && isCurrentPlayer && !playersGivenCard.includes(gameUserCtx?.rightPlayer?.connectionId || '')}
                             />
+                            <PassInfo 
+                                open={gameCtx?.gamePhase === 1 && !!gameCtx?.passedPlayers?.find(p => p.connectionId === gameUserCtx?.me?.connectionId)}
+                            />
                             {/* Cards on table (center) */}
                             <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full pointer-events-none">
                                 {/* Drop Zone for playing cards */}
@@ -504,17 +424,18 @@ const Table = () => {
                                     ];
 
                                     const leaderId = firstPlayerInCurrentTake.current;
-                                    const indexOfLeader = leaderId ? playerOrder.indexOf(leaderId) : -1;
+                                    console.debug("Leader ID:", leaderId, "Player Order:", playerOrder);
+                                    var indexOfLeader = leaderId ? playerOrder.indexOf(leaderId) : -1;
 
                                     if (indexOfLeader === -1 && gameCtx.cardsOnTable.length > 0) {
                                         console.error("Lider lewy nie został znaleziony w playerOrder lub firstPlayerInTrick.current nie jest ustawiony.");
-                                        return null;
+                                        indexOfLeader = 0; // Fallback to first player in order
+                                        // return null;
                                     }
-
 
                                     const slotNames = ['bottom', 'left', 'top', 'right'];
 
-                                    // Render kart
+                                    // Cards on the table, positioned based on player order
                                     return gameCtx.cardsOnTable.map((card, cardIndexInTrick) => {
                                         const style: React.CSSProperties = {
                                             position: 'absolute',
@@ -531,9 +452,10 @@ const Table = () => {
                                         const pos = slotNames[playerVisualIndex];
 
                                         if (pos === 'bottom') { offsetY = 90; rotation = 0; }
-                                        if (pos === 'left') { offsetX = -90; rotation = -90; }
+                                        if (pos === 'left') { offsetX = -90; rotation = 90; }
                                         if (pos === 'top') { offsetY = -90; rotation = 180; }
-                                        if (pos === 'right') { offsetX = 90; rotation = 90; }
+                                        if (pos === 'right') { offsetX = 90; rotation = -90; }
+
                                         style.transform = `translate(-50%, -50%) translate(${offsetX}px, ${offsetY}px) rotate(${rotation}deg)`;
                                         return (
                                             <img
@@ -557,7 +479,6 @@ const Table = () => {
                                     canPlayCard={canPlayCard}
                                 />
                             </div>
-                            {/* Bet Modal */}
                             <BetModal
                                 open={gameCtx?.gamePhase === 1 && isCurrentPlayer}
                                 currentBet={bet}
@@ -568,7 +489,6 @@ const Table = () => {
                                 minBet={minBet}
                                 maxBet={maxBet}
                             />
-                            {/* IncreaseBet Modal */}
                             <IncreaseBetModal
                                 open={gameCtx?.gamePhase === 6 && isCurrentPlayer}
                                 currentBet={bet}
@@ -579,16 +499,10 @@ const Table = () => {
                                 maxBet={maxBet}
                                 onAccept={handleAccept}
                             />
-                            {/* Trump Modal */}
-                            {showTrumpModal && (
-                                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 animate-fade-in-fast">
-                                    <div className="bg-yellow-900 bg-opacity-90 rounded-2xl p-8 shadow-2xl flex flex-col items-center border-4 border-yellow-400 animate-trump-pop">
-                                        <span className="text-5xl font-bold text-yellow-300 mb-4 drop-shadow-lg animate-trump-shine">
-                                            Nowy meldunek: {gameCtx?.trumpSuit ? SUIT_ICONS[gameCtx.trumpSuit] : '-'}
-                                        </span>
-                                    </div>
-                                </div>
-                            )}
+                            <TrumpModal 
+                                open={showTrumpModal} 
+                                trumpSuit={gameCtx?.trumpSuit} 
+                            />
 
                         </div>
                     </div>
