@@ -70,18 +70,20 @@ public class GameHub(GameManager gameManager, LobbyManager lobbyManager)
         Log.Debug("Disconnected {ConnId}", Context.ConnectionId);
 
         var lobbiesWithUser = lobbyManager.GetLobbiesWithUser(Context.ConnectionId);
-        foreach (var lobbyCtx in lobbiesWithUser)
-        {
-            if (lobbyManager.LeaveRoom(lobbyCtx, Context.ConnectionId))
+        foreach (var lobbyService in lobbiesWithUser)
+        {   
+            var lobbyCtx = lobbyService.GetContext();
+            var code = lobbyCtx.Code;
+            if (lobbyManager.LeaveRoom(lobbyService, Context.ConnectionId))
             {
-                Log.Information("Left room {RoomCode} and lobby got disposed", lobbyCtx.Code);
+                Log.Information("Left room {RoomCode} and lobby got disposed", code);
             }
             else
             {
-                Log.Information("Left room {RoomCode}", lobbyCtx.Code);
-                await Groups.RemoveFromGroupAsync(Context.ConnectionId, lobbyCtx.Code);
-                await Clients.Groups(lobbyCtx.Code).SendAsync(LobbyUpdateMethodName,
-                    lobbyManager.GetRoom(lobbyCtx.Code));
+                Log.Information("Left room {RoomCode}", code);
+                await Groups.RemoveFromGroupAsync(Context.ConnectionId, code);
+                await Clients.Groups(code).SendAsync(LobbyUpdateMethodName,
+                    lobbyManager.GetRoom(code));
             }
         }
 
@@ -100,9 +102,9 @@ public class GameHub(GameManager gameManager, LobbyManager lobbyManager)
     {
         // Check if the room exists and the player is in it
         lobbyManager.GetPlayerFromRoom(roomCode, Context.ConnectionId);
-        var room = lobbyManager.GetRoom(roomCode);
+        var roomCtx = lobbyManager.GetRoom(roomCode).GetContext();
 
-        await Clients.Caller.SendAsync(LobbyUpdateMethodName, room);
+        await Clients.Caller.SendAsync(LobbyUpdateMethodName, roomCtx);
     }
 
     public async Task JoinRoom(string roomCode, string nickname)
@@ -116,7 +118,7 @@ public class GameHub(GameManager gameManager, LobbyManager lobbyManager)
         await Groups.AddToGroupAsync(Context.ConnectionId, roomCode);
         await Clients.Caller.SendAsync(LobbyJoinedMethodName, roomCode);
         await Clients.Groups(roomCode).SendAsync(LobbyUpdateMethodName,
-            lobbyManager.GetRoom(roomCode));
+            lobbyManager.GetRoom(roomCode).GetContext());
 
         Log.Debug("Joined {Nickname} room {RoomCode}", nickname, roomCode);
     }
@@ -139,7 +141,7 @@ public class GameHub(GameManager gameManager, LobbyManager lobbyManager)
             LobbyManager.AddToTeam2(lobby, player);
         }
 
-        await Clients.Groups(roomCode).SendAsync(LobbyUpdateMethodName, lobbyManager.GetRoom(roomCode));
+        await Clients.Groups(roomCode).SendAsync(LobbyUpdateMethodName, lobbyManager.GetRoom(roomCode).GetContext());
     }
 
     public async Task CreateRoom(string nickname)
@@ -160,40 +162,47 @@ public class GameHub(GameManager gameManager, LobbyManager lobbyManager)
         var player = lobbyManager.GetPlayerFromRoom(roomCode, Context.ConnectionId);
 
         lobbyManager.LeaveTeam(roomCode, player);
-        await Clients.Groups(roomCode).SendAsync(LobbyUpdateMethodName, lobbyManager.GetRoom(roomCode));
+        await Clients.Groups(roomCode).SendAsync(LobbyUpdateMethodName, lobbyManager.GetRoom(roomCode).GetContext());
         Log.Debug("{Player} left team in {RoomCode}", player, roomCode);
     }
 
     public async Task AddBots(string roomCode)
     {
-        var table = lobbyManager.GetRoom(roomCode);
-        if (table == null)
-            throw new HubException(GameNotFoundExceptionMessage);
-        var isHost = table.Host.ConnectionId == Context.ConnectionId;
+        var lobbyService = lobbyManager.GetRoom(roomCode);
+        
+        var isHost = lobbyService.isHost(Context.ConnectionId);
         if (!isHost)
             throw new HubException("Only host can add bots!");
-        var addedBotsCount = table.AddBots();
-        await Clients.Groups(roomCode).SendAsync(LobbyUpdateMethodName, lobbyManager.GetRoom(roomCode));
+        
+        var addedBotsCount = lobbyService.AddBots();
+        if (addedBotsCount == 0)
+        {
+            Log.Information("No bots added to {RoomCode}, both teams are full", roomCode);
+            return;
+        }
+        await Clients.Groups(roomCode).SendAsync(LobbyUpdateMethodName, lobbyManager.GetRoom(roomCode).GetContext());
         Log.Information("Added {Bots} to {RoomCode}", addedBotsCount, roomCode);
     }
 
     public async Task KickPlayer(string roomCode, string connectionId)
     {
-        var table = lobbyManager.GetRoom(roomCode);
-        if (table == null)
-            throw new HubException(GameNotFoundExceptionMessage);
-        var isHost = table.Host.ConnectionId == Context.ConnectionId;
+        var lobbyService = lobbyManager.GetRoom(roomCode);
+
+        var isHost = lobbyService.isHost(Context.ConnectionId);
         if (!isHost)
             throw new HubException("Only host can kick players");
-        var player = table.GetPlayer(connectionId);
+
+        var player = lobbyService.GetPlayer(connectionId);
+
         if (player == null)
             throw new HubException(PlayerNotFoundExceptionMessage + roomCode);
-        //kick player 
-        lobbyManager.LeaveRoom(roomCode, player.ConnectionId);
+        
+        lobbyManager.KickPlayer(roomCode, player.ConnectionId);
+
         await Clients.Client(player.ConnectionId).SendAsync(KickedMethodName);
         await Groups.RemoveFromGroupAsync(connectionId, roomCode);
 
-        await Clients.Groups(roomCode).SendAsync(LobbyUpdateMethodName, lobbyManager.GetRoom(roomCode));
+        await Clients.Groups(roomCode).SendAsync(LobbyUpdateMethodName, lobbyManager.GetRoom(roomCode).GetContext());
         Log.Information("Kicked {Player} from {RoomCode}", player, roomCode);
     }
 
@@ -213,21 +222,21 @@ public class GameHub(GameManager gameManager, LobbyManager lobbyManager)
         }
 
         await Groups.RemoveFromGroupAsync(Context.ConnectionId, roomCode);
-        await Clients.Groups(roomCode).SendAsync(LobbyUpdateMethodName, lobbyManager.GetRoom(roomCode));
+        await Clients.Groups(roomCode).SendAsync(LobbyUpdateMethodName, lobbyManager.GetRoom(roomCode).GetContext());
         Log.Information("Left room {RoomCode}", roomCode);
     }
 
     public async Task StartRoom(string roomCode)
     {
-        var lobbyCtx = lobbyManager.GetRoom(roomCode);
+        var lobbyService = lobbyManager.GetRoom(roomCode);
 
-        if (lobbyCtx.Host.ConnectionId != Context.ConnectionId)
+        if (!lobbyService.isHost(Context.ConnectionId))
             throw new HubException("Only host can start the game");
 
-        if (lobbyCtx.Players.Count < 4)
+        if (!lobbyService.IsLobbyReady())
             throw new HubException("Not enough players to start the game");
 
-        gameManager.CreateNewGame(lobbyCtx);
+        gameManager.CreateNewGame(lobbyService.GetContext());
         var gameService = gameManager.GetRoom(roomCode);
         if (gameService == null)
             throw new HubException(GameNotFoundExceptionMessage);

@@ -33,11 +33,13 @@ public class GameService
     public string RoomCode { get; }
     private HashSet<IPlayer> DisconnectedPlayers { get; set; } = [];
     private readonly int _humanPlayersCount;
+    private readonly IGameSettings settings;
     
     public GameService(LobbyContext lobbyCtx)
     {
-        Players = lobbyCtx.Players.ToImmutableHashSet();
         RoomCode = lobbyCtx.Code;
+        settings = lobbyCtx.GameSettings;
+        Players = lobbyCtx.Players.ToImmutableHashSet();
         _humanPlayersCount = Players.Count(player => !player.IsBot);
         _pointsTeam1.Push(0);
         _pointsTeam2.Push(0);
