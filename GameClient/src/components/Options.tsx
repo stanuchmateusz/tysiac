@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { IoMdClose } from 'react-icons/io';
 import { FaVolumeUp, FaVolumeMute } from 'react-icons/fa';
-import { deckSkinCookieName, getCookie, musicMutedCookieName, musicVolumeCookieName, setCookie, soundMutedCookieName, soundVolumeCookieName, userIdCookieName } from '../utils/Cookies';
+import { cardSizeCookieName, deckSkinCookieName, getCookie, musicMutedCookieName, musicVolumeCookieName, setCookie, soundMutedCookieName, soundVolumeCookieName, userIdCookieName } from '../utils/Cookies';
 import MusicService from '../services/MusicService';
 import getAvailableDeckSkins from '../services/CustomsService';
 
@@ -43,7 +43,11 @@ const Options: React.FC<OptionsProps> = ({ isOpen, onClose }) => {
     });
 
     const [playerId, setPlayerId] = useState<string | null>(null);
+    const [cardSize, setCardSize] = useState<string>(""); // Default card size
 
+    useEffect(() => {
+        setCookie(cardSizeCookieName, cardSize.toString(), 365);
+    }, [cardSize]);
 
     useEffect(() => {
         setCookie(musicVolumeCookieName, musicVolume.toString(), 365);
@@ -95,7 +99,7 @@ const Options: React.FC<OptionsProps> = ({ isOpen, onClose }) => {
                         <label htmlFor="musicVolume" className="block text-lg text-gray-200">
                             Głośność muzyki: <span className="font-bold text-blue-300">{isMusicMuted ? 'Wyciszona' : `${musicVolume}%`}</span>
                         </label>
-                        <button onClick={() => setIsMusicMuted(!isMusicMuted)} className="text-xl p-2 hover:bg-gray-700 rounded-full text-gray-300 hover:text-white transition-colors" aria-label={isMusicMuted ? "Włącz muzykę" : "Wycisz muzykę"}>
+                        <button onClick={() => setIsMusicMuted(!isMusicMuted)} className="cursor-pointer text-xl p-2 hover:bg-gray-700 rounded-full text-gray-300 hover:text-white transition-colors" aria-label={isMusicMuted ? "Włącz muzykę" : "Wycisz muzykę"}>
                             {isMusicMuted ? <FaVolumeMute /> : <FaVolumeUp />}
                         </button>
                     </div>
@@ -106,7 +110,7 @@ const Options: React.FC<OptionsProps> = ({ isOpen, onClose }) => {
                         <label htmlFor="soundVolume" className="block text-lg text-gray-200">
                             Głośność dźwięków: <span className="font-bold text-green-300">{isSoundMuted ? 'Wyciszone' : `${soundVolume}%`}</span>
                         </label>
-                        <button onClick={() => setIsSoundMuted(!isSoundMuted)} className="text-xl p-2 hover:bg-gray-700 rounded-full text-gray-300 hover:text-white transition-colors" aria-label={isSoundMuted ? "Włącz dźwięki" : "Wycisz dźwięki"}>
+                        <button onClick={() => setIsSoundMuted(!isSoundMuted)} className="cursor-pointer text-xl p-2 hover:bg-gray-700 rounded-full text-gray-300 hover:text-white transition-colors" aria-label={isSoundMuted ? "Włącz dźwięki" : "Wycisz dźwięki"}>
                             {isSoundMuted ? <FaVolumeMute /> : <FaVolumeUp />}
                         </button>
                     </div>
@@ -118,10 +122,28 @@ const Options: React.FC<OptionsProps> = ({ isOpen, onClose }) => {
                     />
                 </div>
                 <div className="w-full mb-4">
+                    <label htmlFor="cardSize" className="block text-lg text-gray-200 mb-2">Rozmiar karty:</label>
+                    <select
+                        id="cardSize"
+                        className="cursor-pointer w-full p-2 bg-gray-700 text-gray-200 rounded-lg border border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        defaultValue={cardSize}
+                        onChange={(e) => setCardSize(e.target.value)}
+                    >
+                        <option value={'xs'}>XS</option>
+                        <option value={'s'}>S</option>
+                        <option value={'m'}>M</option>
+                        <option value={'l'}>L</option>
+                        <option value={'xl'}>XL</option>
+                        <option value={'xxl'}>XXL</option>
+                        <option value={'xxxl'}>XXXL</option>
+                    </select>
+
+                </div>
+                <div className="w-full mb-4" >
                     <label htmlFor="deckSkin" className="block text-lg text-gray-200 mb-2">Wybierz skórkę talii:</label>
                     <select
                         id="deckSkin"
-                        className="w-full p-2 bg-gray-700 text-gray-200 rounded-lg border border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="cursor-pointer w-full p-2 bg-gray-700 text-gray-200 rounded-lg border border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
                         onChange={(e) => setCookie(deckSkinCookieName, e.target.value, 365)}
                         defaultValue={getCookie(deckSkinCookieName) || "default"}
                     >

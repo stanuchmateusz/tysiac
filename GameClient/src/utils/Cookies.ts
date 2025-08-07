@@ -5,6 +5,7 @@ export const soundMutedCookieName = "soundMuted"
 export const userIdCookieName = "tysiac_userId"
 export const userNicknameCookieName = "tysiac_nickname"
 export const deckSkinCookieName = "deckSkin"
+export const cardSizeCookieName = "cardSize"
 
 export const getCookie = (name: string): string | null => {
     const nameEQ = name + "=";

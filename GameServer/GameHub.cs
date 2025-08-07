@@ -24,7 +24,7 @@ public class GameHub(GameManager gameManager, LobbyManager lobbyManager)
     private const string LobbyJoinedMethodName = "RoomJoined";
     private const string LobbyUpdateMethodName = "LobbyUpdate";
     private const string LobbyCreatedMethodName = "RoomCreated";
-    
+
     private const string PlayerNotFoundExceptionMessage = "Player not found in room ";
     private const string GameNotFoundExceptionMessage = "Game not found";
 
@@ -71,7 +71,7 @@ public class GameHub(GameManager gameManager, LobbyManager lobbyManager)
 
         var lobbiesWithUser = lobbyManager.GetLobbiesWithUser(Context.ConnectionId);
         foreach (var lobbyService in lobbiesWithUser)
-        {   
+        {
             var lobbyCtx = lobbyService.GetContext();
             var code = lobbyCtx.Code;
             if (lobbyManager.LeaveRoom(lobbyService, Context.ConnectionId))
@@ -122,7 +122,7 @@ public class GameHub(GameManager gameManager, LobbyManager lobbyManager)
 
         Log.Debug("Joined {Nickname} room {RoomCode}", nickname, roomCode);
     }
-    
+
     public async Task JoinTeam(string roomCode, bool isTeam1)
     {
         var lobby = lobbyManager.GetRoom(roomCode);
@@ -169,11 +169,11 @@ public class GameHub(GameManager gameManager, LobbyManager lobbyManager)
     public async Task AddBots(string roomCode)
     {
         var lobbyService = lobbyManager.GetRoom(roomCode);
-        
+
         var isHost = lobbyService.isHost(Context.ConnectionId);
         if (!isHost)
             throw new HubException("Only host can add bots!");
-        
+
         var addedBotsCount = lobbyService.AddBots();
         if (addedBotsCount == 0)
         {
@@ -196,7 +196,7 @@ public class GameHub(GameManager gameManager, LobbyManager lobbyManager)
 
         if (player == null)
             throw new HubException(PlayerNotFoundExceptionMessage + roomCode);
-        
+
         lobbyManager.KickPlayer(roomCode, player.ConnectionId);
 
         await Clients.Client(player.ConnectionId).SendAsync(KickedMethodName);
@@ -216,7 +216,7 @@ public class GameHub(GameManager gameManager, LobbyManager lobbyManager)
                 return;
             }
         }
-        catch (HubException _)
+        catch (HubException)
         {
             //ignore
         }
@@ -337,7 +337,7 @@ public class GameHub(GameManager gameManager, LobbyManager lobbyManager)
         }
         catch (Exception e)
         {
-            Log.Warning("[{Code}] {Message}" ,roomCode,e.Message);
+            Log.Warning("[{Code}] {Message}", roomCode, e.Message);
         }
     }
 
@@ -414,7 +414,7 @@ public class GameHub(GameManager gameManager, LobbyManager lobbyManager)
             await updateCtx;
         }
     }
-    
+
     private static bool ValidateNickname(string nickname)
     {
         if (nickname.Length is < 3 or > 25)
@@ -451,14 +451,14 @@ public class GameHub(GameManager gameManager, LobbyManager lobbyManager)
             {
                 Log.Debug("[{RoomCode}] Processing turn for bot: {BotNickname} in phase {GamePhase}",
                     gameService.RoomCode, bot.Nickname, gameService.CurrentPhase);
-                
+
                 AiService.ProcessTurn(gameService,
                     bot);
-                
+
                 await Task.Delay(BotTurnDelay);
-                
+
                 var gameContextAfterBotMove = gameService.GetGameState();
-                
+
                 foreach (var player in
                          gameService.Players.Where(p => !p.IsBot && !string.IsNullOrEmpty(p.ConnectionId)))
                 {
@@ -468,7 +468,7 @@ public class GameHub(GameManager gameManager, LobbyManager lobbyManager)
                         UserCtx = gameService.GetUserState(player)
                     });
                 }
-                
+
                 if (gameService.CurrentPhase == GamePhase.GameOver)
                 {
                     Log.Debug("[{RoomCode}] Game ended after bot's turn.", gameService.RoomCode);

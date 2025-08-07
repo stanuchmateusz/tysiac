@@ -1,5 +1,6 @@
 import type { Player } from "../pages/Models";
 import React from 'react';
+import { cardSizeCookieName, getCookie } from "../utils/Cookies";
 
 export interface PlayerPositionProps {
     player?: Player,
@@ -48,15 +49,25 @@ const PlayerPosition: React.FC<PlayerPositionProps> = ({ player, position, cardC
         ? 'border-green-500 bg-green-700/30 backdrop-blur-sm'
         : 'border-transparent';
 
+    const cardSize = getCookie(cardSizeCookieName) || 'm';
+
+    const cardSizeClasses: Record<string, string> = {
+        "xs": "min-w-[100px] min-h-[130px]",
+        "s": "min-w-[120px] min-h-[150px]",
+        "m": "min-w-[140px] min-h-[170px]",
+        "l": "min-w-[160px] min-h-[200px]",
+        "xl": "min-w-[180px] min-h-[230px]",
+        "xxl": "min-w-[200px] min-h-[260px]",
+        "xxxl": "min-w-[220px] min-h-[290px]"
+    };
+
     return (
         <div
-            className={`absolute ${position} flex flex-col items-center p-2 rounded-lg transition-all duration-150 ${dropZoneClasses}`}
+            className={`absolute ${position} ${cardSizeClasses[cardSize] || cardSizeClasses['m']} flex flex-col items-center p-2 rounded-lg transition-all duration-150 ${dropZoneClasses}`}
             onDragOver={onDragOver}
             onDrop={onDrop}
             style={{
-                pointerEvents: onDragOver && onDrop && isDropTargetActive ? 'auto' : 'none',
-                minWidth: '120px',
-                minHeight: '150px',
+                pointerEvents: onDragOver && onDrop && isDropTargetActive ? 'auto' : 'none'
             }}
         >
             <div className="flex flex-col items-center">

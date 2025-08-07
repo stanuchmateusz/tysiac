@@ -6,12 +6,12 @@ import { IoMdSend } from "react-icons/io";
 import { FaCrown } from "react-icons/fa";
 import GameService from "../services/GameService";
 import { useNavigate, useParams } from "react-router-dom";
-import { CiSettings } from "react-icons/ci";
 import Options from "../components/Options";
 import GameSettingsBox from "../components/GameSettingsBox";
 import type { ChatMessage, LobbyContext, Player } from "./Models";
 import MusicService from "../services/MusicService";
 import { setCookie, userIdCookieName } from "../utils/Cookies";
+import OptionsButton from "../components/OptionButton";
 
 const JoinTeamHandler = (isTeam1: boolean, gameCode: string) => {
     GameService.connection?.invoke("JoinTeam", gameCode, isTeam1)
@@ -69,7 +69,7 @@ const Lobby = () => {
                 setMe(newMe ?? null);
                 setCookie(userIdCookieName, newMe?.id || "", 1);
             }
-            
+
         };
 
         // Handle incoming chat messages
@@ -183,15 +183,7 @@ const Lobby = () => {
 
     return (
         <>
-            <div className="fixed top-4 right-4 z-[60]">
-                <button
-                    onClick={() => setShowOptions(true)}
-                    className="p-3 bg-gray-700/80 hover:bg-gray-600/80 backdrop-blur-sm rounded-full text-white shadow-lg transition-colors"
-                    aria-label="Ustawienia"
-                >
-                    <CiSettings size={26} />
-                </button>
-            </div>
+            <OptionsButton showOptions={() => setShowOptions(true)} />
             <div className="flex flex-col md:flex-row min-h-screen w-full bg-neutral-900 text-white p-2 xs:p-4 sm:p-6">
                 {cooldownMsg && (
                     <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-red-600 text-white px-4 py-2 rounded shadow-lg animate-pulse text-center text-base font-semibold">

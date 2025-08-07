@@ -10,9 +10,8 @@ import IncreaseBetModal from "../components/modals/IncreaseBetModal";
 import PlayerPosition from "../components/PlayerPosition";
 import CardHand from "../components/CardHand";
 import Options from "../components/Options";
-import { CiSettings } from "react-icons/ci";
 import MusicService from "../services/MusicService";
-import { deckSkinCookieName, getCookie } from "../utils/Cookies";
+import { cardSizeCookieName, deckSkinCookieName, getCookie } from "../utils/Cookies";
 import { SUIT_ICONS } from "../utils/CardConsts";
 import TrumpModal from "../components/modals/TrumpModal";
 import EndGameModal from "../components/modals/EndGameModal";
@@ -20,9 +19,10 @@ import ScoreModal from "../components/modals/ScoreModal";
 import PassInfo from "../components/PassInfo";
 import ChatBox from "../components/modals/ChatBox";
 import DisconnectedModal from "../components/modals/DisconnectedModal";
+import OptionsButton from "../components/OptionButton";
 
 const CookieSkin = getCookie(deckSkinCookieName)
-const CARD_ASSETS_PATH = (CookieSkin === 'default' || CookieSkin === null) ? 'default' : "custom/" + CookieSkin 
+const CARD_ASSETS_PATH = (CookieSkin === 'default' || CookieSkin === null) ? 'default' : "custom/" + CookieSkin
 export const CARD_SVG_PATH = import.meta.env.VITE_ASSETS_PATH + `${CARD_ASSETS_PATH}/` || "/public/assets/default/";
 
 
@@ -125,7 +125,7 @@ const Table = () => {
     }, [gameCtx?.gamePhase]);
 
     const [playersGivenCard, setPlayersGivenCard] = useState<string[]>([]); // For tracking players to whom cards have been given in Game Phase 2
-    
+
     // Modal for showing trump suit
     const [showTrumpModal, setShowTrumpModal] = useState(false);
     const prevTrumpSuit = useRef<number | null>(null);
@@ -271,17 +271,90 @@ const Table = () => {
     // Modal for disconnected players
     const showDisconnectedModal = !!(gameCtx && gameCtx.disconnectedPlayers?.length > 0);
 
+    function renderCardsOnTheTable(): React.ReactNode {
+        return (() => {
+            if (!gameCtx?.cardsOnTable?.length || !gameUserCtx) return null;
+
+            const playerOrder = [
+                gameUserCtx.me?.connectionId,
+                gameUserCtx.leftPlayer?.connectionId,
+                gameUserCtx.teammate?.connectionId,
+                gameUserCtx.rightPlayer?.connectionId
+            ];
+
+            const leaderId = firstPlayerInCurrentTake.current;
+            console.debug("Leader ID:", leaderId, "Player Order:", playerOrder);
+            var indexOfLeader = leaderId ? playerOrder.indexOf(leaderId) : -1;
+
+            if (indexOfLeader === -1 && gameCtx.cardsOnTable.length > 0) {
+                console.error("Leader now found in playerOrder or firstPlayerInTrick.current is not set!");
+                indexOfLeader = 0; // Fallback to first player in order
+                // return null;
+            }
+
+            const slotNames = ['bottom', 'left', 'top', 'right'];
+
+            // Cards on the table, positioned based on player order
+            return gameCtx.cardsOnTable.map((card, cardIndexInTrick) => {
+                const style: React.CSSProperties = {
+                    position: 'absolute',
+                    left: '50%',
+                    top: '50%',
+                    transform: 'translate(-50%, -50%)',
+                    zIndex: 10 + cardIndexInTrick,
+                };
+                let rotation = 0;
+                let offsetX = 0, offsetY = 0;
+
+
+                const playerVisualIndex = (indexOfLeader + cardIndexInTrick) % playerOrder.length;
+                const pos = slotNames[playerVisualIndex];
+
+                const cardSize = getCookie(cardSizeCookieName) || 'm';
+
+                const CARD_SIZE: Record<string, string> = {
+                    "xs": "w-12 h-17",
+                    "s": "w-14 h-20",
+                    "m": "w-16 h-24",
+                    "l": "w-22 h-32",
+                    "xl": "w-24 h-34",
+                    "xxl": "w-28 h-40",
+                    "xxxl": "w-32 h-44"
+                };
+                const ADDITIONAL_OFFSET: Record<string, number> = {
+                    "xs": -20,
+                    "s": -10,
+                    "m": 0,
+                    "l": 30,
+                    "xl": 40,
+                    "xxl": 60,
+                    "xxxl": 80
+                };
+
+                if (pos === 'bottom') { offsetY = 90 + ADDITIONAL_OFFSET[cardSize]; rotation = 0; }
+                if (pos === 'left') { offsetX = -90 - ADDITIONAL_OFFSET[cardSize]; rotation = 90; }
+                if (pos === 'top') { offsetY = -90 - ADDITIONAL_OFFSET[cardSize]; rotation = 180; }
+                if (pos === 'right') { offsetX = 90 + ADDITIONAL_OFFSET[cardSize]; rotation = -90; }
+
+                style.transform = `translate(-50%, -50%) translate(${offsetX}px, ${offsetY}px) rotate(${rotation}deg)`;
+
+                return (
+                    <img
+                        key={card.shortName + cardIndexInTrick}
+                        src={`${CARD_SVG_PATH}${card.shortName}.svg`}
+                        alt={card.shortName}
+                        style={style}
+                        className={`drop-shadow-lg ${CARD_SIZE[cardSize] || CARD_SIZE['m']} rounded-md`}
+                    />
+                );
+            });
+        })();
+
+    }
+
     return (
         <>
-            <div className="fixed top-4 right-4 z-[60] flex gap-3">
-                <button
-                    onClick={() => setShowOptions(true)}
-                    className="p-3 bg-gray-700/80 hover:bg-gray-600/80 backdrop-blur-sm rounded-full text-white shadow-lg transition-colors"
-                    aria-label="Ustawienia"
-                >
-                    <CiSettings size={26} />
-                </button>
-            </div>
+            <OptionsButton showOptions={() => setShowOptions(true)} />
             {/* Main surface */}
             <div className="min-h-screen w-full flex flex-col items-center justify-center bg-gradient-to-br from-neutral-900 via-gray-900 to-blue-950 p-6">
                 <DisconnectedModal
@@ -299,7 +372,7 @@ const Table = () => {
                     gameUserCtx={gameUserCtx}
                     onClose={() => setShowScoreModal(false)}
                 />
-                
+
                 <div className={`w-full rounded-3xl shadow-2xl bg-gray-800/90 flex flex-col relative overflow-hidden border border-blue-900 ${showDisconnectedModal || showOptions ? 'pointer-events-none select-none opacity-60' : ''} flex-1`}>
                     {/* Header */}
                     <div className="flex items-center justify-between px-8 py-6 border-b border-gray-700 bg-gradient-to-r from-blue-900/80 to-gray-900/80">
@@ -390,9 +463,6 @@ const Table = () => {
                                 onDrop={(e) => handleDropOnPlayer(e, gameUserCtx?.rightPlayer?.connectionId)}
                                 isDropTargetActive={isDraggingCard && gameCtx?.gamePhase === 2 && isCurrentPlayer && !playersGivenCard.includes(gameUserCtx?.rightPlayer?.connectionId || '')}
                             />
-                            <PassInfo 
-                                open={gameCtx?.gamePhase === 1 && !!gameCtx?.passedPlayers?.find(p => p.connectionId === gameUserCtx?.me?.connectionId)}
-                            />
                             {/* Cards on table (center) */}
                             <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full pointer-events-none">
                                 {/* Drop Zone for playing cards */}
@@ -413,61 +483,7 @@ const Table = () => {
                                         <span className="flex items-center justify-center h-full text-white/70 text-sm">Upuść tutaj</span>
                                     )}
                                 </div>
-                                {(() => {
-                                    if (!gameCtx?.cardsOnTable?.length || !gameUserCtx) return null;
-
-                                    const playerOrder = [
-                                        gameUserCtx.me?.connectionId,
-                                        gameUserCtx.leftPlayer?.connectionId,
-                                        gameUserCtx.teammate?.connectionId,
-                                        gameUserCtx.rightPlayer?.connectionId
-                                    ];
-
-                                    const leaderId = firstPlayerInCurrentTake.current;
-                                    console.debug("Leader ID:", leaderId, "Player Order:", playerOrder);
-                                    var indexOfLeader = leaderId ? playerOrder.indexOf(leaderId) : -1;
-
-                                    if (indexOfLeader === -1 && gameCtx.cardsOnTable.length > 0) {
-                                        console.error("Lider lewy nie został znaleziony w playerOrder lub firstPlayerInTrick.current nie jest ustawiony.");
-                                        indexOfLeader = 0; // Fallback to first player in order
-                                        // return null;
-                                    }
-
-                                    const slotNames = ['bottom', 'left', 'top', 'right'];
-
-                                    // Cards on the table, positioned based on player order
-                                    return gameCtx.cardsOnTable.map((card, cardIndexInTrick) => {
-                                        const style: React.CSSProperties = {
-                                            position: 'absolute',
-                                            left: '50%',
-                                            top: '50%',
-                                            transform: 'translate(-50%, -50%)',
-                                            zIndex: 10 + cardIndexInTrick,
-                                        };
-                                        let rotation = 0;
-                                        let offsetX = 0, offsetY = 0;
-
-
-                                        const playerVisualIndex = (indexOfLeader + cardIndexInTrick) % playerOrder.length;
-                                        const pos = slotNames[playerVisualIndex];
-
-                                        if (pos === 'bottom') { offsetY = 90; rotation = 0; }
-                                        if (pos === 'left') { offsetX = -90; rotation = 90; }
-                                        if (pos === 'top') { offsetY = -90; rotation = 180; }
-                                        if (pos === 'right') { offsetX = 90; rotation = -90; }
-
-                                        style.transform = `translate(-50%, -50%) translate(${offsetX}px, ${offsetY}px) rotate(${rotation}deg)`;
-                                        return (
-                                            <img
-                                                key={card.shortName + cardIndexInTrick}
-                                                src={`${CARD_SVG_PATH}${card.shortName}.svg`}
-                                                alt={card.shortName}
-                                                style={style}
-                                                className="drop-shadow-lg w-16 h-24"
-                                            />
-                                        );
-                                    });
-                                })()}
+                                {renderCardsOnTheTable()}
                             </div>
                             {/* Card Hand */}
                             <div className="absolute bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2 w-full flex justify-center">
@@ -479,6 +495,9 @@ const Table = () => {
                                     canPlayCard={canPlayCard}
                                 />
                             </div>
+                            <PassInfo
+                                open={gameCtx?.gamePhase === 1 && !!gameCtx?.passedPlayers?.find(p => p.connectionId === gameUserCtx?.me?.connectionId)}
+                            />
                             <BetModal
                                 open={gameCtx?.gamePhase === 1 && isCurrentPlayer}
                                 currentBet={bet}
@@ -499,9 +518,9 @@ const Table = () => {
                                 maxBet={maxBet}
                                 onAccept={handleAccept}
                             />
-                            <TrumpModal 
-                                open={showTrumpModal} 
-                                trumpSuit={gameCtx?.trumpSuit} 
+                            <TrumpModal
+                                open={showTrumpModal}
+                                trumpSuit={gameCtx?.trumpSuit}
                             />
 
                         </div>

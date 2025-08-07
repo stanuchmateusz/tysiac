@@ -26,12 +26,16 @@ const ChatBox: React.FC<ChatBoxProps> = ({
 
     useEffect(() => {
         if (messagesEndRef.current) {
-            messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+            messagesEndRef.current.scrollIntoView({
+                behavior: "smooth",
+                block: "nearest"
+            });
         }
     }, [chatMessages, showChat]);
 
     return (
-        <div className={`absolute left-0 top-0 ml-4 mt-4 w-80 max-w-xs bg-gray-900/90 border border-gray-700 rounded-2xl shadow-xl p-4 z-20 transition-all duration-300 ${showChat ? '' : 'opacity-0 pointer-events-none'}`} style={{ minHeight: '340px' }}>
+        <div className={`absolute left-0 top-0 ml-4 mt-4 w-80 max-w-xs bg-gray-900/90 border border-gray-700 rounded-2xl shadow-xl p-4 z-20 transition-all duration-300 ${showChat ? '' : 'opacity-0 pointer-events-none'}`}
+            style={{ minHeight: '340px' }}>
             <div className="flex items-center justify-between mb-2">
                 <h2 className="text-xl font-semibold text-white">Chat</h2>
                 <button
