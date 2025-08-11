@@ -8,7 +8,7 @@ import GameService from "../services/GameService";
 import { useNavigate, useParams } from "react-router-dom";
 import Options from "../components/Options";
 import GameSettingsBox from "../components/GameSettingsBox";
-import type { ChatMessage, LobbyContext, Player } from "./Models";
+import type { ChatMessage, GameSettings, LobbyContext, Player } from "./Models";
 import MusicService from "../services/MusicService";
 import { setCookie, userIdCookieName } from "../utils/Cookies";
 import OptionsButton from "../components/OptionButton";
@@ -38,7 +38,6 @@ const Lobby = () => {
     const [lobbyContext, setLobbyContext] = useState<LobbyContext | null>(null);
     const [me, setMe] = useState<Player | null>(null);
     const chatMessagesEndRef = useRef<HTMLDivElement>(null);
-
     if (!gameCode) {
         navigate("/", { replace: true });
         return;
@@ -69,7 +68,6 @@ const Lobby = () => {
                 setMe(newMe ?? null);
                 setCookie(userIdCookieName, newMe?.id || "", 1);
             }
-
         };
 
         // Handle incoming chat messages
@@ -85,7 +83,7 @@ const Lobby = () => {
         }
 
         const handleGetKicked = () => {
-            confirm("You got kiecked")
+            confirm("You got kicked")
             navigate("/", { replace: true });
         }
 
@@ -175,6 +173,13 @@ const Lobby = () => {
         MusicService.playClick();
         GameService.connection?.invoke("LeaveTeam", gameCode);
         setTeamAttempts([...recent, now]);
+    };
+    const handleSettingsChange = (newSettings: GameSettings) => {
+        GameService.connection?.invoke("UpdateRoomSettings", gameCode, newSettings)
+            .catch(err => {
+                console.error("Error updating game settings:", err);
+            });
+        console.debug("Settings changed:", newSettings);
     };
 
     const onStartGame = () => {
@@ -354,7 +359,7 @@ const Lobby = () => {
                                         Dodaj boty</button>)
                                 }
                             </div>
-                            <GameSettingsBox />
+                            <GameSettingsBox isHost={IsHost()} onChange={handleSettingsChange} settings={lobbyContext?.gameSettings} />
 
                         </div>
                         <div className="w-full md:w-80 flex flex-col bg-gray-800 p-3 rounded-lg  min-h-80 max-h-80">

@@ -169,10 +169,7 @@ public class LobbyManager
     /// <exception cref="HubException">Thrown if a lobby with the specified room code is not found.</exception>
     public LobbyService GetRoom(string roomCode)
     {
-        var room = _lobbies!.GetValueOrDefault(roomCode, null);
-        if (room == null)
-            throw new HubException("Room not found");
-        return room;
+        return _lobbies!.GetValueOrDefault(roomCode, null) ?? throw new HubException("Room not found");
     }
 
     /// <summary>

@@ -19,6 +19,12 @@ export interface LobbyContext {
     team1: Player[];
     team2: Player[];
     code: string;
+    gameSettings: GameSettings
+}
+
+export interface GameSettings {
+    unlimitedWin: boolean; 
+    allowRaise: boolean;
 }
 export interface ChatMessage {
     nickname: string;

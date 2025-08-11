@@ -39,7 +39,7 @@ public class GameService
     {
         RoomCode = lobbyCtx.Code;
         settings = lobbyCtx.GameSettings;
-        Players = lobbyCtx.Players.ToImmutableHashSet();
+        Players = [.. lobbyCtx.Players];
         _humanPlayersCount = Players.Count(player => !player.IsBot);
         _pointsTeam1.Push(0);
         _pointsTeam2.Push(0);
@@ -427,6 +427,7 @@ public class GameService
     /// - The current game phase is not <c>GamePhase.CardDistribution</c>.
     /// - The distributor attempts to give a card to themselves.
     /// - It is not the distributor's turn.
+    /// - The target player already has 6 cards in their hand.
     /// - The distributor has already distributed all their surplus cards (has 6 or fewer cards).
     /// - The distributor does not have the specified card in their hand.
     /// </exception>
@@ -440,11 +441,12 @@ public class GameService
 
         if (distributor != Round.TurnQueue.Peek())
             throw new InvalidOperationException("It's not your turn");
+        
+        if (target.Hand.Count > 5)
+            throw new InvalidOperationException("Target player already has 6 cards");
 
-        if (distributor.Hand.Count <= 6)
-        {
+        if (distributor.Hand.Count <= 6)            
             throw new InvalidOperationException("You have already distributed all your cards");
-        }
 
         var cardToGive = distributor.Hand.FirstOrDefault(c => c.ShortName == cardToGiveShortName);
 

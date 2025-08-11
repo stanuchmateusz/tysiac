@@ -215,15 +215,26 @@ public class GameHub(GameManager gameManager, LobbyManager lobbyManager)
                 Log.Information("Left room {RoomCode} and lobby got disposed", roomCode);
                 return;
             }
+            await Groups.RemoveFromGroupAsync(Context.ConnectionId, roomCode);
+            await Clients.Groups(roomCode).SendAsync(LobbyUpdateMethodName, lobbyManager.GetRoom(roomCode).GetContext());
+            Log.Information("Left room {RoomCode}", roomCode);
         }
         catch (HubException)
         {
             //ignore
         }
+    }
+    
+    public async Task UpdateRoomSettings(string roomCode, GameSettings settings)
+    {
+        var lobbyService = lobbyManager.GetRoom(roomCode);
+        if (!lobbyService.isHost(Context.ConnectionId))
+            throw new HubException("Only host can update game settings");
 
-        await Groups.RemoveFromGroupAsync(Context.ConnectionId, roomCode);
-        await Clients.Groups(roomCode).SendAsync(LobbyUpdateMethodName, lobbyManager.GetRoom(roomCode).GetContext());
-        Log.Information("Left room {RoomCode}", roomCode);
+        Log.Information("Updating game settings in room {RoomCode}", roomCode);
+        lobbyService.UpdateGameSettings(settings);
+
+        await Clients.Groups(roomCode).SendAsync(LobbyUpdateMethodName, lobbyService.GetContext());
     }
 
     public async Task StartRoom(string roomCode)

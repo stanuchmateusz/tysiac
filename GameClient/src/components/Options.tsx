@@ -43,7 +43,7 @@ const Options: React.FC<OptionsProps> = ({ isOpen, onClose }) => {
     });
 
     const [playerId, setPlayerId] = useState<string | null>(null);
-    const [cardSize, setCardSize] = useState<string>(""); // Default card size
+    const [cardSize, setCardSize] = useState<string>(getCookie(cardSizeCookieName) ?? "m"); // Default card size
 
     useEffect(() => {
         setCookie(cardSizeCookieName, cardSize.toString(), 365);

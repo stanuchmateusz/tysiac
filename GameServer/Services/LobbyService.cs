@@ -1,126 +1,134 @@
+
 using GameServer.Models;
 using GameServer.Models.Context;
 using GameServer.Models.impl;
 
 public class LobbyService
 {
-    private LobbyContext context;
-    private List<IPlayer> bannedPlayers = [];
+    private LobbyContext Context { get; }
+    private readonly HashSet<String> BannedPlayers = new HashSet<String>();
     public LobbyService(string code, IPlayer host)
     {
-        context = new LobbyContext(code, [host], [], [], new GameSettings());
+        Context = new LobbyContext(code, [host], [], [], new GameSettings());
     }
-
     public LobbyContext GetContext()
     {
-        return context;
+        return Context;
     }
 
-    public IPlayer? GetPlayer(string contextConnectionId)
+    public void UpdateGameSettings(IGameSettings settings)
     {
-        return context.Players.FirstOrDefault(x => x.ConnectionId == contextConnectionId);
+        Context.GameSettings.UnlimitedWin = settings.UnlimitedWin;
+        Context.GameSettings.AllowRaise = settings.AllowRaise;
+    }
+
+    public IPlayer? GetPlayer(string ContextConnectionId)
+    {
+        return Context.Players.FirstOrDefault(x => x.ConnectionId == ContextConnectionId);
     }
 
     public bool AddPlayer(IPlayer player)
     {
-        if (bannedPlayers.Contains(player) || (context.Players.Count > 3))
+        if (BannedPlayers.Contains(player.Id) || (Context.Players.Count > 3))
             return false;
-        context.Players.Add(player);
+        Context.Players.Add(player);
         return true;
     }
 
     public void RemovePlayer(IPlayer player)
     {
-        context.Team1.Remove(player);
-        context.Team2.Remove(player);
+        Context.Team1.Remove(player);
+        Context.Team2.Remove(player);
 
-        context.Players.Remove(player);
-        if (context.Host.Id == player.Id && context.Players.Count > 0)
+        Context.Players.Remove(player);
+        if (Context.Host.Id == player.Id && Context.Players.Count > 0)
         {
-            context.Host = context.Players[0]; // Promote the first player as the new host
+            Context.Host = Context.Players[0]; // Promote the first player as the new host
         }
 
     }
     public void KickPlayer(IPlayer player)
     {
-        if (bannedPlayers.Contains(player))
+        if (BannedPlayers.Contains(player.Id))
             throw new InvalidOperationException("Player is already banned");
 
-        bannedPlayers.Add(player);
+        BannedPlayers.Add(player.Id);
         RemovePlayer(player);
     }
 
     public int AddBots()
     {
-        if (context.Team1.Count == 2 && context.Team2.Count == 2)
+        if (Context.Players.Count == 4)
+            return 0; // No bots needed, max players reached
+        if (Context.Team1.Count == 2 && Context.Team2.Count == 2)
             return 0; // No bots needed, both teams are full
 
-        var addedBots = context.Players.Count(player => player.ConnectionId.Contains(AIPlayer.AiPrefix));
-        while (context.Team1.Count != 2 && addedBots != 3)
+        var addedBots = Context.Players.Count(player => player.ConnectionId.Contains(AIPlayer.AiPrefix));
+        while (Context.Players.Count != 4 && Context.Team1.Count != 2 && addedBots != 3)
         {
             var bot = new AIPlayer("BOT" + addedBots);
-            context.Players.Add(bot);
-            context.Team1.Add(bot);
+            Context.Players.Add(bot);
+            Context.Team1.Add(bot);
             addedBots++;
         }
-        while (context.Team2.Count != 2 && addedBots != 3)
+        while (Context.Players.Count != 4 && Context.Team2.Count != 2 && addedBots != 3)
         {
             var bot = new AIPlayer("BOT" + addedBots);
-            context.Players.Add(bot);
-            context.Team2.Add(bot);
+            Context.Players.Add(bot);
+            Context.Team2.Add(bot);
             addedBots++;
         }
         return addedBots;
     }
     public bool IsRoomEmpty()
     {
-        var humanPlayers = context.Players.Count(player => !player.ConnectionId.Contains(AIPlayer.AiPrefix));
+        var humanPlayers = Context.Players.Count(player => !player.ConnectionId.Contains(AIPlayer.AiPrefix));
         return humanPlayers == 0;
     }
 
     public bool isPlayerBanned(string connectionId)
     {
-        return bannedPlayers.Any(x => x.ConnectionId == connectionId);
+        return BannedPlayers.Contains(connectionId);
     }
 
     public bool isHost(string connectionId)
     {
-        if (context.Host == null)
+        if (Context.Host == null)
             return false;
 
-        return context.Host.ConnectionId == connectionId;
+        return Context.Host.ConnectionId == connectionId;
     }
 
     public bool IsLobbyReady()
     {
-        return context.Players.Count >= 4 && context.Team1.Count == 2 && context.Team2.Count == 2;
+        return Context.Players.Count >= 4 && Context.Team1.Count == 2 && Context.Team2.Count == 2;
     }
 
     public void LeaveTeam(IPlayer player)
     {
-        context.Team1.Remove(player);
-        context.Team2.Remove(player);
+        Context.Team1.Remove(player);
+        Context.Team2.Remove(player);
     }
 
     public bool JoinTeam1(IPlayer player)
     {
-        if (context.Team1.Count < 2 && !context.Team1.Contains(player))
+        if (Context.Team1.Count < 2 && !Context.Team1.Contains(player))
         {
-            context.Team2.Remove(player);
-            context.Team1.Add(player);
+            Context.Team2.Remove(player);
+            Context.Team1.Add(player);
             return true;
         }
-        return false; 
+        return false;
     }
 
     public bool JoinTeam2(IPlayer player)
     {
-        if (context.Team2.Count < 2 && !context.Team2.Contains(player))
+        if (Context.Team2.Count < 2 && !Context.Team2.Contains(player))
         {
-            context.Team1.Remove(player);
-            context.Team2.Add(player);
+            Context.Team1.Remove(player);
+            Context.Team2.Add(player);
             return true;
         }
-        return false; 
+        return false;
     }
 }
