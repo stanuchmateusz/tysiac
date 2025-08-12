@@ -12,20 +12,19 @@ import type { ChatMessage, GameSettings, LobbyContext, Player } from "./Models";
 import MusicService from "../services/MusicService";
 import { setCookie, userIdCookieName } from "../utils/Cookies";
 import OptionsButton from "../components/OptionButton";
+import { useNotification } from "../utils/NotificationContext";
 
-const JoinTeamHandler = (isTeam1: boolean, gameCode: string) => {
-    GameService.connection?.invoke("JoinTeam", gameCode, isTeam1)
-        .catch(err => {
-            console.error(`Error joining team:`, err);
-        });
-};
+
+
+
 
 const Lobby = () => {
+    const {notify} = useNotification();
     const navigate = useNavigate();
     // --- Cooldown states ---
     const [chatCooldown, setChatCooldown] = useState(false);
     const [teamCooldown, setTeamCooldown] = useState(false);
-    const [cooldownMsg, setCooldownMsg] = useState("");
+
     // --- Anti-spam states ---
     const [chatAttempts, setChatAttempts] = useState<number[]>([]); // timestamps
     const [teamAttempts, setTeamAttempts] = useState<number[]>([]); // timestamps
@@ -118,11 +117,13 @@ const Lobby = () => {
         // Filter atteps since last 10 secs
         const recent = chatAttempts.filter(ts => now - ts < 10000);
         if (recent.length >= 4) {
-            setCooldownMsg("Za dużo wiadomości! Odczekaj 5 sekund.");
+            notify({
+                message: "Za dużo wiadomości! Odczekaj 5 sekund.",
+                type: "error"
+            });
             setChatCooldown(true);
             setTimeout(() => {
                 setChatCooldown(false);
-                setCooldownMsg("");
                 setChatAttempts([]);
             }, 5000);
             return;
@@ -138,15 +139,27 @@ const Lobby = () => {
             }
         }
     };
+    const JoinTeamHandler = (isTeam1: boolean, gameCode: string) => {
+    GameService.connection?.invoke("JoinTeam", gameCode, isTeam1)
+        .catch(err => {
+            notify({
+                message: "Błąd podczas dołączania do drużyny. Spróbuj ponownie.",
+                type: "error"
+            });
+            console.error(`Error joining team:`, err);
+        });
+};
     const handleJoinTeam = (isTeam1: boolean) => {
         const now = Date.now();
         const recent = teamAttempts.filter(ts => now - ts < 10000);
         if (recent.length >= 4) {
-            setCooldownMsg("Za dużo zmian drużyny! Odczekaj 5 sekund.");
+            notify({
+                message: "Za dużo zmian drużyny! Odczekaj 5 sekund.",
+                type: "error"
+            });
             setTeamCooldown(true);
             setTimeout(() => {
                 setTeamCooldown(false);
-                setCooldownMsg("");
                 setTeamAttempts([]);
             }, 5000);
             return;
@@ -160,11 +173,13 @@ const Lobby = () => {
         const now = Date.now();
         const recent = teamAttempts.filter(ts => now - ts < 10000);
         if (recent.length >= 4) {
-            setCooldownMsg("Za dużo zmian drużyny! Odczekaj 5 sekund.");
+            notify({
+                message: "Za dużo zmian drużyny! Odczekaj 5 sekund.",
+                type: "error"
+            });
             setTeamCooldown(true);
             setTimeout(() => {
                 setTeamCooldown(false);
-                setCooldownMsg("");
                 setTeamAttempts([]);
             }, 5000);
             return;
@@ -190,11 +205,6 @@ const Lobby = () => {
         <>
             <OptionsButton showOptions={() => setShowOptions(true)} />
             <div className="flex flex-col md:flex-row min-h-screen w-full bg-neutral-900 text-white p-2 xs:p-4 sm:p-6">
-                {cooldownMsg && (
-                    <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-red-600 text-white px-4 py-2 rounded shadow-lg animate-pulse text-center text-base font-semibold">
-                        {cooldownMsg}
-                    </div>
-                )}
                 <div className="flex flex-col flex-1 max-w-6xl mx-auto gap-4 md:gap-6">
                     <div className="flex flex-col md:flex-row items-center justify-between mb-4 md:mb-6 gap-2 md:gap-0">
                         <h1 className="text-3xl md:text-4xl font-bold w-full md:w-auto text-center md:text-left">Lobby</h1>
@@ -230,109 +240,151 @@ const Lobby = () => {
                     </div>
                     <div className="flex flex-col md:flex-row gap-4 md:gap-6 flex-1">
                         <div className="flex flex-col flex-1 gap-4">
-                            <div className="w-full bg-gray-700 rounded-lg p-3 md:p-4 flex flex-col max-h-72 overflow-y-auto mb-4">
-                                <h2 className="text-lg md:text-xl font-semibold mb-2 text-center">Drużyny</h2>
+                            <div className="w-full bg-gradient-to-br from-gray-700 via-gray-800 to-gray-900 rounded-lg p-3 md:p-4 flex flex-col max-h-96 overflow-y-auto mb-4">
+                                <h2 className="text-lg md:text-xl font-semibold mb-3 text-center text-blue-200 tracking-wide">Drużyny</h2>
                                 <div className="overflow-x-auto">
-                                    <table className="w-full mb-0 border-separate border-spacing-y-1 table-fixed min-w-[320px]">
-                                        <colgroup>
-                                            <col className="w-1/2" />
-                                            <col className="w-1/2" />
-                                        </colgroup>
-                                        <thead>
-                                            <tr>
-                                                <th className="py-2 px-4 border-b text-lg text-blue-300 bg-gray-800 rounded-tl-lg">Drużyna I</th>
-                                                <th className="py-2 px-4 border-b text-lg text-pink-300 bg-gray-800 rounded-tr-lg">Drużyna II</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            <tr>
-                                                <td className="py-1 px-2 border-b align-top">
-                                                    {team1.length > 0 ? team1.map((user: Player, index: number) => (
-                                                        <div key={index} className="bg-blue-900/60 rounded px-1.5 py-0.5 my-0.5 text-blue-100 text-sm flex items-center gap-1">
-                                                            <span className={isMe(user) ? "font-bold" : undefined}>{user.nickname}</span>
-                                                            {host && user.connectionId === host.connectionId && (
-                                                                <FaCrown className="text-yellow-400 ml-1" title="Host" />
-                                                            )}
+                                    <div className="flex gap-4">
+                                        {/* Team 1 */}
+                                        <div className="flex-1 bg-gradient-to-br from-blue-900 via-blue-800 to-blue-950 rounded-xl p-4 shadow-lg">
+                                            <h3 className="text-xl font-bold text-blue-200 mb-3 text-center">Drużyna I</h3>
+                                            <div className="flex flex-col gap-2">
+                                                {team1.length > 0 ? team1.map((user: Player, idx: number) => (
+                                                    <div
+                                                        key={idx}
+                                                        className={`flex items-center gap-3 bg-blue-800/70 rounded px-3 py-2 shadow ${isMe(user) ? "border-2 border-blue-400" : "border border-blue-700"
+                                                            }`}
+                                                    >
+                                                        <div className="w-8 h-8 rounded-full bg-blue-900 flex items-center justify-center text-base font-bold text-blue-200">
+                                                            {user.nickname.slice(0, 2).toUpperCase()}
                                                         </div>
-                                                    )) : <span className="text-gray-400 text-sm">Brak graczy</span>}
-                                                </td>
-                                                <td className="py-1 px-2 border-b align-top">
-                                                    {team2.length > 0 ? team2.map((user: Player, index: number) => (
-                                                        <div key={index} className="bg-pink-900/60 rounded px-1.5 py-0.5 my-0.5 text-pink-100 text-sm flex items-center gap-1">
-                                                            <span className={isMe(user) ? "font-bold" : undefined}>{user.nickname}</span>
-                                                            {host && user.connectionId === host.connectionId && (
-                                                                <FaCrown className="text-yellow-400 ml-1" title="Host" />
-                                                            )}
+                                                        <span className={`text-base ${isMe(user) ? "font-bold text-blue-300" : "text-blue-100"}`}>
+                                                            {user.nickname}
+                                                        </span>
+                                                        {host && user.connectionId === host.connectionId && (
+                                                            <FaCrown className="text-yellow-400 ml-2" title="Host" />
+                                                        )}
+                                                    </div>
+                                                )) : (
+                                                    <div className="text-blue-300 text-sm text-center py-2">Brak graczy</div>
+                                                )}
+                                            </div>
+                                            <div className="mt-4">
+                                                {team1.some(u => me && u.connectionId === me.connectionId) ? (
+                                                    <button
+                                                        className="w-full px-4 py-2 rounded font-semibold shadow bg-gradient-to-r from-gray-600 to-gray-800 hover:from-gray-700 hover:to-gray-900 text-white flex items-center justify-center gap-2"
+                                                        onClick={handleLeaveTeam}
+                                                        disabled={teamCooldown}
+                                                    >
+                                                        <ImExit className="mr-2" /> Opuść drużynę
+                                                    </button>
+                                                ) : (
+                                                    <button
+                                                        className={`w-full px-4 py-2 rounded font-semibold shadow flex items-center justify-center gap-2 ${team1.length === 2 || teamCooldown
+                                                                ? "bg-gray-500 cursor-not-allowed opacity-70"
+                                                                : "bg-gradient-to-r from-blue-400 to-blue-700 hover:from-blue-500 hover:to-blue-800 text-white cursor-pointer"
+                                                            }`}
+                                                        disabled={team1.length === 2 || teamCooldown}
+                                                        onClick={() => handleJoinTeam(true)}
+                                                    >
+                                                        <IoMdAddCircle /> Dołącz
+                                                    </button>
+                                                )}
+                                            </div>
+                                            <div className="mt-2 text-xs text-blue-300 text-center">
+                                                {team1.length}/2 graczy
+                                            </div>
+                                        </div>
+                                        {/* Team 2 */}
+                                        <div className="flex-1 bg-gradient-to-br from-pink-900 via-pink-800 to-pink-950 rounded-xl p-4 shadow-lg">
+                                            <h3 className="text-xl font-bold text-pink-200 mb-3 text-center">Drużyna II</h3>
+                                            <div className="flex flex-col gap-2">
+                                                {team2.length > 0 ? team2.map((user: Player, idx: number) => (
+                                                    <div
+                                                        key={idx}
+                                                        className={`flex items-center gap-3 bg-pink-800/70 rounded px-3 py-2 shadow ${isMe(user) ? "border-2 border-pink-400" : "border border-pink-700"
+                                                            }`}
+                                                    >
+                                                        <div className="w-8 h-8 rounded-full bg-pink-900 flex items-center justify-center text-base font-bold text-pink-100">
+                                                            {user.nickname.slice(0, 2).toUpperCase()}
                                                         </div>
-                                                    )) : <span className="text-gray-400 text-sm">Brak graczy</span>}
-                                                </td>
-                                            </tr>
-                                            <tr>
-                                                <td className="py-2 px-4 border-b">
-                                                    {team1.some(u => me && u.connectionId === me.connectionId) ? (
-                                                        <button
-                                                            className="px-4 py-2 rounded w-full font-semibold transition-all duration-150 shadow-md flex items-center justify-center gap-2 bg-gradient-to-r from-gray-600 to-gray-800 hover:from-gray-700 hover:to-gray-900 text-white cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
-                                                            onClick={handleLeaveTeam}
-                                                            disabled={teamCooldown}
-                                                        >
-                                                            <ImExit className="mr-2" /> Opuść drużynę
-                                                        </button>
-                                                    ) : (
-                                                        <button
-                                                            className={`px-4 py-2 rounded w-full font-semibold transition-all duration-150 shadow-md flex items-center justify-center gap-2 ${team1.length === 2 || teamCooldown ? 'bg-gray-500 cursor-not-allowed opacity-70' : 'bg-gradient-to-r from-blue-400 to-blue-700 hover:from-blue-500 hover:to-blue-800 text-white cursor-pointer'}`}
-                                                            disabled={team1.length === 2 || teamCooldown}
-                                                            onClick={() => handleJoinTeam(true)}
-                                                        >
-                                                            <IoMdAddCircle /> Dołącz
-                                                        </button>
-                                                    )}
-                                                </td>
-                                                <td className="py-2 px-4 border-b">
-                                                    {team2.some(u => me && u.connectionId === me.connectionId) ? (
-                                                        <button
-                                                            className="px-4 py-2 rounded w-full font-semibold transition-all duration-150 shadow-md flex items-center justify-center gap-2 bg-gradient-to-r from-gray-600 to-gray-800 hover:from-gray-700 hover:to-gray-900 text-white cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
-                                                            onClick={handleLeaveTeam}
-                                                            disabled={teamCooldown}
-                                                        >
-                                                            <ImExit className="mr-2" /> Opuść drużynę
-                                                        </button>
-                                                    ) : (
-                                                        <button
-                                                            className={`px-4 py-2 rounded w-full font-semibold transition-all duration-150 shadow-md flex items-center justify-center gap-2 ${team2.length === 2 || teamCooldown ? 'bg-gray-500 cursor-not-allowed opacity-70' : 'bg-gradient-to-r from-pink-400 to-pink-700 hover:from-pink-500 hover:to-pink-800 text-white cursor-pointer'}`}
-                                                            disabled={team2.length === 2 || teamCooldown}
-                                                            onClick={() => handleJoinTeam(false)}
-                                                        >
-                                                            <IoMdAddCircle /> Dołącz
-                                                        </button>
-                                                    )}
-                                                </td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
+                                                        <span className={`text-base ${isMe(user) ? "font-bold text-pink-300" : "text-pink-100"}`}>
+                                                            {user.nickname}
+                                                        </span>
+                                                        {host && user.connectionId === host.connectionId && (
+                                                            <FaCrown className="text-yellow-400 ml-2" title="Host" />
+                                                        )}
+                                                    </div>
+                                                )) : (
+                                                    <div className="text-pink-300 text-sm text-center py-2">Brak graczy</div>
+                                                )}
+                                            </div>
+                                            <div className="mt-4">
+                                                {team2.some(u => me && u.connectionId === me.connectionId) ? (
+                                                    <button
+                                                        className="w-full px-4 py-2 rounded font-semibold shadow bg-gradient-to-r from-gray-600 to-gray-800 hover:from-gray-700 hover:to-gray-900 text-white flex items-center justify-center gap-2"
+                                                        onClick={handleLeaveTeam}
+                                                        disabled={teamCooldown}
+                                                    >
+                                                        <ImExit className="mr-2" /> Opuść drużynę
+                                                    </button>
+                                                ) : (
+                                                    <button
+                                                        className={`w-full px-4 py-2 rounded font-semibold shadow flex items-center justify-center gap-2 ${team2.length === 2 || teamCooldown
+                                                                ? "bg-gray-500 cursor-not-allowed opacity-70"
+                                                                : "bg-gradient-to-r from-pink-400 to-pink-700 hover:from-pink-500 hover:to-pink-800 text-white cursor-pointer"
+                                                            }`}
+                                                        disabled={team2.length === 2 || teamCooldown}
+                                                        onClick={() => handleJoinTeam(false)}
+                                                    >
+                                                        <IoMdAddCircle /> Dołącz
+                                                    </button>
+                                                )}
+                                            </div>
+                                            <div className="mt-2 text-xs text-pink-300 text-center">
+                                                {team2.length}/2 graczy
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
-                            <div className="w-full bg-gray-700 rounded-lg p-3 md:p-4 flex flex-col">
-                                <h2 className="text-lg md:text-xl font-semibold mb-2 text-center">Lista graczy</h2>
-                                <ul className="list-disc list-inside flex-1">
+                            <div className="w-full bg-gradient-to-br from-gray-700 via-gray-800 to-gray-900 rounded-lg p-3 md:p-4 flex flex-col">
+                                <h2 className="text-lg md:text-xl font-semibold mb-3 text-center text-blue-200 tracking-wide">Lista graczy</h2>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                     {users.length > 0 ? (
                                         users.map((user: Player, index: number) => (
-                                            <li key={index} className="text-lg flex items-center gap-1">
-                                                <span className={isMe(user) ? "font-bold" : undefined}>{user.nickname}</span>
-                                                {host && user.connectionId === host.connectionId && (
-                                                    <FaCrown className="text-yellow-400 ml-1" title="Host" />
-                                                )}
-                                                {!(host && user.connectionId === host.connectionId) && IsHost() &&
-                                                    <span className="text-red-400 font-bold text-lg cursor-pointer"
+                                            <div
+                                                key={index}
+                                                className={`flex items-center gap-3 bg-gray-700 rounded-lg px-4 py-2 shadow transition-all ${isMe(user) ? "border-2 border-blue-400" : "border border-gray-600"
+                                                    }`}
+                                            >
+                                                {/* Avatar circle with initials */}
+                                                <div className="w-10 h-10 rounded-full bg-blue-900 flex items-center justify-center text-lg font-bold text-blue-200">
+                                                    {user.nickname.slice(0, 2).toUpperCase()}
+                                                </div>
+                                                <div className="flex-1">
+                                                    <span className={`text-lg ${isMe(user) ? "font-bold text-blue-300" : "text-white"}`}>
+                                                        {user.nickname}
+                                                    </span>
+                                                    {host && user.connectionId === host.connectionId && (
+                                                        <FaCrown className="text-yellow-400 ml-2 inline" title="Host" />
+                                                    )}
+                                                </div>
+                                                {!(host && user.connectionId === host.connectionId) && IsHost() && (
+                                                    <span
+                                                        className="text-red-400 font-bold text-lg cursor-pointer ml-2"
                                                         onClick={() => {
                                                             GameService.connection?.invoke("KickPlayer", gameCode, user.connectionId);
                                                         }}
-                                                    >✕</span>}
-                                            </li>
+                                                    >
+                                                        ✕
+                                                    </span>
+                                                )}
+                                            </div>
                                         ))
                                     ) : (
-                                        <li className="text-lg text-gray-500">Brak graczy - problem z połączniem z serwerm</li>
+                                        <div className="text-lg text-gray-500 col-span-2">Brak graczy - problem z połączniem z serwerm</div>
                                     )}
-                                </ul>
+                                </div>
 
                                 {IsHost() && (
                                     <button
@@ -394,7 +446,7 @@ const Lobby = () => {
                                     <IoMdSend size={20} />
                                 </button>
                             </form>
-                            {cooldownMsg && <div className="text-xs text-yellow-300 mt-1 text-center">{cooldownMsg}</div>}
+                    
                         </div>
                     </div>
                 </div>

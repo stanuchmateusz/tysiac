@@ -7,9 +7,13 @@ import Footer from './components/Footer';
 import Rules from './pages/Rules';
 import Lobby from './pages/Lobby';
 import Table from './pages/Table';
+import { NotificationProvider } from './utils/NotificationContext';
+import Notifications from './components/modals/Notifications';
 
 function App() {
-  return (<>
+  return (
+   <NotificationProvider>
+    <Notifications />
     <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-neutral-900 via-gray-900 to-blue-950">
       <BrowserRouter>
         <Routes>
@@ -27,7 +31,7 @@ function App() {
       </BrowserRouter>
     </div>
     <Footer />
-  </>
+  </NotificationProvider>
   )
 }
 

@@ -4,16 +4,17 @@ import { ParseHubExcepion, MapErrorMessage } from "../utils/ErrorParser";
 import { useNavigate } from "react-router-dom";
 import * as signalR from "@microsoft/signalr";
 import { getCookie, setCookie, userNicknameCookieName } from "../utils/Cookies";
+import { useNotification } from "../utils/NotificationContext";
 
 const StartGame = ({ code }: { code: string | undefined }) => {
     const [nickname, setNickname] = useState(getCookie(userNicknameCookieName) || "");
     const [roomCode, setRoomCode] = useState(code ?? "");
-    const [lobbyJoinError, setLobbyJoinError] = useState("");
     const [isReady, setIsReady] = useState(false);
     const [connectionError, setConnectionError] = useState<string | null>(null);
+    const {notify} = useNotification()
 
     const navigate = useNavigate();
-
+   
     useEffect(() => {
         if (!GameService.connection || GameService.connection.state === signalR.HubConnectionState.Disconnected) {
             GameService.constructor()
@@ -77,8 +78,11 @@ const StartGame = ({ code }: { code: string | undefined }) => {
     const handleHostGame = async () => {
 
         if (!validateNickname(nickname)) {
+            notify({
+                message: "Nieprawidłowy pseudonim. Upewnij się, że ma od 3 do 20 znaków i zawiera tylko litery, cyfry lub podkreślenia.",
+                type: "error"
+            });
             console.error("Nieprawidłowy pseudonim. Upewnij się, że ma od 3 do 20 znaków i zawiera tylko litery, cyfry lub podkreślenia.");
-            setLobbyJoinError("Nieprawidłowy pseudonim. Upewnij się, że ma od 3 do 20 znaków i zawiera tylko litery, cyfry lub podkreślenia.")
             return;
         }
         if (!isReady) {
@@ -98,17 +102,26 @@ const StartGame = ({ code }: { code: string | undefined }) => {
 
         if (!validateNickname(nickname)) {
             console.error("Nieprawidłowy pseudonim. Upewnij się, że ma od 3 do 20 znaków i zawiera tylko litery, cyfry lub podkreślenia.");
-            setLobbyJoinError("Nieprawidłowy pseudonim. Upewnij się, że ma od 3 do 20 znaków i zawiera tylko litery, cyfry lub podkreślenia.");
+            notify({
+                message: "Nieprawidłowy pseudonim. Upewnij się, że ma od 3 do 20 znaków i zawiera tylko litery, cyfry lub podkreślenia.",
+                type: "error"
+            });
             return;
         }
         if (!validateRoomCode(roomCode)) {
             console.error("Nieprawidłowy kod pokoju. Upewnij się, że ma 8 znaków i zawiera tylko wielkie litery i cyfry.");
-            setLobbyJoinError("Nieprawidłowy kod pokoju. Upewnij się, że ma 8 znaków i zawiera tylko wielkie litery i cyfry.");
+            notify({
+                message: "Nieprawidłowy kod pokoju. Upewnij się, że ma 8 znaków i zawiera tylko wielkie litery i cyfry.",
+                type: "error"
+            });
             return;
         }
         if (!isReady) {
             console.warn("Połączenie nie jest jeszcze gotowe.");
-            setLobbyJoinError("Połączenie nie jest jeszcze gotowe.");
+            notify({
+                message: "Połączenie nie jest jeszcze gotowe.",
+                type: "error"
+            });
             return;
         }
         setCookie(userNicknameCookieName, nickname, 30);
@@ -117,7 +130,10 @@ const StartGame = ({ code }: { code: string | undefined }) => {
                 var ex = ParseHubExcepion(err);
 
                 console.error("Błąd podczas dołączania do pokoju:", ex);
-                setLobbyJoinError("Błąd podczas dołączania do pokoju. " + MapErrorMessage(ex));
+                notify({
+                    message: "Błąd podczas dołączania do pokoju. " + MapErrorMessage(ex),
+                    type: "error"
+                });
             });
     }
 
@@ -187,11 +203,7 @@ const StartGame = ({ code }: { code: string | undefined }) => {
                         Dołącz do gry
                     </button>
                 </div>
-                {lobbyJoinError && (
-                    <div className="mt-2 text-red-500 text-sm">
-                        {lobbyJoinError}
-                    </div>
-                )}
+                
                 <div className={`px-4 py-2 text-xs font-semibold select-none transition-all duration-200 ${isReady && !connectionError ? 'text-gray-300' : 'text-red-200 animate-pulse'}`}>
                     {isReady && !connectionError ? 'Połączono z serwerem' : 'Brak połączenia z serwerem'}
                 </div>

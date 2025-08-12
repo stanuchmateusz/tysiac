@@ -28,7 +28,7 @@ const ScoreTable: React.FC<Props> = ({ gameUserCtx }) => {
             {
                 label: "MY",
                 data: myScores,
-                borderColor: "#38bdf8", // tailwind sky-400
+                borderColor: "#38bdf8",
                 backgroundColor: "rgba(56,189,248,0.2)",
                 tension: 0.3,
                 pointBackgroundColor: "#38bdf8",
@@ -37,7 +37,7 @@ const ScoreTable: React.FC<Props> = ({ gameUserCtx }) => {
             {
                 label: "WY",
                 data: oppScores,
-                borderColor: "#f472b6", // tailwind pink-400
+                borderColor: "#f472b6",
                 backgroundColor: "rgba(244,114,182,0.2)",
                 tension: 0.3,
                 pointBackgroundColor: "#f472b6",
@@ -77,12 +77,13 @@ const ScoreTable: React.FC<Props> = ({ gameUserCtx }) => {
         },
     };
     return (
-        <div className="w-full max-h-72 overflow-y-auto rounded-lg">
-            <table className="mb-3 w-full text-white text-sm border border-gray-700">
-                <thead>
+        <div className="w-full max-h-96 overflow-y-auto rounded-lg">
+            <table className="mb-3 w-full text-white text-base border border-gray-700 min-w-[480px]">
+                   <thead className="sticky top-0 z-10">
                     <tr className="bg-blue-800 text-white">
                         <th className="px-4 py-2 border border-gray-700">Runda</th>
                         <th className="px-4 py-2 border border-gray-700">My</th>
+                        <th className="px-4 py-2 border border-gray-700">Różnica</th>
                         <th className="px-4 py-2 border border-gray-700">Wy</th>
                     </tr>
                 </thead>
@@ -95,7 +96,7 @@ const ScoreTable: React.FC<Props> = ({ gameUserCtx }) => {
 
                             const myVal = arr[reversedIndex];
                             const oppVal = gameUserCtx?.opponentScore[reversedIndex] ?? 0;
-
+                             const diff = Math.abs(myVal - oppVal);
                             const myColor =
                                 prevMy === undefined
                                     ? "text-white"
@@ -116,9 +117,10 @@ const ScoreTable: React.FC<Props> = ({ gameUserCtx }) => {
 
                             return (
                                 i !== 0 ? (
-                                    <tr key={reversedIndex} className="odd:bg-gray-800 even:bg-gray-700">
+                                    <tr key={reversedIndex} className="odd:bg-gray-800 even:bg-gray-700 hover:bg-blue-900 transition-all">
                                         <td className="px-4 py-2 border border-gray-700 text-center">{i}</td>
                                         <td className={`px-4 py-2 border border-gray-700 text-center ${myColor}`}>{myVal}</td>
+                                        <td className={`px-4 py-2 border border-gray-700 text-center`}>{diff}</td>
                                         <td className={`px-4 py-2 border border-gray-700 text-center ${oppColor}`}>{oppVal}</td>
                                     </tr>
                                 ) : null
@@ -128,7 +130,7 @@ const ScoreTable: React.FC<Props> = ({ gameUserCtx }) => {
             </table>
             {(myScores.length > 1 && oppScores.length > 1) && (
                 <div className="bg-gray-900 rounded-lg p-4 border border-gray-700">
-                    <Line data={data} options={options} height={180} />
+                    <Line data={data} options={options} height={160} />
                 </div>
             )}
         </div>

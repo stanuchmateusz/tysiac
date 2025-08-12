@@ -18,6 +18,7 @@ If you want to create your own deck, create a new folder in GameClient/customs (
     - Lobby - team mixing
     - Game settings implementation 
 * Better AI
+* Game time
 
 ## Default Assets:
 [Sounds](https://pixabay.com) \

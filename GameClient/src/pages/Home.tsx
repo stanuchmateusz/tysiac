@@ -16,7 +16,7 @@ export default function Home() {
             MusicService.stopBackgroundMusic();
         };
     }, []);
-
+    
     return (
         <>
             <OptionsButton showOptions={() => setShowOptions(true)} />
