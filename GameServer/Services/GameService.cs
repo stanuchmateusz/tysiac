@@ -398,7 +398,7 @@ public class GameService
         {
             var winner = Round.CurrentBidWinner;
             Log.Debug("[{Room}] Player {Player} won auction", RoomCode, winner);
-            CurrentPhase = GamePhase.IncreaseBet;
+            CurrentPhase = settings.AllowRaise ? GamePhase.IncreaseBet : GamePhase.CardDistribution;
             MoveMusikToBindWinner(winner);
             SortCards(winner);
         }
@@ -678,7 +678,8 @@ public class GameService
             if (finalPoints >= Round.CurrentBet)
             {
                 Log.Debug("[{Room}] Team 1 managed to get required points {Points}/{BetAmount} ", RoomCode, finalPoints, Round.CurrentBet);
-                _pointsTeam1.Push(_pointsTeam1.Peek() + Round.CurrentBet);
+                var earnedPoints = settings.UnlimitedWin ? RoundTo10(finalPoints) : Round.CurrentBet;
+                _pointsTeam1.Push(_pointsTeam1.Peek() + earnedPoints);
             }
             else
             {
@@ -705,7 +706,8 @@ public class GameService
             if (finalPoints >= Round.CurrentBet)
             {
                 Log.Debug("[{Room}] Team 2 managed to get required points {Points}/{BetAmount} ", RoomCode, finalPoints, Round.CurrentBet);
-                _pointsTeam2.Push(_pointsTeam2.Peek() + Round.CurrentBet);
+                var earnedPoints = settings.UnlimitedWin ? RoundTo10(finalPoints) : Round.CurrentBet;
+                _pointsTeam2.Push(_pointsTeam2.Peek() + earnedPoints);
             }
             else
             {
