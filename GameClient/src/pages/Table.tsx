@@ -41,7 +41,7 @@ const GAME_STAGES: Record<number, string> = {
 
 const Table = () => {
     const navigate = useNavigate();
-    const {notify} = useNotification();
+    const { notify } = useNotification();
     const [message, setMessage] = useState("");
     const [showChat, setShowChat] = useState(false);
     const [hasNewMessage, setHasNewMessage] = useState(false);
@@ -52,6 +52,27 @@ const Table = () => {
     const [chatMessages, setChatMessages] = useState<ChatMessage[]>([{ nickname: "System", message: "Witaj w grze! Użyj czatu, aby komunikować się z innymi graczami." }]);
     const { gameCode } = useParams<{ gameCode: string }>();
 
+    const [timer, setTimer] = useState(0);
+    const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+    useEffect(() => {
+        // Start timer on mount
+        timerRef.current = setInterval(() => {
+            setTimer(prev => prev + 1);
+        }, 1000);
+
+        // Cleanup on unmount
+        return () => {
+            if (timerRef.current) clearInterval(timerRef.current);
+        };
+    }, []);
+
+    function formatTime(seconds: number) {
+        const mm = String(Math.floor(seconds / 60)).padStart(2, "0");
+        const ss = String(seconds % 60).padStart(2, "0");
+        return `${mm}:${ss}`;
+    }
+    
     useEffect(() => {
         const connection = GameService.connection;
 
@@ -79,13 +100,13 @@ const Table = () => {
         //Get game ctx -> backend returns UpdateContext
         if (connection.state === "Connected") {
             connection.invoke("GetGameContext", gameCode)
-            .catch(err => {
-                console.error("Error fetching game context:", err);
-                notify({
-                message: "Nie udało się pobrać kontekstu gry. Spróbuj ponownie.",
-                type: "error"
+                .catch(err => {
+                    console.error("Error fetching game context:", err);
+                    notify({
+                        message: "Nie udało się pobrać kontekstu gry. Spróbuj ponownie.",
+                        type: "error"
+                    });
                 });
-            });
         }
 
         return () => {
@@ -181,24 +202,24 @@ const Table = () => {
     // Function to pass the current bid
     const handlePass = () => {
         GameService.connection?.invoke("PassBid", gameCode)
-        .catch(err => {
-            console.error("Error passing bid:", err)
-            notify({
-                message: "Nie udało się przekazać zakładu. Spróbuj ponownie.",
-                type: "error"
+            .catch(err => {
+                console.error("Error passing bid:", err)
+                notify({
+                    message: "Nie udało się przekazać zakładu. Spróbuj ponownie.",
+                    type: "error"
+                });
             });
-        });
     };
     // Function to accept the current bet
     const handleAccept = () => {
         GameService.connection?.invoke("PlaceBid", gameCode, bet)
-        .catch(err => {
-            console.error("Error placing bid:", err)
-            notify({
-                message: "Nie udało się zaakceptować zakładu. Spróbuj ponownie.",
-                type: "error"
+            .catch(err => {
+                console.error("Error placing bid:", err)
+                notify({
+                    message: "Nie udało się zaakceptować zakładu. Spróbuj ponownie.",
+                    type: "error"
+                });
             });
-        });
     };
 
     const handleLeaveRoom = () => {
@@ -236,13 +257,13 @@ const Table = () => {
 
         if (gameCtx?.gamePhase === 2 && isCurrentPlayer && !playersGivenCard.includes(targetPlayerConnectionId)) {
             GameService.connection?.invoke("GiveCard", gameCode, draggedCardData.shortName, targetPlayerConnectionId)
-            .catch(err => {
-                console.error("Error giving card:", err);
-                notify({
-                    message: "Nie udało się przekazać karty. Spróbuj ponownie.",
-                    type: "error"
+                .catch(err => {
+                    console.error("Error giving card:", err);
+                    notify({
+                        message: "Nie udało się przekazać karty. Spróbuj ponownie.",
+                        type: "error"
+                    });
                 });
-            });
             setPlayersGivenCard(prev => [...prev, targetPlayerConnectionId]);
         }
         setIsDraggingCard(false);
@@ -261,13 +282,13 @@ const Table = () => {
         if (gameCtx?.gamePhase === 3 && isCurrentPlayer) {
             if (canPlayCard(card)) {
                 GameService.connection?.invoke("PlayCard", gameCode, card.shortName)
-                .catch(err => {
-                    console.error("Error playing card:", err);
-                    notify({
-                        message: "Nie udało się zagrać kartą. Spróbuj ponownie.",
-                        type: "error"
+                    .catch(err => {
+                        console.error("Error playing card:", err);
+                        notify({
+                            message: "Nie udało się zagrać kartą. Spróbuj ponownie.",
+                            type: "error"
+                        });
                     });
-                });
                 MusicService.playPlaceCard();
             } else {
                 console.warn("Cannot play this card by drag:", card.shortName);
@@ -309,8 +330,7 @@ const Table = () => {
 
         const hasStackColor = hand.every(c => c.suit !== firstCardInTake.suit);
         // If the player has no cards of the leading suit and there is a trump suit ...
-        if (hasStackColor && trumpSuit != null)
-        {
+        if (hasStackColor && trumpSuit != null) {
             var highestTrumpOnTable = gameCtx.cardsOnTable
                 .filter(c => c.suit == trumpSuit)
                 .sort((a, b) => b.points - a.points)[0] || null;
@@ -319,13 +339,12 @@ const Table = () => {
                 .filter(c => c.suit === trumpSuit)
                 .sort((a, b) => b.points - a.points)[0] || null;
 
-            if (myBestTrump != null && highestTrumpOnTable != null && myBestTrump.points <= highestTrumpOnTable.points)
-            {
+            if (myBestTrump != null && highestTrumpOnTable != null && myBestTrump.points <= highestTrumpOnTable.points) {
                 // Can't beat the highest trump on the table, but can play a lower trump or discard.
                 return true;
             }
         }
-        
+
         const hasTrump = hand.every(c => c.suit !== trumpSuit);
         console.debug("No same color or trump - can play any card", card.shortName, hasStackColor, hasTrump);
         return (hasStackColor && hasTrump) // nothing to play - can play any card
@@ -460,13 +479,18 @@ const Table = () => {
                                 <span className="text-pink-300 font-bold">{gameUserCtx?.opponentScore[0] ?? 0}</span>
                             </span>
                         </div>
-                        <button
-                            onClick={handleLeaveRoom}
-                            className="px-3 py-1.5 bg-gradient-to-r from-red-500 to-red-700 hover:from-red-600 hover:to-red-800 text-white rounded-lg font-semibold shadow flex items-center gap-2 transition-all duration-150 cursor-pointer"
-                            aria-label="Wyjdź"
-                        >
-                            Wyjdź <ImExit />
-                        </button>
+                        <div className="flex items-center gap-2">
+                            <span className="flex items-center gap-1 bg-gray-900/80 text-gray-200 px-3 py-1.5 rounded-lg font-semibold shadow text-base">
+                                ⏱ <span>{formatTime(timer)}</span>
+                            </span>
+                            <button
+                                onClick={handleLeaveRoom}
+                                className="px-3 py-1.5 bg-gradient-to-r from-red-500 to-red-700 hover:from-red-600 hover:to-red-800 text-white rounded-lg font-semibold shadow flex items-center gap-2 transition-all duration-150 cursor-pointer"
+                                aria-label="Wyjdź"
+                            >
+                                Wyjdź <ImExit />
+                            </button>
+                        </div>
                     </div>
 
                     {/* Main Table Area */}
