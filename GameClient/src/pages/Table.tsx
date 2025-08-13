@@ -21,6 +21,7 @@ import PassInfo from "../components/PassInfo";
 import ChatBox from "../components/modals/ChatBox";
 import DisconnectedModal from "../components/modals/DisconnectedModal";
 import OptionsButton from "../components/OptionButton";
+import { useNotification } from "../utils/NotificationContext";
 
 const CookieSkin = getCookie(deckSkinCookieName)
 const CARD_ASSETS_PATH = (CookieSkin === 'default' || CookieSkin === null) ? 'default' : "custom/" + CookieSkin
@@ -40,6 +41,7 @@ const GAME_STAGES: Record<number, string> = {
 
 const Table = () => {
     const navigate = useNavigate();
+    const {notify} = useNotification();
     const [message, setMessage] = useState("");
     const [showChat, setShowChat] = useState(false);
     const [hasNewMessage, setHasNewMessage] = useState(false);
@@ -77,6 +79,13 @@ const Table = () => {
         //Get game ctx -> backend returns UpdateContext
         if (connection.state === "Connected") {
             connection.invoke("GetGameContext", gameCode)
+            .catch(err => {
+                console.error("Error fetching game context:", err);
+                notify({
+                message: "Nie udało się pobrać kontekstu gry. Spróbuj ponownie.",
+                type: "error"
+                });
+            });
         }
 
         return () => {
@@ -92,6 +101,7 @@ const Table = () => {
     const maxBet = 400;
     const [bet, setBet] = useState(minBet);
 
+    //debugging
     useEffect(() => {
         console.debug(
             "Table rendered with gameCtx:", gameCtx,
@@ -100,6 +110,7 @@ const Table = () => {
 
     const isCurrentPlayer = gameCtx?.currentPlayer.connectionId === GameService.connection?.connectionId;
 
+    //sound logic
     useEffect(() => {
         if (isCurrentPlayer) {
             MusicService.playBell();
@@ -146,7 +157,13 @@ const Table = () => {
     const sendMessage = () => {
         if (message.trim()) {
             GameService.connection?.invoke("SendMessage", gameCode, message)
-                .catch(err => console.error("Error sending message:", err));
+                .catch(err => {
+                    console.error("Error sending message:", err)
+                    notify({
+                        message: "Nie udało się wysłać wiadomości. Spróbuj ponownie.",
+                        type: "error"
+                    });
+                });
             setMessage("");
         }
     };
@@ -161,20 +178,31 @@ const Table = () => {
     const handleRaise = () => setBet(bet + 10);
     const handleLower = () => setBet(bet > minBet ? bet - 10 : bet);
 
-    // Function to pass the current
+    // Function to pass the current bid
     const handlePass = () => {
         GameService.connection?.invoke("PassBid", gameCode)
-        console.log("Pass bid");
+        .catch(err => {
+            console.error("Error passing bid:", err)
+            notify({
+                message: "Nie udało się przekazać zakładu. Spróbuj ponownie.",
+                type: "error"
+            });
+        });
     };
     // Function to accept the current bet
     const handleAccept = () => {
         GameService.connection?.invoke("PlaceBid", gameCode, bet)
-        console.log("Accept bid:", bet);
+        .catch(err => {
+            console.error("Error placing bid:", err)
+            notify({
+                message: "Nie udało się zaakceptować zakładu. Spróbuj ponownie.",
+                type: "error"
+            });
+        });
     };
 
     const handleLeaveRoom = () => {
-        GameService.connection?.invoke("LeaveGame", gameCode)
-            .catch(err => console.error("Error leaving game:", err));
+        GameService.connection?.invoke("LeaveGame", gameCode) //ignore errors, just leave
         navigate("/", { replace: true })
     }
 
@@ -207,7 +235,14 @@ const Table = () => {
         }
 
         if (gameCtx?.gamePhase === 2 && isCurrentPlayer && !playersGivenCard.includes(targetPlayerConnectionId)) {
-            GameService.connection?.invoke("GiveCard", gameCode, draggedCardData.shortName, targetPlayerConnectionId);
+            GameService.connection?.invoke("GiveCard", gameCode, draggedCardData.shortName, targetPlayerConnectionId)
+            .catch(err => {
+                console.error("Error giving card:", err);
+                notify({
+                    message: "Nie udało się przekazać karty. Spróbuj ponownie.",
+                    type: "error"
+                });
+            });
             setPlayersGivenCard(prev => [...prev, targetPlayerConnectionId]);
         }
         setIsDraggingCard(false);
@@ -225,7 +260,15 @@ const Table = () => {
 
         if (gameCtx?.gamePhase === 3 && isCurrentPlayer) {
             if (canPlayCard(card)) {
-                GameService.connection?.invoke("PlayCard", gameCode, card.shortName);
+                GameService.connection?.invoke("PlayCard", gameCode, card.shortName)
+                .catch(err => {
+                    console.error("Error playing card:", err);
+                    notify({
+                        message: "Nie udało się zagrać kartą. Spróbuj ponownie.",
+                        type: "error"
+                    });
+                });
+                MusicService.playPlaceCard();
             } else {
                 console.warn("Cannot play this card by drag:", card.shortName);
             }
@@ -242,7 +285,7 @@ const Table = () => {
         }
     }, [gameCtx?.cardsOnTable, gameCtx?.currentPlayer]);
 
-    // (trumf serce) ja koniczyna 9 serce 10 serce ma jopka i nie ma do koloru
+    // (trumf serce) ja koniczyna 9 serce 10 serce ma jopka i nie ma do koloru - więc musi dać 
     function canPlayCard(card: Card): boolean {
         if (!gameCtx || !gameUserCtx) return true;
         if (gameCtx.gamePhase !== 3) return true;

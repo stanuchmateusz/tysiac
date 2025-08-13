@@ -19,7 +19,7 @@ If you want to create your own deck, create a new folder in GameClient/customs (
     - Game settings implementation 
 * Better AI
 * Game time
-* lobby leader doesnt change on page close
+* lobby leader doesnt change on page closed
 
 ## Default Assets:
 [Sounds](https://pixabay.com) \

@@ -46,7 +46,7 @@ public class GameService
         ShuffleDeck(
             InitCards()
             )
-            .ForEach(card => _deck.Push(card));
+            .ForEach(_deck.Push);
         InitGame(lobbyCtx);
     }
 

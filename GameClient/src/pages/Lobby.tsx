@@ -193,6 +193,10 @@ const Lobby = () => {
         GameService.connection?.invoke("UpdateRoomSettings", gameCode, newSettings)
             .catch(err => {
                 console.error("Error updating game settings:", err);
+                notify({
+                    message: "Błąd podczas aktualizacji ustawień gry. Spróbuj ponownie.",
+                    type: "error"
+                });
             });
         console.debug("Settings changed:", newSettings);
     };

@@ -11,10 +11,10 @@ const StartGame = ({ code }: { code: string | undefined }) => {
     const [roomCode, setRoomCode] = useState(code ?? "");
     const [isReady, setIsReady] = useState(false);
     const [connectionError, setConnectionError] = useState<string | null>(null);
-    const {notify} = useNotification()
+    const { notify } = useNotification()
 
     const navigate = useNavigate();
-   
+
     useEffect(() => {
         if (!GameService.connection || GameService.connection.state === signalR.HubConnectionState.Disconnected) {
             GameService.constructor()
@@ -30,20 +30,27 @@ const StartGame = ({ code }: { code: string | undefined }) => {
             console.log("Reconnect state code:", state)
             navigate("/game/" + state, { replace: true });
         })
+        
+            GameService.onLobbyCreated((roomCode: string) => {
+                navigate(`/lobby/${roomCode}`);
+            });
 
-        GameService.onLobbyCreated((roomCode: string) => {
-            navigate(`/lobby/${roomCode}`);
-        });
-
-        GameService.onLobbyJoined((roomCode: string) => {
-            navigate(`/lobby/${roomCode}`);
-        });
-
+            GameService.onLobbyJoined((roomCode: string) => {
+                navigate(`/lobby/${roomCode}`);
+            })
+        
         const ensureConnection = async () => {
-            if (GameService.getConnectionState() !== window.signalR.HubConnectionState.Connected) {
-                await GameService.startConnection();
+            try {
+                if (GameService.getConnectionState() !== window.signalR.HubConnectionState.Connected) {
+
+                    await GameService.startConnection();
+                }
+                setIsReady(true);
+            } catch (error) {
+                console.error("Błąd podczas nawiązywania połączenia z serwerem:", error);
+                setConnectionError("Błąd podczas nawiązywania połączenia z serwerem. Sprawdź połączenie internetowe i spróbuj ponownie.");
+                setIsReady(false);
             }
-            setIsReady(true);
         };
 
         if (window.signalR && window.signalR.HubConnectionState) {
@@ -136,7 +143,13 @@ const StartGame = ({ code }: { code: string | undefined }) => {
                 });
             });
     }
-
+    useEffect(() => {
+        if (GameService.getConnectionState() === signalR.HubConnectionState.Connected) {
+            setIsReady(true);
+        } else {
+            setIsReady(false);
+        }
+    }, [GameService.getConnectionState()]);
     const validateNickname = (nickname: string) => {
         return nickname.length >= 3 &&
             nickname.length <= 25 &&
@@ -203,7 +216,7 @@ const StartGame = ({ code }: { code: string | undefined }) => {
                         Dołącz do gry
                     </button>
                 </div>
-                
+
                 <div className={`px-4 py-2 text-xs font-semibold select-none transition-all duration-200 ${isReady && !connectionError ? 'text-gray-300' : 'text-red-200 animate-pulse'}`}>
                     {isReady && !connectionError ? 'Połączono z serwerem' : 'Brak połączenia z serwerem'}
                 </div>

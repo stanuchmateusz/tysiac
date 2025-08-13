@@ -175,7 +175,7 @@ public static class AiService
     {
         
         var botHand = userCtx.Hand;
-        const int maxBid = 250;
+        const int maxBid = 220;
         const double halfTrumpPercentage = 0.3;
         const double randomieRisc = 0.2;
         var trumps = CardUtils.GetTrumps(botHand);

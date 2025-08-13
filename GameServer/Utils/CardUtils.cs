@@ -1,6 +1,5 @@
 using GameServer.Models;
 using GameServer.Models.Enums;
-using Serilog;
 
 namespace GameServer.Utils;
 
@@ -34,7 +33,8 @@ public static class CardUtils
     /// <exception cref="ArgumentNullException">Thrown if the <paramref name="cards"/> collection is null.</exception>
     public static List<CardSuit> GetTrumps(IEnumerable<ICard> cards)
     {
-        if (cards == null) throw new ArgumentNullException(nameof(cards));  
+        ArgumentNullException.ThrowIfNull(cards);
+        
         List<CardSuit> cardSuits = [];
         foreach (var g in cards.GroupBy(card => card.Suit))
         {
@@ -61,8 +61,11 @@ public static class CardUtils
     /// <param name="cardsOnTable">The list of cards already played in the current trick.</param>
     /// <param name="roundSuit">The trump suit for the current round. Can be <c>null</c> if no trump is active.</param>
     /// <returns><c>true</c> if the <paramref name="cardToPlay"/> is a valid move according to the game rules; otherwise, <c>false</c>.</returns>
-    public static bool CanPlay(ICard cardToPlay, ICard firstOnStack, List<ICard> playersCards, List<ICard> cardsOnTable, CardSuit? roundSuit )
-    {
+    public static bool CanPlay(ICard cardToPlay, ICard? firstOnStack, List<ICard> playersCards, List<ICard> cardsOnTable, CardSuit? roundSuit )
+    {   if (firstOnStack == null)
+        {
+            return true; // If no card has been played yet, any card can be played.
+        }
         var handWithoutPlayedCard = playersCards.Where(card => card != cardToPlay).ToArray();
         var minReqPoints = cardsOnTable.Where(card => card.Suit == firstOnStack.Suit).MaxBy(card => card.Points)!.Points;
         
