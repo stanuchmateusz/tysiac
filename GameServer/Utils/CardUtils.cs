@@ -62,7 +62,8 @@ public static class CardUtils
     /// <param name="roundSuit">The trump suit for the current round. Can be <c>null</c> if no trump is active.</param>
     /// <returns><c>true</c> if the <paramref name="cardToPlay"/> is a valid move according to the game rules; otherwise, <c>false</c>.</returns>
     public static bool CanPlay(ICard cardToPlay, ICard? firstOnStack, List<ICard> playersCards, List<ICard> cardsOnTable, CardSuit? roundSuit )
-    {   if (firstOnStack == null)
+    {
+        if (firstOnStack == null)
         {
             return true; // If no card has been played yet, any card can be played.
         }
@@ -78,6 +79,23 @@ public static class CardUtils
         if (isTrumpValid && handWithoutPlayedCard.All(card => card.Suit != firstOnStack.Suit))
         {
             return true;
+        }
+        // If the player has no cards of the leading suit and there is a trump suit ...
+        if (playersCards.All(c => c.Suit != firstOnStack.Suit) && roundSuit != null)
+        {
+            var highestTrumpOnTable = cardsOnTable
+                .Where(c => c.Suit == roundSuit)
+                .MaxBy(c => c.Points);
+
+            var myBestTrump = playersCards
+                .Where(c => c.Suit == roundSuit)
+                .MaxBy(c => c.Points);
+
+            if (myBestTrump != null && highestTrumpOnTable != null && myBestTrump.Points <= highestTrumpOnTable.Points)
+            {
+                // Can't beat the highest trump on the table, but can play a lower trump or discard.
+                return true;
+            }
         }
         var noOtherOption =
             playersCards.All(c => c.Suit != firstOnStack.Suit) &&

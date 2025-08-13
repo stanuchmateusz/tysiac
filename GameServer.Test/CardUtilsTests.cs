@@ -106,7 +106,7 @@ public class CardUtilsTests
     }
     
     [Fact]
-    public void CanPlay_WhenPlayerHasATrumpWithLowerValueThatWasAllReadyPlayedAndLeadingCardIsDifferentSuit_ShouldReturnTrue()
+    public void CanPlay_WhenPlayerHasATrumpWithLowerValueThatWasAllreadyPlayedAndLeadingCardIsDifferentSuit_ShouldReturnTrue()
     {
         // arrange
         var playerHand = new List<ICard>

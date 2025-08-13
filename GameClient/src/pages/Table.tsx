@@ -308,6 +308,24 @@ const Table = () => {
         }
 
         const hasStackColor = hand.every(c => c.suit !== firstCardInTake.suit);
+        // If the player has no cards of the leading suit and there is a trump suit ...
+        if (hasStackColor && trumpSuit != null)
+        {
+            var highestTrumpOnTable = gameCtx.cardsOnTable
+                .filter(c => c.suit == trumpSuit)
+                .sort((a, b) => b.points - a.points)[0] || null;
+
+            var myBestTrump = hand
+                .filter(c => c.suit === trumpSuit)
+                .sort((a, b) => b.points - a.points)[0] || null;
+
+            if (myBestTrump != null && highestTrumpOnTable != null && myBestTrump.points <= highestTrumpOnTable.points)
+            {
+                // Can't beat the highest trump on the table, but can play a lower trump or discard.
+                return true;
+            }
+        }
+        
         const hasTrump = hand.every(c => c.suit !== trumpSuit);
         console.debug("No same color or trump - can play any card", card.shortName, hasStackColor, hasTrump);
         return (hasStackColor && hasTrump) // nothing to play - can play any card
