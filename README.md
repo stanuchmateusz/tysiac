@@ -18,6 +18,8 @@ If you want to create your own deck, create a new folder in GameClient/customs (
 * Better AI
 * If game starts with bot players, table doesn't load until it's human player's turn
 * lobby leader sometimes doesnt change on page closed
+* remake drag and drop
+* remake wyświetlanie kart (card service?)
 
 ## Default Assets:
 [Sounds](https://pixabay.com) \

@@ -72,7 +72,7 @@ const Table = () => {
         const ss = String(seconds % 60).padStart(2, "0");
         return `${mm}:${ss}`;
     }
-    
+
     useEffect(() => {
         const connection = GameService.connection;
 
@@ -176,7 +176,7 @@ const Table = () => {
 
     // Function to send a chat message
     const sendMessage = () => {
-        if (message.trim()) {
+        if (message.trim() && message.length > 0 && message.length <= 512) {
             GameService.connection?.invoke("SendMessage", gameCode, message)
                 .catch(err => {
                     console.error("Error sending message:", err)
@@ -186,6 +186,11 @@ const Table = () => {
                     });
                 });
             setMessage("");
+        } else {
+            notify({
+                message: "Wiadomość musi mieć od 1 do 512 znaków.",
+                type: "error"
+            });
         }
     };
     // Handle Enter key press to send message

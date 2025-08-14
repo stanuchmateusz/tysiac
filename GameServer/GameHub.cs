@@ -278,6 +278,11 @@ public class GameHub(GameManager gameManager, LobbyManager lobbyManager)
                 throw new HubException(PlayerNotFoundExceptionMessage + roomCode);
         }
 
+        if (message.Length > 512)
+        {
+            throw new HubException("Message too long, max length is 512 characters");
+        }
+        
         await Clients.Groups(roomCode).SendAsync(MessageReceiveMethodName, new { nickname = player.Nickname, message });
     }
 

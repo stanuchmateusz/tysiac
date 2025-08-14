@@ -44,7 +44,10 @@ const Lobby = () => {
 
     useEffect(() => {
         if (chatMessagesEndRef.current) {
-            chatMessagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+            chatMessagesEndRef.current.scrollIntoView({
+                behavior: "smooth",
+                block: "nearest"
+            })
         }
     }, [chatMessages]);
 
@@ -132,10 +135,15 @@ const Lobby = () => {
         const input = chatInputRef.current;
         if (input) {
             const message = input.value.trim();
-            if (message) {
+            if (message && message.length > 0 && message.length <= 512) {
                 GameService.connection?.invoke("SendMessage", gameCode, message);
                 input.value = '';
                 setChatAttempts([...recent, now]);
+            } else {
+                notify({
+                    message: "Wiadomość musi mieć od 1 do 512 znaków.",
+                    type: "error"
+                });
             }
         }
     };

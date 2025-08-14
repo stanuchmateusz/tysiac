@@ -99,7 +99,7 @@ class MusicServiceController {
     }
 
     playPlaceCard() {
-        if (this.placeCardSound) {
+        if (this.placeCardSound && !this.placeCardSound.playing()) {
             this.placeCardSound.volume(this.getSoundVolumeFromCookies())
             this.placeCardSound.play();
         }
