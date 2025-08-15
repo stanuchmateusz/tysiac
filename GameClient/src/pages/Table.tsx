@@ -12,8 +12,8 @@ import PlayerPosition from "../components/PlayerPosition";
 import CardHand from "../components/CardHand";
 import Options from "../components/Options";
 import MusicService from "../services/MusicService";
-import { cardSizeCookieName, deckSkinCookieName, getCookie } from "../utils/Cookies";
-import { SUIT_ICONS } from "../utils/CardConsts";
+
+import { canPlayCard, SUIT_ICONS } from "../utils/CardUtils";
 import TrumpModal from "../components/modals/TrumpModal";
 import EndGameModal from "../components/modals/EndGameModal";
 import ScoreModal from "../components/modals/ScoreModal";
@@ -23,9 +23,8 @@ import DisconnectedModal from "../components/modals/DisconnectedModal";
 import OptionsButton from "../components/OptionButton";
 import { useNotification } from "../utils/NotificationContext";
 
-const CookieSkin = getCookie(deckSkinCookieName)
-const CARD_ASSETS_PATH = (CookieSkin === 'default' || CookieSkin === null) ? 'default' : "custom/" + CookieSkin
-export const CARD_SVG_PATH = import.meta.env.VITE_ASSETS_PATH + `${CARD_ASSETS_PATH}/` || "/public/assets/default/";
+import TableCards from "../components/TableCards";
+import Timer from "../components/Timer";
 
 
 const GAME_STAGES: Record<number, string> = {
@@ -51,29 +50,10 @@ const Table = () => {
     const [updateCtx, setUpdateContext] = useState<UpdateContext | null>(null);
     const [chatMessages, setChatMessages] = useState<ChatMessage[]>([{ nickname: "System", message: "Witaj w grze! Użyj czatu, aby komunikować się z innymi graczami." }]);
     const { gameCode } = useParams<{ gameCode: string }>();
-
-    const [timer, setTimer] = useState(0);
-    const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    const [canPlayCardMap, setCanPlayCardMap] = useState<Map<string, boolean>>(new Map());
 
     useEffect(() => {
-        // Start timer on mount
-        timerRef.current = setInterval(() => {
-            setTimer(prev => prev + 1);
-        }, 1000);
-
-        // Cleanup on unmount
-        return () => {
-            if (timerRef.current) clearInterval(timerRef.current);
-        };
-    }, []);
-
-    function formatTime(seconds: number) {
-        const mm = String(Math.floor(seconds / 60)).padStart(2, "0");
-        const ss = String(seconds % 60).padStart(2, "0");
-        return `${mm}:${ss}`;
-    }
-
-    useEffect(() => {
+        console.debug("Table component mounted, gameCode:", gameCode);
         const connection = GameService.connection;
 
         if (!connection || connection.state === "Disconnected") {
@@ -284,8 +264,8 @@ const Table = () => {
         }
         const card = draggedCardData;
 
-        if (gameCtx?.gamePhase === 3 && isCurrentPlayer) {
-            if (canPlayCard(card)) {
+        if (gameUserCtx && gameCtx?.gamePhase === 3 && isCurrentPlayer) {
+            if (canPlayCard(card, gameCtx, gameUserCtx)) {
                 GameService.connection?.invoke("PlayCard", gameCode, card.shortName)
                     .catch(err => {
                         console.error("Error playing card:", err);
@@ -304,140 +284,25 @@ const Table = () => {
     };
     // END: Handle card drag and drop
     const firstPlayerInCurrentTake = useRef<string>(gameUserCtx?.me.connectionId || "");
-
     useEffect(() => {
         if (gameCtx && gameCtx.cardsOnTable && gameCtx.cardsOnTable.length === 0 && gameCtx.currentPlayer) {
             firstPlayerInCurrentTake.current = gameCtx.currentPlayer.connectionId;
         }
+        if (gameCtx && gameUserCtx) {
+            const playableCards = new Map<string, boolean>();
+            gameUserCtx.hand.forEach(card => {
+                const isPlayable = canPlayCard(card, gameCtx, gameUserCtx);
+                playableCards.set(card.shortName, isPlayable);
+            });
+            setCanPlayCardMap(playableCards);
+        }
     }, [gameCtx?.cardsOnTable, gameCtx?.currentPlayer]);
 
     // (trumf serce) ja koniczyna 9 serce 10 serce ma jopka i nie ma do koloru - więc musi dać 
-    function canPlayCard(card: Card): boolean {
-        if (!gameCtx || !gameUserCtx) return true;
-        if (gameCtx.gamePhase !== 3) return true;
-        if (!gameCtx.cardsOnTable || gameCtx.cardsOnTable.length === 0) return true; // table is empty, can play any card
-        const firstCardInTake = gameCtx.cardsOnTable[0];
-        const trumpSuit = gameCtx.trumpSuit;
-        const hand = gameUserCtx.hand;
-        const handWithoutPlayedCard = hand.filter(c => c != card)
-
-        const minReqPoint = Math.max(...gameCtx.cardsOnTable.filter(c => c.suit == firstCardInTake.suit).map(o => o.points)) ?? firstCardInTake.points;
-
-        if (card.suit === firstCardInTake.suit && (card.points > minReqPoint || !(handWithoutPlayedCard.find(c => (c.suit == card.suit && c.points > minReqPoint))))) { //i nie moze przebić inną 
-            console.debug("Same color - can play", card.shortName);
-            return true;
-        };
-
-        if (card.suit === trumpSuit && !handWithoutPlayedCard.find(c => c.suit == firstCardInTake.suit)) { //player has trump card and no same color cards
-            console.debug("Trump card - can play", card.shortName, trumpSuit);
-            return true;
-        }
-
-        const hasStackColor = hand.every(c => c.suit !== firstCardInTake.suit);
-        // If the player has no cards of the leading suit and there is a trump suit ...
-        if (hasStackColor && trumpSuit != null) {
-            var highestTrumpOnTable = gameCtx.cardsOnTable
-                .filter(c => c.suit == trumpSuit)
-                .sort((a, b) => b.points - a.points)[0] || null;
-
-            var myBestTrump = hand
-                .filter(c => c.suit === trumpSuit)
-                .sort((a, b) => b.points - a.points)[0] || null;
-
-            if (myBestTrump != null && highestTrumpOnTable != null && myBestTrump.points <= highestTrumpOnTable.points) {
-                // Can't beat the highest trump on the table, but can play a lower trump or discard.
-                return true;
-            }
-        }
-
-        const hasTrump = hand.every(c => c.suit !== trumpSuit);
-        console.debug("No same color or trump - can play any card", card.shortName, hasStackColor, hasTrump);
-        return (hasStackColor && hasTrump) // nothing to play - can play any card
-    }
+    
     // Modal for disconnected players
     const showDisconnectedModal = !!(gameCtx && gameCtx.disconnectedPlayers?.length > 0);
-
-    function renderCardsOnTheTable(): React.ReactNode {
-        return (() => {
-            if (!gameCtx?.cardsOnTable?.length || !gameUserCtx) return null;
-
-            const playerOrder = [
-                gameUserCtx.me?.connectionId,
-                gameUserCtx.leftPlayer?.connectionId,
-                gameUserCtx.teammate?.connectionId,
-                gameUserCtx.rightPlayer?.connectionId
-            ];
-
-            const leaderId = firstPlayerInCurrentTake.current;
-            console.debug("Leader ID:", leaderId, "Player Order:", playerOrder);
-            var indexOfLeader = leaderId ? playerOrder.indexOf(leaderId) : -1;
-
-            if (indexOfLeader === -1 && gameCtx.cardsOnTable.length > 0) {
-                console.error("Leader now found in playerOrder or firstPlayerInTrick.current is not set!");
-                indexOfLeader = 0; // Fallback to first player in order
-                // return null;
-            }
-
-            const slotNames = ['bottom', 'left', 'top', 'right'];
-
-            // Cards on the table, positioned based on player order
-            return gameCtx.cardsOnTable.map((card, cardIndexInTrick) => {
-                const style: React.CSSProperties = {
-                    position: 'absolute',
-                    left: '50%',
-                    top: '50%',
-                    transform: 'translate(-50%, -50%)',
-                    zIndex: 10 + cardIndexInTrick,
-                };
-                let rotation = 0;
-                let offsetX = 0, offsetY = 0;
-
-
-                const playerVisualIndex = (indexOfLeader + cardIndexInTrick) % playerOrder.length;
-                const pos = slotNames[playerVisualIndex];
-
-                const cardSize = getCookie(cardSizeCookieName) || 'm';
-
-                const CARD_SIZE: Record<string, string> = {
-                    "xs": "w-12 h-17",
-                    "s": "w-14 h-20",
-                    "m": "w-16 h-24",
-                    "l": "w-22 h-32",
-                    "xl": "w-24 h-34",
-                    "xxl": "w-28 h-40",
-                    "xxxl": "w-32 h-44"
-                };
-                const ADDITIONAL_OFFSET: Record<string, number> = {
-                    "xs": -20,
-                    "s": -10,
-                    "m": 0,
-                    "l": 30,
-                    "xl": 40,
-                    "xxl": 60,
-                    "xxxl": 80
-                };
-
-                if (pos === 'bottom') { offsetY = 90 + ADDITIONAL_OFFSET[cardSize]; rotation = 0; }
-                if (pos === 'left') { offsetX = -90 - ADDITIONAL_OFFSET[cardSize]; rotation = 90; }
-                if (pos === 'top') { offsetY = -90 - ADDITIONAL_OFFSET[cardSize]; rotation = 180; }
-                if (pos === 'right') { offsetX = 90 + ADDITIONAL_OFFSET[cardSize]; rotation = -90; }
-
-                style.transform = `translate(-50%, -50%) translate(${offsetX}px, ${offsetY}px) rotate(${rotation}deg)`;
-
-                return (
-                    <img
-                        key={card.shortName + cardIndexInTrick}
-                        src={`${CARD_SVG_PATH}${card.shortName}.svg`}
-                        alt={card.shortName}
-                        style={style}
-                        className={`drop-shadow-lg ${CARD_SIZE[cardSize] || CARD_SIZE['m']} rounded-md`}
-                    />
-                );
-            });
-        })();
-
-    }
-
+    console.log("Table render", performance.now());
     return (
         <>
             <OptionsButton showOptions={() => setShowOptions(true)} />
@@ -485,9 +350,7 @@ const Table = () => {
                             </span>
                         </div>
                         <div className="flex items-center gap-2">
-                            <span className="flex items-center gap-1 bg-gray-900/80 text-gray-200 px-3 py-1.5 rounded-lg font-semibold shadow text-base">
-                                ⏱ <span>{formatTime(timer)}</span>
-                            </span>
+                            <Timer />
                             <button
                                 onClick={handleLeaveRoom}
                                 className="px-3 py-1.5 bg-gradient-to-r from-red-500 to-red-700 hover:from-red-600 hover:to-red-800 text-white rounded-lg font-semibold shadow flex items-center gap-2 transition-all duration-150 cursor-pointer"
@@ -590,7 +453,11 @@ const Table = () => {
                                         <span className="flex items-center justify-center h-full text-white/70 text-sm">Upuść tutaj</span>
                                     )}
                                 </div>
-                                {renderCardsOnTheTable()}
+                                <TableCards
+                                    gameCtx={gameCtx}
+                                    gameUserCtx={gameUserCtx}
+                                    firstPlayerInCurrentTake={firstPlayerInCurrentTake}
+                                />
                             </div>
                             {/* Card Hand */}
                             <div className="absolute bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2 w-full flex justify-center">
@@ -599,7 +466,7 @@ const Table = () => {
                                     onCardDragStart={handleCardDragStart}
                                     onCardDragEnd={handleCardDragEnd}
                                     disabled={!isCurrentPlayer || ![1, 2, 3, 5].includes(gameCtx?.gamePhase ?? -1) || gameCtx?.gamePhase === 5} // Cards are draggable if phase 2 or 3 and current player
-                                    canPlayCard={canPlayCard}
+                                    playableCards={canPlayCardMap}
                                 />
                             </div>
                             <PassInfo

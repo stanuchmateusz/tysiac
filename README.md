@@ -12,14 +12,14 @@ However if you want to run it without docker then keep in mind that in order to 
 ## Custom decks
 If you want to create your own deck, create a new folder in GameClient/customs (can be changed in "docker-compose.yml") and fill it with 24 svgs (just like "custom1")
 ## Todo:
-* Bug when reconnecting, position of cards on the table is wrong
+* Bug when reconnecting, position of cards on the table is wrong (track who started the take?)
 * Rebuild lobby backend:
     - Lobby - team mixing
 * Better AI
 * If game starts with bot players, table doesn't load until it's human player's turn
-* lobby leader sometimes doesnt change on page closed
-* remake drag and drop
-* remake wyświetlanie kart (card service?)
+* Lobby leader sometimes doesnt change on page closed - check why
+* Remake drag and drop
+* Card playing queue system
 
 ## Default Assets:
 [Sounds](https://pixabay.com) \

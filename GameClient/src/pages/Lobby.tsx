@@ -1,8 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { GrHide, GrView } from "react-icons/gr";
 import { ImExit } from "react-icons/im";
-import { IoMdAddCircle } from "react-icons/io";
-import { IoMdSend } from "react-icons/io";
+import { IoMdAddCircle, IoMdSend } from "react-icons/io";
 import { FaCrown } from "react-icons/fa";
 import GameService from "../services/GameService";
 import { useNavigate, useParams } from "react-router-dom";
@@ -13,13 +12,11 @@ import MusicService from "../services/MusicService";
 import { setCookie, userIdCookieName } from "../utils/Cookies";
 import OptionsButton from "../components/OptionButton";
 import { useNotification } from "../utils/NotificationContext";
-
-
-
+import CardComponent from "../components/CardComponent";
 
 
 const Lobby = () => {
-    const {notify} = useNotification();
+    const { notify } = useNotification();
     const navigate = useNavigate();
     // --- Cooldown states ---
     const [chatCooldown, setChatCooldown] = useState(false);
@@ -37,6 +34,7 @@ const Lobby = () => {
     const [lobbyContext, setLobbyContext] = useState<LobbyContext | null>(null);
     const [me, setMe] = useState<Player | null>(null);
     const chatMessagesEndRef = useRef<HTMLDivElement>(null);
+
     if (!gameCode) {
         navigate("/", { replace: true });
         return;
@@ -106,6 +104,10 @@ const Lobby = () => {
             connection.off("LobbyUpdate", handleRoomUpdate);
         };
     }, [GameService.connection]);
+    const gameSettings = lobbyContext?.gameSettings || {
+        unlimitedWin: false,
+        allowRaise: false
+    };
 
     const host = lobbyContext?.host ?? null;
     const users: Player[] = lobbyContext?.players ?? [];
@@ -148,15 +150,15 @@ const Lobby = () => {
         }
     };
     const JoinTeamHandler = (isTeam1: boolean, gameCode: string) => {
-    GameService.connection?.invoke("JoinTeam", gameCode, isTeam1)
-        .catch(err => {
-            notify({
-                message: "Błąd podczas dołączania do drużyny. Spróbuj ponownie.",
-                type: "error"
+        GameService.connection?.invoke("JoinTeam", gameCode, isTeam1)
+            .catch(err => {
+                notify({
+                    message: "Błąd podczas dołączania do drużyny. Spróbuj ponownie.",
+                    type: "error"
+                });
+                console.error(`Error joining team:`, err);
             });
-            console.error(`Error joining team:`, err);
-        });
-};
+    };
     const handleJoinTeam = (isTeam1: boolean) => {
         const now = Date.now();
         const recent = teamAttempts.filter(ts => now - ts < 10000);
@@ -292,8 +294,8 @@ const Lobby = () => {
                                                 ) : (
                                                     <button
                                                         className={`w-full px-4 py-2 rounded font-semibold shadow flex items-center justify-center gap-2 ${team1.length === 2 || teamCooldown
-                                                                ? "bg-gray-500 cursor-not-allowed opacity-70"
-                                                                : "bg-gradient-to-r from-blue-400 to-blue-700 hover:from-blue-500 hover:to-blue-800 text-white cursor-pointer"
+                                                            ? "bg-gray-500 cursor-not-allowed opacity-70"
+                                                            : "bg-gradient-to-r from-blue-400 to-blue-700 hover:from-blue-500 hover:to-blue-800 text-white cursor-pointer"
                                                             }`}
                                                         disabled={team1.length === 2 || teamCooldown}
                                                         onClick={() => handleJoinTeam(true)}
@@ -342,8 +344,8 @@ const Lobby = () => {
                                                 ) : (
                                                     <button
                                                         className={`w-full px-4 py-2 rounded font-semibold shadow flex items-center justify-center gap-2 ${team2.length === 2 || teamCooldown
-                                                                ? "bg-gray-500 cursor-not-allowed opacity-70"
-                                                                : "bg-gradient-to-r from-pink-400 to-pink-700 hover:from-pink-500 hover:to-pink-800 text-white cursor-pointer"
+                                                            ? "bg-gray-500 cursor-not-allowed opacity-70"
+                                                            : "bg-gradient-to-r from-pink-400 to-pink-700 hover:from-pink-500 hover:to-pink-800 text-white cursor-pointer"
                                                             }`}
                                                         disabled={team2.length === 2 || teamCooldown}
                                                         onClick={() => handleJoinTeam(false)}
@@ -423,42 +425,66 @@ const Lobby = () => {
                                         Dodaj boty</button>)
                                 }
                             </div>
-                            <GameSettingsBox isHost={IsHost()} onChange={handleSettingsChange} settings={lobbyContext?.gameSettings} />
+                            <GameSettingsBox isHost={IsHost()} onChange={handleSettingsChange} settings={gameSettings} />
 
                         </div>
-                        <div className="w-full md:w-80 flex flex-col bg-gray-800 p-3 rounded-lg  min-h-80 max-h-80">
-                            <h2 className="text-2xl font-semibold mb-2">Chat</h2>
-                            <div className="flex-1 overflow-y-auto mb-2">
-                                {chatMessages.map((msg, index) => (
-                                    <div key={index} className="mb-2">
-                                        {index == 0 ?
-                                            <i><strong>{msg.nickname}:</strong> {msg.message}</i> :
-                                            <><strong>{msg.nickname}:</strong> {msg.message}</>
-                                        }
-                                    </div>
-                                ))}
-                                <div ref={chatMessagesEndRef} />
+                        <div>
+                            <div className="w-full md:w-80 flex flex-col bg-gray-800 p-3 rounded-lg  min-h-80 max-h-80">
+                                <h2 className="text-2xl font-semibold mb-2">Chat</h2>
+                                <div className="flex-1 overflow-y-auto mb-2">
+                                    {chatMessages.map((msg, index) => (
+                                        <div key={index} className="mb-2">
+                                            {index == 0 ?
+                                                <i><strong>{msg.nickname}:</strong> {msg.message}</i> :
+                                                <><strong>{msg.nickname}:</strong> {msg.message}</>
+                                            }
+                                        </div>
+                                    ))}
+                                    <div ref={chatMessagesEndRef} />
+                                </div>
+                                <form className="flex gap-2 mt-2" onSubmit={e => { e.preventDefault(); handleSendMessage(); }}>
+                                    <input
+                                        type="text"
+                                        placeholder="Wiadomość..."
+                                        className="w-full p-2 border border-gray-700 rounded bg-neutral-800 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
+                                        name="chatInput"
+                                        ref={chatInputRef}
+                                        disabled={chatCooldown}
+                                        autoComplete="off"
+                                    />
+                                    <button
+                                        type="submit"
+                                        className="p-2 bg-gradient-to-r from-blue-600 to-blue-800 hover:from-blue-700 hover:to-blue-900 rounded text-white flex items-center justify-center transition-colors duration-150 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                                        title="Wyślij wiadomość"
+                                        disabled={chatCooldown}
+                                    >
+                                        <IoMdSend size={20} />
+                                    </button>
+                                </form>
                             </div>
-                            <form className="flex gap-2 mt-2" onSubmit={e => { e.preventDefault(); handleSendMessage(); }}>
-                                <input
-                                    type="text"
-                                    placeholder="Wiadomość..."
-                                    className="w-full p-2 border border-gray-700 rounded bg-neutral-800 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
-                                    name="chatInput"
-                                    ref={chatInputRef}
-                                    disabled={chatCooldown}
-                                    autoComplete="off"
-                                />
-                                <button
-                                    type="submit"
-                                    className="p-2 bg-gradient-to-r from-blue-600 to-blue-800 hover:from-blue-700 hover:to-blue-900 rounded text-white flex items-center justify-center transition-colors duration-150 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
-                                    title="Wyślij wiadomość"
-                                    disabled={chatCooldown}
-                                >
-                                    <IoMdSend size={20} />
-                                </button>
-                            </form>
-                    
+                            <div className="w-full md:w-80 mt-3 bg-gray-800 p-3 rounded-lg">
+                                <h2 className="text-2xl font-semibold mb-2">Podgląd kart</h2>
+                                <i className="text-sm text-gray-400 mb-2">Wygląd oraz rozmiar kart można zmienić w ustawieniach</i>
+                                <div className="flex flex-col gap-4 justify-center p-4">
+                                    <div className="flex flex-row gap-4 justify-center">
+                                        <CardComponent
+                                            card={{ rank: 1, suit: 3, shortName: 'AS', points: 10 }}
+                                        />
+                                        <CardComponent
+                                            card={{ rank: 2, suit: 2, shortName: 'KH', points: 2 }}
+                                        />
+                                    </div>
+                                    <div className="flex flex-row gap-4 justify-center">
+
+                                    <CardComponent
+                                        card={{ rank: 3, suit: 1, shortName: 'QC', points: 3 }}
+                                    />
+                                    <CardComponent
+                                        card={{ rank: 4, suit: 4, shortName: '10D', points: 1 }}
+                                    />
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>

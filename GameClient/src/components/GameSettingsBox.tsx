@@ -3,19 +3,19 @@ import type { GameSettings } from "../pages/Models";
 import { FaInfinity, FaArrowUp } from "react-icons/fa";
 
 type GameSettingsBoxProps = {
-    settings?: GameSettings;
+    settings: GameSettings;
     isHost?: boolean;
     onChange: (settings: GameSettings) => void;
 };
 
 const GameSettingsBox: React.FC<GameSettingsBoxProps> = ({ settings, isHost = false, onChange }) => { 
-    if (!settings) return null;
+    
     useEffect(() => {
         setUnlimitedWin(settings.unlimitedWin);
         setAllowRaise(settings.allowRaise);
         setChangesSaved(true);
     }, [settings]);
-
+    
     const [unlimitedWin, setUnlimitedWin] = useState(settings.unlimitedWin);
     const [allowRaise, setAllowRaise] = useState(settings.allowRaise);
     const [changesSaved, setChangesSaved] = useState(true);

@@ -1,9 +1,6 @@
-
-import { useMemo } from "react";
 import type { Card } from "../pages/Models";
-import { CARD_SVG_PATH } from "../pages/Table";
-import { CARD_RANKS, SUIT_ICONS } from "../utils/CardConsts";
-import { cardSizeCookieName, getCookie } from '../utils/Cookies';
+import CardComponent from "./CardComponent";
+
 
 const CARD_SIZE: Record<string, string> = {
     "xs": "w-16 h-24",
@@ -21,29 +18,19 @@ export default function CardHand({
     onCardDragEnd,
     onCardClick,
     disabled = false,
-    canPlayCard
+    playableCards
 }: {
     cards: Card[],
     onCardDragStart: (event: React.DragEvent<HTMLDivElement>, card: Card) => void,
     onCardDragEnd: () => void,
     onCardClick?: (card: Card) => void,
     disabled?: boolean,
-    canPlayCard?: (card: Card) => boolean
+    playableCards?: Map<string, boolean>,// cardShortName to isPlayable
 }) {
-    const playableMap = useMemo(
-        () => Object.fromEntries(cards.map(card => [card.shortName, !canPlayCard || canPlayCard(card)])),
-        [cards, canPlayCard]
-    );
-    const cardSize = getCookie(cardSizeCookieName) || 'm';
-
-    const cardStyle = () => {
-        return CARD_SIZE[cardSize] || CARD_SIZE['m']; // Default to 'm' if not found
-    }
-
     return (
         <div className="flex gap-4 justify-center items-end w-full pb-8">
             {cards.map(card => {
-                const isPlayable = playableMap[card.shortName];
+                const isPlayable = playableCards?.get(card.shortName);
                 return (
                     <div
                         key={card.shortName}
@@ -59,11 +46,7 @@ export default function CardHand({
                             ${(disabled || !isPlayable) ? 'opacity-50 cursor-not-allowed' : 'cursor-grab'}`}
                         style={{ touchAction: 'none' }}
                     >
-                        <img
-                            src={`${CARD_SVG_PATH}${card.shortName}.svg`}
-                            alt={`${CARD_RANKS[card.rank]} ${SUIT_ICONS[card.suit]}`}
-                            className={`${cardStyle()} drop-shadow-lg rounded-md`}
-                        />
+                        <CardComponent card={card} cardSizeRecord={CARD_SIZE} />
                     </div>
                 );
             })}
