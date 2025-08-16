@@ -299,7 +299,7 @@ const Table = () => {
     }, [gameCtx?.cardsOnTable, gameCtx?.currentPlayer]);
 
     // (trumf serce) ja koniczyna 9 serce 10 serce ma jopka i nie ma do koloru - więc musi dać 
-    
+
     // Modal for disconnected players
     const showDisconnectedModal = !!(gameCtx && gameCtx.disconnectedPlayers?.length > 0);
     console.log("Table render", performance.now());
@@ -323,7 +323,44 @@ const Table = () => {
                     gameUserCtx={gameUserCtx}
                     onClose={() => setShowScoreModal(false)}
                 />
-
+                {/* Chat on the left, fixed position */}
+                <ChatBox
+                    showChat={showChat}
+                    chatMessages={chatMessages}
+                    message={message}
+                    setMessage={setMessage}
+                    handleKeyPress={handleKeyPress}
+                    sendMessage={sendMessage}
+                    setShowChat={setShowChat}
+                    setHasNewMessage={setHasNewMessage}
+                />
+                <PassInfo
+                    open={gameCtx?.gamePhase === 1 && !!gameCtx?.passedPlayers?.find(p => p.connectionId === gameUserCtx?.me?.connectionId)}
+                />
+                <BetModal
+                    open={gameCtx?.gamePhase === 1 && isCurrentPlayer}
+                    currentBet={bet}
+                    onRaise={handleRaise}
+                    onLower={handleLower}
+                    onPass={handlePass}
+                    onAccept={handleAccept}
+                    minBet={minBet}
+                    maxBet={maxBet}
+                />
+                <IncreaseBetModal
+                    open={gameCtx?.gamePhase === 6 && isCurrentPlayer}
+                    currentBet={bet}
+                    onRaise={handleRaise}
+                    onLower={handleLower}
+                    onPass={handlePass}
+                    minBet={minBet}
+                    maxBet={maxBet}
+                    onAccept={handleAccept}
+                />
+                <TrumpModal
+                    open={showTrumpModal}
+                    trumpSuit={gameCtx?.trumpSuit}
+                />
                 <div className={`w-full rounded-3xl shadow-2xl bg-gray-800/90 flex flex-col relative overflow-hidden border border-blue-900 ${showDisconnectedModal || showOptions ? 'pointer-events-none select-none opacity-60' : ''} flex-1`}>
                     <div className="flex flex-col sm:flex-row items-center justify-between px-4 py-3 border-b border-gray-700 bg-gradient-to-r from-blue-900/80 to-gray-900/80 gap-2">
                         <div className="flex flex-wrap gap-2 items-center justify-center">
@@ -365,18 +402,6 @@ const Table = () => {
                     <div className="w-full flex-1 flex">
                         {/* Table Area */}
                         <div className="flex-1 flex flex-col items-center justify-center relative p-4 sm:p-6 md:p-8">
-                            {/* Chat on the left, fixed position */}
-                            <ChatBox
-                                showChat={showChat}
-                                chatMessages={chatMessages}
-                                message={message}
-                                setMessage={setMessage}
-                                handleKeyPress={handleKeyPress}
-                                sendMessage={sendMessage}
-                                setShowChat={setShowChat}
-                                setHasNewMessage={setHasNewMessage}
-                            />
-
                             {/* Floating show chat button, only if chat is hidden, bottom left */}
                             {!showChat && (
                                 <div className="fixed left-8 bottom-8 z-30 flex flex-col gap-4">
@@ -469,34 +494,6 @@ const Table = () => {
                                     playableCards={canPlayCardMap}
                                 />
                             </div>
-                            <PassInfo
-                                open={gameCtx?.gamePhase === 1 && !!gameCtx?.passedPlayers?.find(p => p.connectionId === gameUserCtx?.me?.connectionId)}
-                            />
-                            <BetModal
-                                open={gameCtx?.gamePhase === 1 && isCurrentPlayer}
-                                currentBet={bet}
-                                onRaise={handleRaise}
-                                onLower={handleLower}
-                                onPass={handlePass}
-                                onAccept={handleAccept}
-                                minBet={minBet}
-                                maxBet={maxBet}
-                            />
-                            <IncreaseBetModal
-                                open={gameCtx?.gamePhase === 6 && isCurrentPlayer}
-                                currentBet={bet}
-                                onRaise={handleRaise}
-                                onLower={handleLower}
-                                onPass={handlePass}
-                                minBet={minBet}
-                                maxBet={maxBet}
-                                onAccept={handleAccept}
-                            />
-                            <TrumpModal
-                                open={showTrumpModal}
-                                trumpSuit={gameCtx?.trumpSuit}
-                            />
-
                         </div>
                     </div>
                 </div>
