@@ -1,6 +1,8 @@
 import type { Player } from "../pages/Models";
 import React from 'react';
 import { cardSizeCookieName, getCookie } from "../utils/Cookies";
+import { useDroppable } from "@dnd-kit/core";
+import { DnDTypes } from "../utils/DndTypes";
 
 export interface PlayerPositionProps {
     player?: Player,
@@ -10,12 +12,18 @@ export interface PlayerPositionProps {
     highlightGold?: boolean,
     hasPassed?: boolean,
     isTakeWinner?: boolean,
-    onDragOver?: (event: React.DragEvent<HTMLDivElement>) => void;
-    onDrop?: (event: React.DragEvent<HTMLDivElement>) => void;
     isDropTargetActive?: boolean;
 }
 
-const PlayerPosition: React.FC<PlayerPositionProps> = ({ player, position, cardCount = 0, cardDirection = 'none', highlightGold, isTakeWinner, hasPassed, onDragOver, onDrop, isDropTargetActive }) => {
+const PlayerPosition: React.FC<PlayerPositionProps> = ({ player, position, cardCount = 0, cardDirection = 'none', highlightGold, isTakeWinner, hasPassed, isDropTargetActive }) => {
+    
+    const { active,isOver, setNodeRef } = useDroppable({
+            id: DnDTypes.TABLE_PLAYER+player?.id,
+            disabled: !isDropTargetActive,
+            data: {
+                player: player
+            }
+          });
     if (!player) return null;
 
     let cardStyle = '';
@@ -45,7 +53,7 @@ const PlayerPosition: React.FC<PlayerPositionProps> = ({ player, position, cardC
     }
     playerInfoClass += `border-2 ${borderColorClass} cursor-default `;
 
-    const dropZoneClasses = isDropTargetActive
+    const dropZoneClasses = isOver && isDropTargetActive
         ? 'border-green-500 bg-green-700/30 backdrop-blur-sm'
         : 'border-transparent';
 
@@ -64,10 +72,9 @@ const PlayerPosition: React.FC<PlayerPositionProps> = ({ player, position, cardC
     return (
     <div
         className={`absolute ${position} ${cardSizeClasses[cardSize] || cardSizeClasses['m']} flex flex-col items-center p-2 rounded-xl  transition-all duration-150 ${dropZoneClasses} hover:scale-[1.03]`}
-        onDragOver={onDragOver}
-        onDrop={onDrop}
+        ref={setNodeRef}
         style={{
-            pointerEvents: onDragOver && onDrop && isDropTargetActive ? 'auto' : 'none'
+            pointerEvents: isOver && isDropTargetActive ? 'auto' : 'none'
         }}
     >
         <div className="flex flex-row items-center gap-1 mb-2">
@@ -95,7 +102,7 @@ const PlayerPosition: React.FC<PlayerPositionProps> = ({ player, position, cardC
             ))}
         </div>
         {/* Drop zone */}
-        {isDropTargetActive && (
+        {active && isDropTargetActive && (
             <div className="absolute inset-0 flex items-center justify-center text-white/80 text-xs pointer-events-none bg-green-700/40 rounded-xl animate-pulse">
                 Upuść kartę
             </div>

@@ -5,7 +5,7 @@ import { ImExit } from "react-icons/im";
 import React, { useState, useRef, useEffect } from "react";
 import { FaCoins, FaStar } from "react-icons/fa";
 
-import type { Card, ChatMessage, UpdateContext } from "./Models";
+import type { Card, ChatMessage, Player, UpdateContext } from "./Models";
 import BetModal from "../components/modals/BetModal";
 import IncreaseBetModal from "../components/modals/IncreaseBetModal";
 import PlayerPosition from "../components/PlayerPosition";
@@ -25,6 +25,9 @@ import { useNotification } from "../utils/NotificationContext";
 
 import TableCards from "../components/TableCards";
 import Timer from "../components/Timer";
+import { DndContext, type DragEndEvent } from "@dnd-kit/core";
+import { DnDTypes } from "../utils/DndTypes";
+import TableCardsDropZone from "../components/TableCardsDropZone";
 
 
 const GAME_STAGES: Record<number, string> = {
@@ -212,36 +215,19 @@ const Table = () => {
         navigate("/", { replace: true })
     }
 
-    // Handle card drag and drop
-    const [isDraggingCard, setIsDraggingCard] = useState(false);
-    const [draggedCardData, setDraggedCardData] = useState<Card | null>(null);
-
-    const handleCardDragStart = (event: React.DragEvent, card: Card) => {
-        event.dataTransfer.setData("application/json", JSON.stringify(card));
-        event.dataTransfer.effectAllowed = "move";
-        setDraggedCardData(card);
-        setIsDraggingCard(true);
-    };
-
-    const handleCardDragEnd = () => {
-        setIsDraggingCard(false);
-        setDraggedCardData(null);
-    };
-
-    const handleDragOver = (event: React.DragEvent) => {
-        event.preventDefault();
-    };
-
-    const handleDropOnPlayer = (event: React.DragEvent, targetPlayerConnectionId: string | undefined) => {
-        event.preventDefault();
-        if (!targetPlayerConnectionId || !draggedCardData) {
-            setIsDraggingCard(false);
-            setDraggedCardData(null);
+    //Card droping logic
+    const handleDropOnPlayer = (targetPlayerConnectionId: string | undefined, cardShortName: string) => {
+        if (!targetPlayerConnectionId) {
+            console.error("Invalid target player connection id")
+            notify({
+                message: "Nie udało się przekazać karty. Spróbuj ponownie.",
+                type: "error"
+            });
             return;
         }
 
         if (gameCtx?.gamePhase === 2 && isCurrentPlayer && !playersGivenCard.includes(targetPlayerConnectionId)) {
-            GameService.connection?.invoke("GiveCard", gameCode, draggedCardData.shortName, targetPlayerConnectionId)
+            GameService.connection?.invoke("GiveCard", gameCode, cardShortName, targetPlayerConnectionId)
                 .catch(err => {
                     console.error("Error giving card:", err);
                     notify({
@@ -251,19 +237,20 @@ const Table = () => {
                 });
             setPlayersGivenCard(prev => [...prev, targetPlayerConnectionId]);
         }
-        setIsDraggingCard(false);
-        setDraggedCardData(null);
     };
 
-    const handleDropOnTable = (event: React.DragEvent) => {
-        event.preventDefault();
-        if (!draggedCardData) {
-            setIsDraggingCard(false);
-            setDraggedCardData(null);
+    const handleDropOnTable = (card: Card | undefined) => {
+
+        if (!card) {
+            console.error("Niepoprawna referencja karty! Skontaktuj się z administratorem!", card)
+            notify(
+                {
+                    message: "Niepoprawna referencja karty! Skontaktuj się z administratorem!",
+                    type: "error"
+                }
+            )
             return;
         }
-        const card = draggedCardData;
-
         if (gameUserCtx && gameCtx?.gamePhase === 3 && isCurrentPlayer) {
             if (canPlayCard(card, gameCtx, gameUserCtx)) {
                 GameService.connection?.invoke("PlayCard", gameCode, card.shortName)
@@ -279,9 +266,31 @@ const Table = () => {
                 console.warn("Cannot play this card by drag:", card.shortName);
             }
         }
-        setIsDraggingCard(false);
-        setDraggedCardData(null);
     };
+    const handleCardDrop = (event: DragEndEvent) => {
+        if (event.over) {
+            const targetId = event.over.id as string;
+            if (targetId == DnDTypes.TABLE) {
+                console.debug("Droped on the table", event.active);
+                if (event.active.data.current && event.active.data.current.card) {
+                    handleDropOnTable(event.active.data.current.card);
+                } else {
+                    console.error("Dragged card data is undefined!", event.active.data.current);
+                }
+            }
+            else if (targetId.includes(DnDTypes.TABLE_PLAYER)) {
+                let targetPlayerConnectionId: string | undefined = undefined;
+                if (event.over.data.current) {
+                    targetPlayerConnectionId = (event.over.data.current.player as Player).connectionId;
+                    const card = event.active.id as string;
+                    console.debug("Droped on player ", event.active, targetPlayerConnectionId);
+                    handleDropOnPlayer(targetPlayerConnectionId, card);
+                } else {
+                    console.error("Dragged player data is undefined!", event.over.data.current);
+                }
+            }
+        }
+    }
     // END: Handle card drag and drop
     const firstPlayerInCurrentTake = useRef<string>(gameUserCtx?.me.connectionId || "");
     useEffect(() => {
@@ -298,69 +307,86 @@ const Table = () => {
         }
     }, [gameCtx?.cardsOnTable, gameCtx?.currentPlayer]);
 
-    // (trumf serce) ja koniczyna 9 serce 10 serce ma jopka i nie ma do koloru - więc musi dać 
-
     // Modal for disconnected players
     const showDisconnectedModal = !!(gameCtx && gameCtx.disconnectedPlayers?.length > 0);
-    console.log("Table render", performance.now());
+
     return (
         <>
             <OptionsButton showOptions={() => setShowOptions(true)} />
+            <DisconnectedModal
+                open={showDisconnectedModal}
+                disconnectedCount={gameCtx?.disconnectedPlayers.length ?? 0}
+                onLeave={handleLeaveRoom}
+            />
+            <EndGameModal
+                open={showEndGameModal}
+                gameUserCtx={gameUserCtx}
+                onLeave={handleLeaveRoom}
+            />
+            <ScoreModal
+                open={showScoreModal}
+                gameUserCtx={gameUserCtx}
+                onClose={() => setShowScoreModal(false)}
+            />
+            {/* Chat on the left, fixed position */}
+            <ChatBox
+                showChat={showChat}
+                chatMessages={chatMessages}
+                message={message}
+                setMessage={setMessage}
+                handleKeyPress={handleKeyPress}
+                sendMessage={sendMessage}
+                setShowChat={setShowChat}
+                setHasNewMessage={setHasNewMessage}
+            />
+            <PassInfo
+                open={gameCtx?.gamePhase === 1 && !!gameCtx?.passedPlayers?.find(p => p.connectionId === gameUserCtx?.me?.connectionId)}
+            />
+            <BetModal
+                open={gameCtx?.gamePhase === 1 && isCurrentPlayer}
+                currentBet={bet}
+                onRaise={handleRaise}
+                onLower={handleLower}
+                onPass={handlePass}
+                onAccept={handleAccept}
+                minBet={minBet}
+                maxBet={maxBet}
+            />
+            <IncreaseBetModal
+                open={gameCtx?.gamePhase === 6 && isCurrentPlayer}
+                currentBet={bet}
+                onRaise={handleRaise}
+                onLower={handleLower}
+                onPass={handlePass}
+                minBet={minBet}
+                maxBet={maxBet}
+                onAccept={handleAccept}
+            />
+            <TrumpModal
+                open={showTrumpModal}
+                trumpSuit={gameCtx?.trumpSuit}
+            />
+            {/* Floating show chat button, only if chat is hidden, bottom left */}
+            {!showChat && (
+                <div className="fixed left-8 bottom-8 z-30 flex flex-col gap-4">
+                    <button
+                        className={`px-5 py-3 bg-gradient-to-r from-gray-800 to-gray-900 hover:from-gray-900 hover:to-black text-white rounded-xl font-semibold shadow-lg border-2 border-blue-900 transition-all duration-150 opacity-90 cursor-pointer
+                                         ${hasNewMessage ? 'animate-glow border-yellow-400 shadow-yellow-400/60' : ''}
+                                     `}
+                        onClick={() => setShowChat(true)}
+                    >
+                        Pokaż chat
+                    </button>
+                    <button
+                        className="px-5 py-3 bg-gradient-to-r from-blue-800 to-gray-900 hover:from-gray-900 hover:to-black text-white rounded-xl font-semibold shadow-lg border-2 border-blue-900 transition-all duration-150 opacity-90 cursor-pointer"
+                        onClick={() => setShowScoreModal(true)}
+                    >
+                        Wyniki
+                    </button>
+                </div>
+            )}
             {/* Main surface */}
             <div className="min-h-screen w-full flex flex-col items-center justify-center bg-gradient-to-br from-neutral-900 via-gray-900 to-blue-950 p-6">
-                <DisconnectedModal
-                    open={showDisconnectedModal}
-                    disconnectedCount={gameCtx?.disconnectedPlayers.length ?? 0}
-                    onLeave={handleLeaveRoom}
-                />
-                <EndGameModal
-                    open={showEndGameModal}
-                    gameUserCtx={gameUserCtx}
-                    onLeave={handleLeaveRoom}
-                />
-                <ScoreModal
-                    open={showScoreModal}
-                    gameUserCtx={gameUserCtx}
-                    onClose={() => setShowScoreModal(false)}
-                />
-                {/* Chat on the left, fixed position */}
-                <ChatBox
-                    showChat={showChat}
-                    chatMessages={chatMessages}
-                    message={message}
-                    setMessage={setMessage}
-                    handleKeyPress={handleKeyPress}
-                    sendMessage={sendMessage}
-                    setShowChat={setShowChat}
-                    setHasNewMessage={setHasNewMessage}
-                />
-                <PassInfo
-                    open={gameCtx?.gamePhase === 1 && !!gameCtx?.passedPlayers?.find(p => p.connectionId === gameUserCtx?.me?.connectionId)}
-                />
-                <BetModal
-                    open={gameCtx?.gamePhase === 1 && isCurrentPlayer}
-                    currentBet={bet}
-                    onRaise={handleRaise}
-                    onLower={handleLower}
-                    onPass={handlePass}
-                    onAccept={handleAccept}
-                    minBet={minBet}
-                    maxBet={maxBet}
-                />
-                <IncreaseBetModal
-                    open={gameCtx?.gamePhase === 6 && isCurrentPlayer}
-                    currentBet={bet}
-                    onRaise={handleRaise}
-                    onLower={handleLower}
-                    onPass={handlePass}
-                    minBet={minBet}
-                    maxBet={maxBet}
-                    onAccept={handleAccept}
-                />
-                <TrumpModal
-                    open={showTrumpModal}
-                    trumpSuit={gameCtx?.trumpSuit}
-                />
                 <div className={`w-full rounded-3xl shadow-2xl bg-gray-800/90 flex flex-col relative overflow-hidden border border-blue-900 ${showDisconnectedModal || showOptions ? 'pointer-events-none select-none opacity-60' : ''} flex-1`}>
                     <div className="flex flex-col sm:flex-row items-center justify-between px-4 py-3 border-b border-gray-700 bg-gradient-to-r from-blue-900/80 to-gray-900/80 gap-2">
                         <div className="flex flex-wrap gap-2 items-center justify-center">
@@ -402,98 +428,59 @@ const Table = () => {
                     <div className="w-full flex-1 flex">
                         {/* Table Area */}
                         <div className="flex-1 flex flex-col items-center justify-center relative p-4 sm:p-6 md:p-8">
-                            {/* Floating show chat button, only if chat is hidden, bottom left */}
-                            {!showChat && (
-                                <div className="fixed left-8 bottom-8 z-30 flex flex-col gap-4">
-                                    <button
-                                        className={`px-5 py-3 bg-gradient-to-r from-gray-800 to-gray-900 hover:from-gray-900 hover:to-black text-white rounded-xl font-semibold shadow-lg border-2 border-blue-900 transition-all duration-150 opacity-90 cursor-pointer
-                                         ${hasNewMessage ? 'animate-glow border-yellow-400 shadow-yellow-400/60' : ''}
-                                     `}
-                                        onClick={() => setShowChat(true)}
-                                    >
-                                        Pokaż chat
-                                    </button>
-                                    <button
-                                        className="px-5 py-3 bg-gradient-to-r from-blue-800 to-gray-900 hover:from-gray-900 hover:to-black text-white rounded-xl font-semibold shadow-lg border-2 border-blue-900 transition-all duration-150 opacity-90 cursor-pointer"
-                                        onClick={() => setShowScoreModal(true)}
-                                    >
-                                        Wyniki
-                                    </button>
-                                </div>
-                            )}
-                            {/* Players around the table (without current user's hand) */}
-                            <PlayerPosition
-                                player={gameUserCtx?.teammate}
-                                position="absolute top-4 sm:top-6 left-1/2 -translate-x-1/2"
-                                cardCount={gameUserCtx?.teammateCards}
-                                cardDirection="normal"
-                                highlightGold={gameCtx?.currentPlayer.connectionId === gameUserCtx?.teammate?.connectionId}
-                                hasPassed={gameCtx?.gamePhase === 1 && !!gameCtx?.passedPlayers?.find(p => p.connectionId === gameUserCtx?.teammate?.connectionId)}
-                                isTakeWinner={gameCtx?.gamePhase === 5 && gameCtx?.takeWinner?.connectionId === gameUserCtx?.teammate?.connectionId}
-                                onDragOver={handleDragOver}
-                                onDrop={(e) => handleDropOnPlayer(e, gameUserCtx?.teammate?.connectionId)}
-                                isDropTargetActive={isDraggingCard && gameCtx?.gamePhase === 2 && isCurrentPlayer && !playersGivenCard.includes(gameUserCtx?.teammate?.connectionId || '')}
-                            />
-                            <PlayerPosition
-                                player={gameUserCtx?.leftPlayer}
-                                position="absolute left-4 sm:left-6 top-1/2 -translate-y-1/2"
-                                cardCount={gameUserCtx?.leftPlayerCards}
-                                cardDirection="left"
-                                highlightGold={gameCtx?.currentPlayer.connectionId === gameUserCtx?.leftPlayer?.connectionId}
-                                hasPassed={gameCtx?.gamePhase === 1 && !!gameCtx?.passedPlayers?.find(p => p.connectionId === gameUserCtx?.leftPlayer?.connectionId)}
-                                isTakeWinner={gameCtx?.gamePhase === 5 && gameCtx?.takeWinner?.connectionId === gameUserCtx?.leftPlayer?.connectionId}
-                                onDragOver={handleDragOver}
-                                onDrop={(e) => handleDropOnPlayer(e, gameUserCtx?.leftPlayer?.connectionId)}
-                                isDropTargetActive={isDraggingCard && gameCtx?.gamePhase === 2 && isCurrentPlayer && !playersGivenCard.includes(gameUserCtx?.leftPlayer?.connectionId || '')}
-                            />
-                            <PlayerPosition
-                                player={gameUserCtx?.rightPlayer}
-                                position="absolute right-4 sm:right-6 top-1/2 -translate-y-1/2"
-                                cardCount={gameUserCtx?.rightPlayerCards}
-                                cardDirection="right"
-                                highlightGold={gameCtx?.currentPlayer.connectionId === gameUserCtx?.rightPlayer?.connectionId}
-                                hasPassed={gameCtx?.gamePhase === 1 && !!gameCtx?.passedPlayers?.find(p => p.connectionId === gameUserCtx?.rightPlayer?.connectionId)}
-                                isTakeWinner={gameCtx?.gamePhase === 5 && gameCtx?.takeWinner?.connectionId === gameUserCtx?.rightPlayer?.connectionId}
-                                onDragOver={handleDragOver}
-                                onDrop={(e) => handleDropOnPlayer(e, gameUserCtx?.rightPlayer?.connectionId)}
-                                isDropTargetActive={isDraggingCard && gameCtx?.gamePhase === 2 && isCurrentPlayer && !playersGivenCard.includes(gameUserCtx?.rightPlayer?.connectionId || '')}
-                            />
-                            {/* Cards on table (center) */}
-                            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full pointer-events-none">
-                                {/* Drop Zone for playing cards */}
-                                <div
-                                    onDragOver={handleDragOver}
-                                    onDrop={handleDropOnTable}
-                                    className={`absolute inset-0 m-auto w-1/2 h-1/2 border-2 border-dashed rounded-lg transition-all duration-150
-                                            ${isDraggingCard && gameCtx?.gamePhase === 3 && isCurrentPlayer
-                                            ? 'border-green-500 bg-green-700/30 backdrop-blur-sm'
-                                            : 'border-transparent'}
-                                        `}
-                                    style={{
-                                        pointerEvents: (isDraggingCard && gameCtx?.gamePhase === 3 && isCurrentPlayer) ? 'auto' : 'none',
-                                        zIndex: 5 // Below cards on table, but catch drops
-                                    }}
-                                >
-                                    {isDraggingCard && gameCtx?.gamePhase === 3 && isCurrentPlayer && (
-                                        <span className="flex items-center justify-center h-full text-white/70 text-sm">Upuść tutaj</span>
-                                    )}
-                                </div>
-                                <TableCards
-                                    gameCtx={gameCtx}
-                                    gameUserCtx={gameUserCtx}
-                                    firstPlayerInCurrentTake={firstPlayerInCurrentTake}
+                            <DndContext onDragEnd={handleCardDrop}>
+                                {/* Players around the table (without current user's hand) */}
+                                <PlayerPosition
+                                    player={gameUserCtx?.teammate}
+                                    position="absolute top-4 sm:top-6 left-1/2 -translate-x-1/2"
+                                    cardCount={gameUserCtx?.teammateCards}
+                                    cardDirection="normal"
+                                    highlightGold={gameCtx?.currentPlayer.connectionId === gameUserCtx?.teammate?.connectionId}
+                                    hasPassed={gameCtx?.gamePhase === 1 && !!gameCtx?.passedPlayers?.find(p => p.connectionId === gameUserCtx?.teammate?.connectionId)}
+                                    isTakeWinner={gameCtx?.gamePhase === 5 && gameCtx?.takeWinner?.connectionId === gameUserCtx?.teammate?.connectionId}
+                                    isDropTargetActive={gameCtx?.gamePhase === 2 && isCurrentPlayer && !playersGivenCard.includes(gameUserCtx?.teammate?.connectionId || '')}
                                 />
-                            </div>
-                            {/* Card Hand */}
-                            <div className="absolute bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2 w-full flex justify-center">
-                                <CardHand
-                                    cards={gameUserCtx?.hand || []}
-                                    onCardDragStart={handleCardDragStart}
-                                    onCardDragEnd={handleCardDragEnd}
-                                    disabled={!isCurrentPlayer || ![1, 2, 3, 5].includes(gameCtx?.gamePhase ?? -1) || gameCtx?.gamePhase === 5} // Cards are draggable if phase 2 or 3 and current player
-                                    playableCards={canPlayCardMap}
+                                <PlayerPosition
+                                    player={gameUserCtx?.leftPlayer}
+                                    position="absolute left-4 sm:left-6 top-1/2 -translate-y-1/2"
+                                    cardCount={gameUserCtx?.leftPlayerCards}
+                                    cardDirection="left"
+                                    highlightGold={gameCtx?.currentPlayer.connectionId === gameUserCtx?.leftPlayer?.connectionId}
+                                    hasPassed={gameCtx?.gamePhase === 1 && !!gameCtx?.passedPlayers?.find(p => p.connectionId === gameUserCtx?.leftPlayer?.connectionId)}
+                                    isTakeWinner={gameCtx?.gamePhase === 5 && gameCtx?.takeWinner?.connectionId === gameUserCtx?.leftPlayer?.connectionId}
+                                    isDropTargetActive={gameCtx?.gamePhase === 2 && isCurrentPlayer && !playersGivenCard.includes(gameUserCtx?.leftPlayer?.connectionId || '')}
                                 />
-                            </div>
+                                <PlayerPosition
+                                    player={gameUserCtx?.rightPlayer}
+                                    position="absolute right-4 sm:right-6 top-1/2 -translate-y-1/2"
+                                    cardCount={gameUserCtx?.rightPlayerCards}
+                                    cardDirection="right"
+                                    highlightGold={gameCtx?.currentPlayer.connectionId === gameUserCtx?.rightPlayer?.connectionId}
+                                    hasPassed={gameCtx?.gamePhase === 1 && !!gameCtx?.passedPlayers?.find(p => p.connectionId === gameUserCtx?.rightPlayer?.connectionId)}
+                                    isTakeWinner={gameCtx?.gamePhase === 5 && gameCtx?.takeWinner?.connectionId === gameUserCtx?.rightPlayer?.connectionId}
+                                    isDropTargetActive={gameCtx?.gamePhase === 2 && isCurrentPlayer && !playersGivenCard.includes(gameUserCtx?.rightPlayer?.connectionId || '')}
+                                />
+                                {/* Cards on table (center) */}
+                                <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full pointer-events-none">
+                                    {/* Drop Zone for playing cards */}
+                                    <TableCardsDropZone
+                                        allowDroping={gameCtx?.gamePhase === 3 && isCurrentPlayer}
+                                    />
+                                    <TableCards
+                                        gameCtx={gameCtx}
+                                        gameUserCtx={gameUserCtx}
+                                        firstPlayerInCurrentTake={firstPlayerInCurrentTake}
+                                    />
+                                </div>
+                                {/* Card Hand */}
+                                <div className="absolute bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2 w-full flex justify-center">
+                                    <CardHand
+                                        cards={gameUserCtx?.hand || []}
+                                        disabled={!isCurrentPlayer || ![1, 2, 3, 5].includes(gameCtx?.gamePhase ?? -1) || gameCtx?.gamePhase === 5} // Cards are draggable if phase 2 or 3 and current player
+                                        playableCards={canPlayCardMap}
+                                    />
+                                </div>
+                            </DndContext>
                         </div>
                     </div>
                 </div>
