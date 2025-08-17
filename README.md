@@ -18,7 +18,7 @@ If you want to create your own deck, create a new folder in GameClient/customs (
 * Better AI
 * If game starts with bot players, table doesn't load until it's human player's turn
 * Lobby leader sometimes doesnt change on page closed - check why
-* Remake drag and drop
+* Bot binds are broken sometimes
 * Card playing queue system
 
 ## Default Assets:

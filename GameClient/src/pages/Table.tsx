@@ -25,7 +25,7 @@ import { useNotification } from "../utils/NotificationContext";
 
 import TableCards from "../components/TableCards";
 import Timer from "../components/Timer";
-import { DndContext, type DragEndEvent } from "@dnd-kit/core";
+import { DndContext, MouseSensor, TouchSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { DnDTypes } from "../utils/DndTypes";
 import TableCardsDropZone from "../components/TableCardsDropZone";
 
@@ -267,6 +267,10 @@ const Table = () => {
             }
         }
     };
+    const sensors = useSensors(
+        useSensor(TouchSensor),
+        useSensor(MouseSensor)
+      );
     const handleCardDrop = (event: DragEndEvent) => {
         if (event.over) {
             const targetId = event.over.id as string;
@@ -386,7 +390,7 @@ const Table = () => {
                 </div>
             )}
             {/* Main surface */}
-            <div className="min-h-screen w-full flex flex-col items-center justify-center bg-gradient-to-br from-neutral-900 via-gray-900 to-blue-950 p-6">
+            <div className="min-h-screen w-full flex flex-col items-center justify-center bg-gradient-to-br from-neutral-900 via-gray-900 to-blue-950 pt-3 pb-3">
                 <div className={`w-full rounded-3xl shadow-2xl bg-gray-800/90 flex flex-col relative overflow-hidden border border-blue-900 ${showDisconnectedModal || showOptions ? 'pointer-events-none select-none opacity-60' : ''} flex-1`}>
                     <div className="flex flex-col sm:flex-row items-center justify-between px-4 py-3 border-b border-gray-700 bg-gradient-to-r from-blue-900/80 to-gray-900/80 gap-2">
                         <div className="flex flex-wrap gap-2 items-center justify-center">
@@ -428,7 +432,7 @@ const Table = () => {
                     <div className="w-full flex-1 flex">
                         {/* Table Area */}
                         <div className="flex-1 flex flex-col items-center justify-center relative p-4 sm:p-6 md:p-8">
-                            <DndContext onDragEnd={handleCardDrop}>
+                            <DndContext sensors={sensors} onDragEnd={handleCardDrop}>
                                 {/* Players around the table (without current user's hand) */}
                                 <PlayerPosition
                                     player={gameUserCtx?.teammate}

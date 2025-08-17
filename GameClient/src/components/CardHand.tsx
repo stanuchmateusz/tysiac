@@ -23,22 +23,22 @@ export default function CardHand({
     disabled?: boolean,
     playableCards?: Map<string, boolean>,// cardShortName to isPlayable
 }) {
-    const DraggableCard = (props :any) => {
-      const {attributes, listeners, setNodeRef, transform} = useDraggable({
-        id: props.id,
-        disabled: props.draggable ? false : true,
-        data: { card: props.card },
-      });
-    
-      const style = transform ? { // makes the draggable element move
-        transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
-      } : undefined;
-    
-      return (
-        <button ref={setNodeRef} style={style} {...listeners} {...attributes}>
-          {props.children}
-        </button>
-      );
+    const DraggableCard = (props: any) => {
+        const { attributes, listeners, setNodeRef, transform } = useDraggable({
+            id: props.id,
+            disabled: props.draggable ? false : true,
+            data: { card: props.card },
+        });
+
+        const style = transform ? { // makes the draggable element move
+            transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
+        } : undefined;
+
+        return (
+            <button ref={setNodeRef} style={style} {...listeners} {...attributes}>
+                {props.children}
+            </button>
+        );
     }
 
     return (
@@ -50,17 +50,18 @@ export default function CardHand({
                     <DraggableCard
                         draggable={!disabled && isPlayable}
                         id={shortName}
+                        key={shortName}
                         card={card}
                         onClick={() => {
                             if (!disabled && isPlayable && onCardClick) onCardClick(card);
                         }}
-                        // style={{ touchAction: 'none' }} todo check this
+                        style={{ touchAction: 'manipulation' }}
                     >
                         <div
                             className={`transition-all duration-200 transform hover:-translate-y-2 hover:scale-105 
                             ${(disabled || !isPlayable) ? 'opacity-50 cursor-not-allowed' : 'cursor-grab'}`}
                         >
-                        <CardComponent card={card} cardSizeRecord={CARD_SIZE} />
+                            <CardComponent card={card} cardSizeRecord={CARD_SIZE} />
                         </div>
                     </DraggableCard>
                 );
