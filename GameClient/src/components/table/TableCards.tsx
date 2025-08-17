@@ -1,6 +1,6 @@
-import type { GameContext, GameUserContext } from "../pages/Models";
-import { cardSizeCookieName, getCookie } from "../utils/Cookies";
-import CardComponent from "./CardComponent";
+import type { GameContext, GameUserContext } from "../../pages/Models";
+import { cardSizeCookieName, getCookie } from "../../utils/Cookies";
+import CardComponent from "../CardComponent";
 
 type TableCardsProps = {
     gameCtx?: GameContext | null;

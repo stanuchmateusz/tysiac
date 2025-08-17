@@ -8,26 +8,27 @@ import { FaCoins, FaStar } from "react-icons/fa";
 import type { Card, ChatMessage, Player, UpdateContext } from "./Models";
 import BetModal from "../components/modals/BetModal";
 import IncreaseBetModal from "../components/modals/IncreaseBetModal";
-import PlayerPosition from "../components/PlayerPosition";
-import CardHand from "../components/CardHand";
+import PlayerPosition from "../components/table/PlayerPosition";
+import CardHand from "../components/table/CardHand";
 import Options from "../components/Options";
 import MusicService from "../services/MusicService";
 
-import { canPlayCard, SUIT_ICONS } from "../utils/CardUtils";
+import { canPlayCard } from "../utils/CardUtils";
 import TrumpModal from "../components/modals/TrumpModal";
 import EndGameModal from "../components/modals/EndGameModal";
 import ScoreModal from "../components/modals/ScoreModal";
-import PassInfo from "../components/PassInfo";
+import PassInfo from "../components/table/PassInfo";
 import ChatBox from "../components/modals/ChatBox";
 import DisconnectedModal from "../components/modals/DisconnectedModal";
 import OptionsButton from "../components/OptionButton";
 import { useNotification } from "../utils/NotificationContext";
 
-import TableCards from "../components/TableCards";
-import Timer from "../components/Timer";
+import TableCards from "../components/table/TableCards";
+import Timer from "../components/table/Timer";
 import { DndContext, MouseSensor, TouchSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { DnDTypes } from "../utils/DndTypes";
-import TableCardsDropZone from "../components/TableCardsDropZone";
+import TableCardsDropZone from "../components/table/TableCardsDropZone";
+import TableHeader from "../components/table/TableHeader";
 
 
 const GAME_STAGES: Record<number, string> = {
@@ -392,42 +393,11 @@ const Table = () => {
             {/* Main surface */}
             <div className="min-h-screen w-full flex flex-col items-center justify-center bg-gradient-to-br from-neutral-900 via-gray-900 to-blue-950 pt-3 pb-3">
                 <div className={`w-full rounded-3xl shadow-2xl bg-gray-800/90 flex flex-col relative overflow-hidden border border-blue-900 ${showDisconnectedModal || showOptions ? 'pointer-events-none select-none opacity-60' : ''} flex-1`}>
-                    <div className="flex flex-col sm:flex-row items-center justify-between px-4 py-3 border-b border-gray-700 bg-gradient-to-r from-blue-900/80 to-gray-900/80 gap-2">
-                        <div className="flex flex-wrap gap-2 items-center justify-center">
-                            <span className="flex items-center gap-1 bg-yellow-900/80 text-yellow-200 px-3 py-1.5 rounded-lg font-semibold shadow text-base">
-                                <FaCoins className="text-yellow-400 text-lg" />
-                                <span>Zakład:</span>
-                                <span className="text-yellow-300 font-bold">{gameCtx?.currentBet ?? '-'}</span>
-                            </span>
-                            <span
-                                className="flex items-center gap-1 bg-green-900/80 text-green-200 px-3 py-1.5 rounded-lg font-semibold shadow text-base"
-                                title={gameCtx?.trumpSuit ? `Meldunek: ${gameCtx.trumpSuit}` : "Brak meldunku"}
-                            >
-                                <FaStar className="text-green-400 text-lg" />
-                                <span>Meldunek:</span>
-                                <span className="text-green-300 font-bold">{gameCtx?.trumpSuit ? SUIT_ICONS[gameCtx.trumpSuit] : '-'}</span>
-                            </span>
-                            <span className="flex items-center gap-1 bg-gradient-to-r from-blue-700 to-blue-900 text-white px-3 py-1.5 rounded-lg font-bold shadow text-base">
-                                MY:
-                                <span className="text-blue-300 font-bold">{gameUserCtx?.myTeamScore[0] ?? 0}</span>
-                            </span>
-                            <span className="flex items-center gap-1 bg-gradient-to-r from-pink-700 to-pink-900 text-white px-3 py-1.5 rounded-lg font-bold shadow text-base">
-                                WY:
-                                <span className="text-pink-300 font-bold">{gameUserCtx?.opponentScore[0] ?? 0}</span>
-                            </span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <Timer />
-                            <button
-                                onClick={handleLeaveRoom}
-                                className="px-3 py-1.5 bg-gradient-to-r from-red-500 to-red-700 hover:from-red-600 hover:to-red-800 text-white rounded-lg font-semibold shadow flex items-center gap-2 transition-all duration-150 cursor-pointer"
-                                aria-label="Wyjdź"
-                            >
-                                Wyjdź <ImExit />
-                            </button>
-                        </div>
-                    </div>
-
+                    <TableHeader 
+                        gameCtx={gameCtx}
+                        gameUserCtx={gameUserCtx}
+                        handleLeaveRoom={handleLeaveRoom}
+                    />
                     {/* Main Table Area */}
                     <div className="w-full flex-1 flex">
                         {/* Table Area */}

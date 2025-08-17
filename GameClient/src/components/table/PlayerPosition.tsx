@@ -1,8 +1,8 @@
-import type { Player } from "../pages/Models";
+import type { Player } from "../../pages/Models";
 import React from 'react';
-import { cardSizeCookieName, getCookie } from "../utils/Cookies";
+import { cardSizeCookieName, getCookie } from "../../utils/Cookies";
 import { useDroppable } from "@dnd-kit/core";
-import { DnDTypes } from "../utils/DndTypes";
+import { DnDTypes } from "../../utils/DndTypes";
 
 export interface PlayerPositionProps {
     player?: Player,

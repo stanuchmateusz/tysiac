@@ -1,5 +1,5 @@
 import { useDroppable } from "@dnd-kit/core";
-import { DnDTypes } from "../utils/DndTypes";
+import { DnDTypes } from "../../utils/DndTypes";
 
 const TableCardsDropZone = (props: any) => {
     const droppingAllowed = props.allowDroping as boolean;

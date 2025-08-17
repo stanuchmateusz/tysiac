@@ -1,6 +1,6 @@
 import { useDraggable } from "@dnd-kit/core";
-import type { Card } from "../pages/Models";
-import CardComponent from "./CardComponent";
+import type { Card } from "../../pages/Models";
+import CardComponent from "../CardComponent";
 
 const CARD_SIZE: Record<string, string> = {
     "xs": "w-16 h-24",

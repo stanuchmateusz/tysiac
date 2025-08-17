@@ -20,6 +20,7 @@ If you want to create your own deck, create a new folder in GameClient/customs (
 * Lobby leader sometimes doesnt change on page closed - check why
 * Bot binds are broken sometimes
 * Card playing queue system
+* change default skin and card size for mobile devices
 
 ## Default Assets:
 [Sounds](https://pixabay.com) \
