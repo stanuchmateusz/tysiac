@@ -27,15 +27,15 @@ const PlayerPosition: React.FC<PlayerPositionProps> = ({ player, position, cardC
     if (!player) return null;
 
     let cardStyle = '';
-    if (cardDirection === 'left') cardStyle = 'rotate-[-90deg] origin-bottom left';
-    if (cardDirection === 'right') cardStyle = 'rotate-[90deg] origin-bottom right';
+    if (cardDirection === 'left') cardStyle = 'rotate-[-90deg]';
+    if (cardDirection === 'right') cardStyle = 'rotate-[90deg]';
 
 
-    let cardRowClass = 'flex gap-0.5';
+    let cardRowClass = 'flex gap-0.25';
     if (cardDirection === 'left') cardRowClass += ' flex-col-reverse';
     if (cardDirection === 'right') cardRowClass += ' flex-col';
 
-    let playerInfoClass = 'rounded-full px-4 py-2 mb-2 transition-all duration-150 ';
+    let playerInfoClass = 'rounded-full md:px-2 sm:px-4 py-2 transition-all duration-150 ';
     let borderColorClass = 'border-gray-700';
 
     if (highlightGold) {
@@ -51,7 +51,7 @@ const PlayerPosition: React.FC<PlayerPositionProps> = ({ player, position, cardC
     else {
         playerInfoClass += 'bg-gray-800 text-white ';
     }
-    playerInfoClass += `border-2 ${borderColorClass} cursor-default `;
+    playerInfoClass += `border-2 ${borderColorClass} cursor-default`;
 
     const dropZoneClasses = isOver && isDropTargetActive
         ? 'border-green-500 bg-green-700/30 backdrop-blur-sm'

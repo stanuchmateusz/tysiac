@@ -1,10 +1,6 @@
 import { useNavigate, useParams } from "react-router-dom";
 import GameService from "../services/GameService";
-
-import { ImExit } from "react-icons/im";
-import React, { useState, useRef, useEffect } from "react";
-import { FaCoins, FaStar } from "react-icons/fa";
-
+import { useState, useRef, useEffect } from "react";
 import type { Card, ChatMessage, Player, UpdateContext } from "./Models";
 import BetModal from "../components/modals/BetModal";
 import IncreaseBetModal from "../components/modals/IncreaseBetModal";
@@ -24,7 +20,6 @@ import OptionsButton from "../components/OptionButton";
 import { useNotification } from "../utils/NotificationContext";
 
 import TableCards from "../components/table/TableCards";
-import Timer from "../components/table/Timer";
 import { DndContext, MouseSensor, TouchSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { DnDTypes } from "../utils/DndTypes";
 import TableCardsDropZone from "../components/table/TableCardsDropZone";
@@ -271,7 +266,7 @@ const Table = () => {
     const sensors = useSensors(
         useSensor(TouchSensor),
         useSensor(MouseSensor)
-      );
+    );
     const handleCardDrop = (event: DragEndEvent) => {
         if (event.over) {
             const targetId = event.over.id as string;
@@ -371,33 +366,54 @@ const Table = () => {
                 open={showTrumpModal}
                 trumpSuit={gameCtx?.trumpSuit}
             />
-            {/* Floating show chat button, only if chat is hidden, bottom left */}
-            {!showChat && (
-                <div className="fixed left-8 bottom-8 z-30 flex flex-col gap-4">
-                    <button
-                        className={`px-5 py-3 bg-gradient-to-r from-gray-800 to-gray-900 hover:from-gray-900 hover:to-black text-white rounded-xl font-semibold shadow-lg border-2 border-blue-900 transition-all duration-150 opacity-90 cursor-pointer
-                                         ${hasNewMessage ? 'animate-glow border-yellow-400 shadow-yellow-400/60' : ''}
-                                     `}
-                        onClick={() => setShowChat(true)}
-                    >
-                        Pokaż chat
-                    </button>
-                    <button
-                        className="px-5 py-3 bg-gradient-to-r from-blue-800 to-gray-900 hover:from-gray-900 hover:to-black text-white rounded-xl font-semibold shadow-lg border-2 border-blue-900 transition-all duration-150 opacity-90 cursor-pointer"
-                        onClick={() => setShowScoreModal(true)}
-                    >
-                        Wyniki
-                    </button>
-                </div>
-            )}
+
             {/* Main surface */}
             <div className="min-h-screen w-full flex flex-col items-center justify-center bg-gradient-to-br from-neutral-900 via-gray-900 to-blue-950 pt-3 pb-3">
                 <div className={`w-full rounded-3xl shadow-2xl bg-gray-800/90 flex flex-col relative overflow-hidden border border-blue-900 ${showDisconnectedModal || showOptions ? 'pointer-events-none select-none opacity-60' : ''} flex-1`}>
-                    <TableHeader 
+                    <TableHeader
                         gameCtx={gameCtx}
                         gameUserCtx={gameUserCtx}
                         handleLeaveRoom={handleLeaveRoom}
                     />
+                    {/* Mobile buttons under header */}
+                    <div className="sm:hidden w-full flex  gap-4 px-4 py-2">
+                        {!showChat && (   <button
+                            className={`cursor-pointer px-4 py-2 bg-gradient-to-r from-gray-800 to-gray-900 text-white rounded-lg font-semibold border border-blue-900 shadow-md
+                  ${hasNewMessage ? 'animate-glow border-yellow-400 shadow-yellow-400/60' : ''}`}
+                            onClick={() => setShowChat(true)}
+                        >
+                            Pokaż chat
+                        </button>)}
+                        <button
+                            className="hover:from-gray-900 hover:to-black cursor-pointer px-4 py-2 bg-gradient-to-r from-blue-800 to-gray-900 text-white rounded-lg font-semibold border border-blue-900 shadow-md"
+                            onClick={() => setShowScoreModal(true)}
+                        >
+                            Wyniki
+                        </button>
+                    </div>
+
+
+
+                    {/* Desktop buttons bottom-left */}
+                    {!showChat && (
+                        <div className="hidden sm:flex fixed left-8 bottom-8 z-30 flex-col gap-4">
+                            <button
+                                className={`px-5 py-3 bg-gradient-to-r from-gray-800 to-gray-900 hover:from-gray-900 hover:to-black text-white rounded-xl font-semibold shadow-lg border-2 border-blue-900 transition-all duration-150 opacity-90 cursor-pointer
+                       ${hasNewMessage ? 'animate-glow border-yellow-400 shadow-yellow-400/60' : ''}
+                    `}
+                                onClick={() => setShowChat(true)}
+                            >
+                                Pokaż chat
+                            </button>
+
+                            <button
+                                className="px-5 py-3 bg-gradient-to-r from-blue-800 to-gray-900 hover:from-gray-900 hover:to-black text-white rounded-xl font-semibold shadow-lg border-2 border-blue-900 transition-all duration-150 opacity-90 cursor-pointer"
+                                onClick={() => setShowScoreModal(true)}
+                            >
+                                Wyniki
+                            </button>
+                        </div>
+                    )}
                     {/* Main Table Area */}
                     <div className="w-full flex-1 flex">
                         {/* Table Area */}
