@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import * as signalR from "@microsoft/signalr";
 import { getCookie, setCookie, userNicknameCookieName } from "../utils/Cookies";
 import { useNotification } from "../utils/NotificationContext";
+import MusicService from "../services/MusicService";
 
 const StartGame = ({ code }: { code: string | undefined }) => {
     const [nickname, setNickname] = useState(getCookie(userNicknameCookieName) || "");
@@ -97,6 +98,7 @@ const StartGame = ({ code }: { code: string | undefined }) => {
             setConnectionError("Połączenie nie jest jeszcze gotowe.")
             return;
         }
+        MusicService.playClick()
         setCookie(userNicknameCookieName, nickname, 30);
         GameService.createRoom(nickname)
             .catch(err => {
@@ -131,6 +133,7 @@ const StartGame = ({ code }: { code: string | undefined }) => {
             });
             return;
         }
+        MusicService.playClick()
         setCookie(userNicknameCookieName, nickname, 30);
         GameService.joinRoom(roomCode, nickname)
             .catch((err: Error) => {

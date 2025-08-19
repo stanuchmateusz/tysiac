@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import type { GameSettings } from "../pages/Models";
 import { FaInfinity, FaArrowUp } from "react-icons/fa";
+import MusicService from "../services/MusicService";
 
 type GameSettingsBoxProps = {
     settings: GameSettings;
@@ -21,7 +22,7 @@ const GameSettingsBox: React.FC<GameSettingsBoxProps> = ({ settings, isHost = fa
     const [changesSaved, setChangesSaved] = useState(true);
 
     return (
-    <div className="w-full bg-gradient-to-br from-gray-700 via-gray-800 to-gray-900 rounded-xl p-6 flex flex-col shadow-2xl border border-blue-900">
+    <div className="w-full bg-gradient-to-br from-gray-700 via-gray-800 to-gray-900 rounded-xl p-6 flex flex-col shadow-2xl">
         <h2 className="text-2xl font-bold mb-5 text-center text-blue-300 tracking-wide drop-shadow">Ustawienia gry</h2>
         <div className="flex flex-col gap-4">
             {/* Unlimited Win Option */}
@@ -38,6 +39,7 @@ const GameSettingsBox: React.FC<GameSettingsBoxProps> = ({ settings, isHost = fa
                     onChange={(e) => {
                         setUnlimitedWin(e.target.checked);
                         setChangesSaved(false);
+                        MusicService.playClick();
                         if (e.target.checked && allowRaise) {
                             setAllowRaise(false);
                         }
@@ -58,6 +60,7 @@ const GameSettingsBox: React.FC<GameSettingsBoxProps> = ({ settings, isHost = fa
                     checked={allowRaise}
                     onChange={(e) => {
                         setAllowRaise(e.target.checked);
+                        MusicService.playClick();
                         if (unlimitedWin && e.target.checked)
                             setUnlimitedWin(false);
                         setChangesSaved(false);
@@ -72,11 +75,12 @@ const GameSettingsBox: React.FC<GameSettingsBoxProps> = ({ settings, isHost = fa
                     className={`px-6 py-2 font-semibold rounded-lg shadow transition-all duration-200 ${
                         changesSaved
                             ? "bg-green-600 text-white cursor-not-allowed opacity-70"
-                            : "bg-blue-600 hover:bg-blue-700 text-white animate-pulse"
+                            : "cursor-pointer bg-blue-600 hover:bg-blue-700 text-white animate-pulse"
                     }`}
                     onClick={() => {
                         onChange({ unlimitedWin, allowRaise });
-                        setChangesSaved(true);        
+                        setChangesSaved(true);
+                        MusicService.playClick();        
                     }}
                     disabled={changesSaved}
                 >

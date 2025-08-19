@@ -7,6 +7,12 @@ export const SUIT_ICONS: Record<number, string> = {
     4: '♦'  // Diamonds
 };
 
+export const SUIT_VALUES: Record<number, number> = {
+    1: 40, // Spades
+    2: 60, // Clubs
+    3: 100, // Hearts
+    4: 80 // Diamonds
+};
 export const CARD_RANKS: Record<number, string> = {
     1: 'A',
     2: 'K',

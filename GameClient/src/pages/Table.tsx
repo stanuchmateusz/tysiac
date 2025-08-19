@@ -1,7 +1,7 @@
 import { useNavigate, useParams } from "react-router-dom";
 import GameService from "../services/GameService";
 import { useState, useRef, useEffect } from "react";
-import type { Card, ChatMessage, Player, UpdateContext } from "./Models";
+import type { Card, ChatMessage, Player, RoundSummary, UpdateContext } from "./Models";
 import BetModal from "../components/modals/BetModal";
 import IncreaseBetModal from "../components/modals/IncreaseBetModal";
 import PlayerPosition from "../components/table/PlayerPosition";
@@ -24,6 +24,7 @@ import { DndContext, MouseSensor, TouchSensor, useSensor, useSensors, type DragE
 import { DnDTypes } from "../utils/DndTypes";
 import TableCardsDropZone from "../components/table/TableCardsDropZone";
 import TableHeader from "../components/table/TableHeader";
+import RoundSummaryModal from "../components/modals/RoundSummaryModal";
 
 
 const GAME_STAGES: Record<number, string> = {
@@ -50,6 +51,7 @@ const Table = () => {
     const [chatMessages, setChatMessages] = useState<ChatMessage[]>([{ nickname: "System", message: "Witaj w grze! Użyj czatu, aby komunikować się z innymi graczami." }]);
     const { gameCode } = useParams<{ gameCode: string }>();
     const [canPlayCardMap, setCanPlayCardMap] = useState<Map<string, boolean>>(new Map());
+    const [roundSummary, setRoundSummary] = useState<RoundSummary | null>(null);
 
     useEffect(() => {
         console.debug("Table component mounted, gameCode:", gameCode);
@@ -69,12 +71,25 @@ const Table = () => {
 
         // Handle incoming chat messages
         const handleMessageReceive = (message: ChatMessage) => {
+            message.message = message.message + "chuj"
             setChatMessages(prevMessages => [...prevMessages, message]);
             if (!showChat) setHasNewMessage(true);
         };
 
+        //Handle summary after round ends
+        const handleRoundSummary = (roundSummary: RoundSummary) => {
+            console.debug("Round summary received:", roundSummary);
+            setRoundSummary(roundSummary);
+            // Remove after 8 sec
+            setTimeout(() => {
+                console.debug("Removing round summary");
+                setRoundSummary(null);
+            }, 8000);
+        }
+
         connection.on("UpdateContext", handleUpdate);
         connection.on("MessageRecieve", handleMessageReceive);
+        connection.on("RoundSummary", handleRoundSummary);
 
         //Get game ctx -> backend returns UpdateContext
         if (connection.state === "Connected") {
@@ -91,6 +106,7 @@ const Table = () => {
         return () => {
             connection.off("UpdateContext", handleUpdate);
             connection.off("MessageRecieve", handleMessageReceive);
+            connection.off("RoundSummary", handleRoundSummary);
         };
 
     }, [GameService.connection]);
@@ -366,9 +382,11 @@ const Table = () => {
                 open={showTrumpModal}
                 trumpSuit={gameCtx?.trumpSuit}
             />
-
+            <RoundSummaryModal
+                roundSummary={roundSummary}
+            />
             {/* Main surface */}
-            <div className="min-h-screen w-full flex flex-col items-center justify-center bg-gradient-to-br from-neutral-900 via-gray-900 to-blue-950 pt-3 pb-3">
+            <div className= "h-screen w-full flex flex-col items-center justify-center bg-gradient-to-br from-neutral-900 via-gray-900 to-blue-950 pt-3 pb-3">
                 <div className={`w-full rounded-3xl shadow-2xl bg-gray-800/90 flex flex-col relative overflow-hidden border border-blue-900 ${showDisconnectedModal || showOptions ? 'pointer-events-none select-none opacity-60' : ''} flex-1`}>
                     <TableHeader
                         gameCtx={gameCtx}

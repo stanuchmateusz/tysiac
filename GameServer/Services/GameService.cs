@@ -366,6 +366,7 @@ public class GameService
     public void PlaceBid(IPlayer player, int bid)
     {
         if (bid <= Round.CurrentBet) throw new ArgumentException("Bid must be higher");
+        if (bid % 10 != 0) throw new ArgumentException("Bid must be divisible by 10");
         Round.CurrentBet = bid;
         Round.CurrentBidWinner = player;
         if (CurrentPhase == GamePhase.IncreaseBet)
@@ -581,7 +582,7 @@ public class GameService
     /// updating the trump suit if a new one was announced, clearing the table,
     /// and setting up the next turn. If all cards have been played, it proceeds to end the round.
     /// </summary>
-    public void CompleteTake()
+    public Tuple<RoundSummary,RoundSummary>? CompleteTake()
     {
         var winner = DetermineTakeWinner();
 
@@ -617,8 +618,10 @@ public class GameService
             Player3.Hand.Count == 0 &&
             Player4.Hand.Count == 0)
         {
-            EndRound();
+            return EndRound();
         }
+
+        return null;
     }
 
     private IPlayer DetermineTakeWinner()
@@ -664,7 +667,7 @@ public class GameService
         return teamHasAnyPoints ? trumps.Sum(tuple => CardUtils.GetTrumpPoints(tuple.Item1)) : 0;
     }
 
-    private void EndRound()
+    private Tuple<RoundSummary,RoundSummary>? EndRound()
     {
         Log.Information("[{Room}]  Round ended. Team 1 points: {PointsTeam1}, Team 2 points: {PointsTeam2}", RoomCode, Round.Team1Points, Round.Team2Points);
 
@@ -732,16 +735,60 @@ public class GameService
         {
             Log.Information("[{Room}] Game over! Team 1 points: {PointsTeam1}, Team 2 points: {PointsTeam2}", RoomCode, _pointsTeam1, _pointsTeam2);
             FinishGame();
-            return;
+            return null;
         }
-
+        var summary = new Tuple<RoundSummary, RoundSummary>(CreateRoundSummary(Team.Team1),CreateRoundSummary(Team.Team2));
+        
         CurrentPhase = GamePhase.Auction;
         Log.Debug("[{Room}] Game reset to start phase", RoomCode);
         var lastRoomStartPlayer = Round.OrginalTurnQueue.First();
         CreateAndInitNewRound(lastRoomStartPlayer);
         Log.Debug("[{Room}] New round created, starting player: {Player}", RoomCode, Round.TurnQueue.FirstOrDefault());
+        return summary;
     }
 
+    private RoundSummary CreateRoundSummary(Team team)
+    {
+        var team1Melds = (team == Team.Team1 && Round.Team1WonAnyTake)
+            ? Round.SuitToTeam.Where(x => x.Item2 == team).Select(tuple => tuple.Item1)
+            : [];
+        var team2Melds = (team == Team.Team2 && Round.Team2WonAnyTake)
+            ? Round.SuitToTeam.Where(x => x.Item2 == team).Select(tuple => tuple.Item1)
+            : [];
+        
+        var tempTeam1 = new Stack<int>(_pointsTeam1);
+        var tempTeam2 = new Stack<int>(_pointsTeam2);
+        var tempStackTopTeam1 = tempTeam1.Pop();
+        var tempStackTopTeam2 = tempTeam2.Pop();
+        var team1FinalPoints =  tempTeam1.Pop() - tempStackTopTeam1;
+        var team2FinalPoints = tempTeam2.Pop() - tempStackTopTeam2;
+        if (team == Team.Team1)
+        {
+            return new RoundSummary(
+                Round.CurrentBet, 
+                Round.CurrentBidWinner.Team == team,
+                Round.Team1Points,
+                Round.Team2Points,
+                team1Melds.ToArray(),
+                team2Melds.ToArray(),
+                team1FinalPoints,
+                team2FinalPoints
+                );
+        }
+        else
+        {
+            return new RoundSummary(
+                Round.CurrentBet, 
+                Round.CurrentBidWinner.Team == team,
+                Round.Team2Points,
+                Round.Team1Points,
+                team2Melds.ToArray(),
+                team1Melds.ToArray(),
+                team2FinalPoints,
+                team1FinalPoints
+            );
+        }
+    }
     private bool IsGameOver()
     {
         return

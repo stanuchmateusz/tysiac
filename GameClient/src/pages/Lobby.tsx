@@ -209,6 +209,7 @@ const Lobby = () => {
                 });
             });
         console.debug("Settings changed:", newSettings);
+        MusicService.playClick();
     };
 
     const onStartGame = () => {
@@ -388,6 +389,7 @@ const Lobby = () => {
                                                         className="text-red-400 font-bold text-lg cursor-pointer ml-2"
                                                         onClick={() => {
                                                             GameService.connection?.invoke("KickPlayer", gameCode, user.connectionId);
+                                                            MusicService.playClick();
                                                         }}
                                                     >
                                                         ✕
@@ -418,6 +420,7 @@ const Lobby = () => {
                                             ${(team1.length == 2 && team2.length == 2) ? 'bg-gray-500 text-gray-200 cursor-not-allowed opacity-70' : 'bg-gradient-to-r from-blue-700 to-blue-900 hover:from-blue-800 hover:to-blue-950 text-white cursor-pointer'}`}
                                         onClick={() => {
                                             GameService.connection?.invoke("AddBots", gameCode);
+                                            MusicService.playClick();
                                         }}
                                         disabled={(team1.length == 2 && team2.length == 2)}
                                         style={{ minWidth: 200 }}

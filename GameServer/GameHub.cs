@@ -17,7 +17,7 @@ public class GameHub(GameManager gameManager, LobbyManager lobbyManager)
     private const string LeaveGameMethodName = "LeaveGame";
     private const string GameCreatedMethodName = "GameCreated";
     private const string UpdateMethodName = "UpdateContext";
-
+    private const string RoundSummaryMethodName = "RoundSummary";
     private const string MessageReceiveMethodName = "MessageRecieve";
 
     private const string KickedMethodName = "Kicked";
@@ -422,15 +422,39 @@ public class GameHub(GameManager gameManager, LobbyManager lobbyManager)
                 Log.Debug("Waiting to update");
                 await Task.Delay(AfterTakeDelay);
                 table.CurrentPhase = GamePhase.Playing;
-                table.CompleteTake();
+                var summary = table.CompleteTake();
 
                 Log.Debug("Finished update");
                 await NotifyUpdatedGameState(table);
+                if (summary != null)
+                {
+                    Log.Debug("Sending round summary {Summary}", summary);
+                    await NotifyRoundSummary(table, summary);
+                }
             });
             await updateCtx;
         }
     }
 
+    private async Task NotifyRoundSummary(GameService gameService, Tuple<RoundSummary,RoundSummary> roundSummary)
+    {
+        foreach (var player in gameService.Players.Where(p => !p.IsBot))
+        {
+            Log.Debug("Player {Nickname} receives summary", player.Nickname);
+            switch (player.Team)
+            {
+                case Team.Team1:
+                    await Clients.Client(player.ConnectionId).SendAsync(RoundSummaryMethodName, roundSummary.Item1);
+                    break;
+                case Team.Team2:
+                    await Clients.Client(player.ConnectionId).SendAsync(RoundSummaryMethodName, roundSummary.Item2);
+                    break;
+                default:
+                    Log.Warning("Player {Nickname} does not have a team - this should not have happened", player.Nickname);
+                    break;
+            }
+        }
+    }
     private static bool ValidateNickname(string nickname)
     {
         if (nickname.Length is < 3 or > 25)
@@ -458,7 +482,7 @@ public class GameHub(GameManager gameManager, LobbyManager lobbyManager)
                 UserCtx = gameService.GetUserState(player)
             });
         }
-
+        
         while (gameService.CurrentPhase is GamePhase.IncreaseBet or GamePhase.Playing or GamePhase.CardDistribution or GamePhase.Auction)
         {
             var currentPlayer = gameService.GetGameState().CurrentPlayer;

@@ -43,7 +43,7 @@ const PlayerPosition: React.FC<PlayerPositionProps> = ({ player, position, cardC
         borderColorClass = 'border-yellow-300';
     } else if (hasPassed) {
         playerInfoClass += 'bg-gray-800 text-gray-300 ';
-        borderColorClass = 'border-green-400';
+        borderColorClass = 'border-red-400';
     } else if (isTakeWinner) {
         playerInfoClass += 'bg-green-500 text-white ';
         borderColorClass = 'border-green-400';
@@ -88,7 +88,7 @@ const PlayerPosition: React.FC<PlayerPositionProps> = ({ player, position, cardC
             <div className={playerInfoClass}>
                 {player.nickname}
                 {hasPassed && (
-                    <span className="ml-2 px-2 py-0.5 rounded-full bg-green-400 text-white text-xs font-bold shadow">PASS</span>
+                    <span className="ml-2 px-2 py-0.5 rounded-full bg-red-400 text-white text-xs font-bold shadow">PASS</span>
                 )}
             </div>
         </div>

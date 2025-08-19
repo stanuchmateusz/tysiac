@@ -3,7 +3,6 @@ import './App.css'
 import Home from './pages/Home';
 import Forbidden from './pages/errors/Forbidden';
 import NotFound from './pages/errors/NotFound';
-import Footer from './components/Footer';
 import Rules from './pages/Rules';
 import Lobby from './pages/Lobby';
 import Table from './pages/Table';
@@ -30,7 +29,6 @@ function App() {
 
       </BrowserRouter>
     </div>
-    <Footer />
   </NotificationProvider>
   )
 }
