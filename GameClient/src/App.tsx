@@ -11,25 +11,25 @@ import Notifications from './components/modals/Notifications';
 
 function App() {
   return (
-   <NotificationProvider>
-    <Notifications />
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-neutral-900 via-gray-900 to-blue-950">
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/join/:joinCode?" element={<Home />} />
-          <Route path="/lobby/:gameCode" element={<Lobby />} />
-          <Route path="/game/:gameCode" element={<Table />} />
-          <Route path='/rules' element={<Rules />} />
-          {/* Error pages */}
-          <Route path="/403" element={<Forbidden />} />
-          <Route path="/404" element={<NotFound />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+    <NotificationProvider>
+      <Notifications />
+      <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-neutral-900 via-gray-900 to-blue-950">
+        <BrowserRouter basename={import.meta.env.BASE_URL}>
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/join/:joinCode?" element={<Home />} />
+            <Route path="/lobby/:gameCode" element={<Lobby />} />
+            <Route path="/game/:gameCode" element={<Table />} />
+            <Route path='/rules' element={<Rules />} />
+            {/* Error pages */}
+            <Route path="/403" element={<Forbidden />} />
+            <Route path="/404" element={<NotFound />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
 
-      </BrowserRouter>
-    </div>
-  </NotificationProvider>
+        </BrowserRouter>
+      </div>
+    </NotificationProvider>
   )
 }
 

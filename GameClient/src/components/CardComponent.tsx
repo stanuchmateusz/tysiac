@@ -9,16 +9,16 @@ interface CardProps {
     style?: React.CSSProperties;
     cardSizeRecord?: Record<string, string>;
 }
-const CARD_SVG_PATH = import.meta.env.VITE_ASSETS_PATH || "/public/assets/default/";
+const CARD_SVG_PATH = import.meta.env.BASE_URL + import.meta.env.VITE_ASSETS_PATH || "/public/assets/default/";
 
 const CardComponent: React.FC<CardProps> = ({ card, style, cardSizeRecord }) => {
-    
+
     const cardSizeCookieValue = getCookie(cardSizeCookieName) || 'm';
     const deckSkinCookieValue = getCookie(deckSkinCookieName) || 'default';
     const [cardSize, setCardSize] = useState(cardSizeCookieValue);
     const [deckSkin, setDeckSkin] = useState(deckSkinCookieValue);
     const cardPath = `${CARD_SVG_PATH}${deckSkin != "default" ? "custom/" : ""}${deckSkin}/${card.shortName}.svg?v=${deckSkin}`; //?v to force reload on skin change
-    
+
     const CARD_SIZE: Record<string, string> = cardSizeRecord ||
     {
         "xs": "w-12 h-17",
