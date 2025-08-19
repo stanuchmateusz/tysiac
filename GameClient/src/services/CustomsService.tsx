@@ -1,6 +1,6 @@
 const getAvailableDeckSkins = async () => {
     try {
-        const response = await fetch('/assets/skins.json');
+        const response = await fetch(import.meta.env.BASE_URL + '/assets/skins.json');
         if (!response.ok) {
             throw new Error('Network response was not ok');
         }
