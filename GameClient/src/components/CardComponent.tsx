@@ -9,7 +9,7 @@ interface CardProps {
     style?: React.CSSProperties;
     cardSizeRecord?: Record<string, string>;
 }
-const CARD_SVG_PATH = import.meta.env.BASE_URL + import.meta.env.VITE_ASSETS_PATH || "/public/assets/default/";
+const CARD_SVG_PATH = import.meta.env.VITE_ASSETS_PATH || "/public/assets/default/";
 
 const CardComponent: React.FC<CardProps> = ({ card, style, cardSizeRecord }) => {
 

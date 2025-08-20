@@ -1,7 +1,7 @@
 import * as signalR from "@microsoft/signalr"
 import { getCookie, userIdCookieName } from "../utils/Cookies";
 
-const url = import.meta.env.BASE_URL + import.meta.env.VITE_BACKEND_URL
+const url = import.meta.env.VITE_BACKEND_URL
 if (!url) {
     throw new Error("BACKEND_URL is not defined");
 }

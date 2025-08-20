@@ -760,6 +760,7 @@ public class GameService
         var tempTeam2 = new Stack<int>(_pointsTeam2);
         var tempStackTopTeam1 = tempTeam1.Pop();
         var tempStackTopTeam2 = tempTeam2.Pop();
+        //todo popsute
         var team1FinalPoints =  tempTeam1.Pop() - tempStackTopTeam1;
         var team2FinalPoints = tempTeam2.Pop() - tempStackTopTeam2;
         if (team == Team.Team1)
