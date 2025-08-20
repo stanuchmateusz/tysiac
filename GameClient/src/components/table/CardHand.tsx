@@ -15,11 +15,13 @@ const CARD_SIZE: Record<string, string> = {
 export default function CardHand({
   cards,
   onCardClick,
+  cardInQueue,
   disabled = false,
   playableCards,
 }: {
   cards: Card[];
-  onCardClick?: (card: Card) => void;
+  onCardClick: (card: Card | null) => void;
+  cardInQueue?: Card | null;
   disabled?: boolean;
   playableCards?: Map<string, boolean>;
 }) {
@@ -52,7 +54,6 @@ export default function CardHand({
       <div
         className="
           flex justify-center items-end
-          
           px-2 sm:px-0
           scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent
         "
@@ -72,9 +73,6 @@ export default function CardHand({
               id={shortName}
               key={shortName}
               card={card}
-              onClick={() => {
-                if (!disabled && isPlayable && onCardClick) onCardClick(card);
-              }}
             >
               <div
                 className={`
@@ -82,7 +80,14 @@ export default function CardHand({
                   transition-all duration-200 transform origin-bottom
                   hover:-translate-y-4 hover:scale-110 active:scale-110
                   ${disabled || !isPlayable ? "opacity-50 cursor-not-allowed" : "cursor-grab"}
+                  ${cardInQueue?.shortName === shortName ? "-translate-y-4 border-4  bg-yellow-400 rounded-xl border-yellow-400 " : ""}
                 `}
+                onDoubleClick={() => {
+                  if (cardInQueue?.shortName === shortName)
+                    onCardClick(null);
+                  else
+                    onCardClick(card);
+                }}
                 style={{
                   transform: `translateY(${yOffset}px) rotate(${rotation}deg)`
                 }}
