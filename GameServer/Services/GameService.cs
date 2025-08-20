@@ -749,13 +749,13 @@ public class GameService
 
     private RoundSummary CreateRoundSummary(Team team)
     {
-        var team1Melds = (team == Team.Team1 && Round.Team1WonAnyTake)
-            ? Round.SuitToTeam.Where(x => x.Item2 == team).Select(tuple => tuple.Item1)
+        var team1Melds = Round.Team1WonAnyTake
+            ? Round.SuitToTeam.Where(x => x.Item2 == Team.Team1).Select(tuple => tuple.Item1)
             : [];
-        var team2Melds = (team == Team.Team2 && Round.Team2WonAnyTake)
-            ? Round.SuitToTeam.Where(x => x.Item2 == team).Select(tuple => tuple.Item1)
+        var team2Melds =  Round.Team2WonAnyTake
+            ? Round.SuitToTeam.Where(x => x.Item2 == Team.Team2).Select(tuple => tuple.Item1)
             : [];
-        //todo meldunku nie liczy!!!
+        
         var tempTeam1 = _pointsTeam1.ToArray();
         var tempTeam2 = _pointsTeam2.ToArray();
         var team1FinalPoints = tempTeam1[0] - tempTeam1[1];

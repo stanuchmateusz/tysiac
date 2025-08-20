@@ -62,8 +62,9 @@ export default function CardHand({
           const isPlayable = playableCards?.get(shortName);
 
           const middle = (cards.length - 1) / 2;
-          const angleStep = 15 / (cards.length || 1); // max ~15°
+          const angleStep = 15 / (cards.length || 1);
           const rotation = (idx - middle) * angleStep;
+          const yOffset = Math.pow(idx - middle, 2) * 2;
 
           return (
             <DraggableCard
@@ -82,13 +83,16 @@ export default function CardHand({
                   hover:-translate-y-4 hover:scale-110 active:scale-110
                   ${disabled || !isPlayable ? "opacity-50 cursor-not-allowed" : "cursor-grab"}
                 `}
-                style={{ rotate: `${rotation}deg` }}
+                style={{
+                  transform: `translateY(${yOffset}px) rotate(${rotation}deg)`
+                }}
               >
                 <CardComponent card={card} cardSizeRecord={CARD_SIZE} />
               </div>
             </DraggableCard>
           );
         })}
+
       </div>
     </div>
   );
