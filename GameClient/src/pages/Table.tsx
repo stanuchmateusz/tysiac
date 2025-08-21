@@ -72,7 +72,6 @@ const Table = () => {
 
         // Handle incoming chat messages
         const handleMessageReceive = (message: ChatMessage) => {
-            message.message = message.message + "chuj"
             setChatMessages(prevMessages => [...prevMessages, message]);
             if (!showChat) setHasNewMessage(true);
         };

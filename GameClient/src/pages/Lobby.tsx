@@ -286,7 +286,7 @@ const Lobby = () => {
                                             <div className="mt-4">
                                                 {team1.some(u => me && u.connectionId === me.connectionId) ? (
                                                     <button
-                                                        className="w-full px-4 py-2 rounded font-semibold shadow bg-gradient-to-r from-gray-600 to-gray-800 hover:from-gray-700 hover:to-gray-900 text-white flex items-center justify-center gap-2"
+                                                        className="cursor-pointer w-full px-4 py-2 rounded font-semibold shadow bg-gradient-to-r from-gray-600 to-gray-800 hover:from-gray-700 hover:to-gray-900 text-white flex items-center justify-center gap-2"
                                                         onClick={handleLeaveTeam}
                                                         disabled={teamCooldown}
                                                     >
@@ -479,12 +479,12 @@ const Lobby = () => {
                                     </div>
                                     <div className="flex flex-row gap-4 justify-center">
 
-                                    <CardComponent
-                                        card={{ rank: 3, suit: 1, shortName: 'QC', points: 3 }}
-                                    />
-                                    <CardComponent
-                                        card={{ rank: 4, suit: 4, shortName: '10D', points: 1 }}
-                                    />
+                                        <CardComponent
+                                            card={{ rank: 3, suit: 1, shortName: 'QC', points: 3 }}
+                                        />
+                                        <CardComponent
+                                            card={{ rank: 4, suit: 4, shortName: '10D', points: 1 }}
+                                        />
                                     </div>
                                 </div>
                             </div>
