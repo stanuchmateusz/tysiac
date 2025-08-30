@@ -8,10 +8,17 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://0.0.0.0:5000
+      - MONGO_CONNECTION=mongodb://mongo:27017/GameDatabase
+    volumes:
+      - ./GameServer/appsettings.Production.json:/app/appsettings.Production.json
+    depends_on:
+      - database
     restart: unless-stopped
+
   frontend:
     volumes:
       - ./GameClient/customs:/usr/share/nginx/html/assets/custom
+      - ./GameClient/vite.config.ts:/app/vite.config.ts
     build:
       context: ./GameClient
       dockerfile: Dockerfile
@@ -22,3 +29,18 @@ services:
     depends_on:
       - backend
     restart: unless-stopped
+
+  database:
+    image: mongo:latest
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: GameDatabase
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: secr3tpa55word
+    volumes:
+      - mongo-data:/data/db
+      - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+volumes:
+  mongo-data:

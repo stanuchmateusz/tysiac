@@ -15,6 +15,10 @@
 
 @import "tailwindcss";
 
+button {
+  cursor: pointer;
+}
+
 .animate-trump-pop {
   animation: trump-pop 0.7s cubic-bezier(0.22, 1, 0.36, 1);
 }

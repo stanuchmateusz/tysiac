@@ -1,6 +1,9 @@
 import { SUIT_ICONS } from "../utils/CardUtils";
+import { useNavigate } from "react-router-dom";
 
 const Rules = () => {
+    const navigate = useNavigate();
+
     return (
         <div className="bg-gray-800/90 rounded-2xl shadow-2xl px-10 py-10 flex flex-col items-center w-full max-w-xxlg">
             <h1 className="text-5xl font-extrabold mb-4 text-blue-300 drop-shadow-lg tracking-wide">Zasady</h1>
@@ -99,9 +102,9 @@ const Rules = () => {
                 <strong>Zasady melodwania:</strong> Meldunkiem nazywamy parę damy i króla tego samego koloru. W klasycznej wersji gry, meldować można wychodząc damą mając króla na ręce, tylko zaczynając kolejkę. Natomiast w wersji siadanej można meldować na przeciwniku. To znaczy że jeżeli osoba przed tobą zagra damę, a ty posiadasz króla tego samego koloru, możesz zameldować. Nowy meldunek liczy się od następnej rundy.
             </p>
             <p className="text-sm text-gray-400 mt-8">
-                <a href="/" className="text-blue-400 hover:underline transition-colors duration-150">
+                <button onClick={() => navigate(-1)} className="text-blue-400 hover:underline transition-colors duration-150">
                     Powrót
-                </a>
+                </button>
             </p>
         </div>)
 }

@@ -1,6 +1,6 @@
 export default function NotFound() {
     return (
-        <div className="flex flex-col items-center justify-center h-screen bg-gradient-to-br from-neutral-900 via-gray-900 to-blue-950">
+        <div className="flex flex-col items-center justify-center w-full h-screen bg-gradient-to-br from-neutral-900 via-gray-900 to-blue-950">
             <div className="bg-gray-800/90 rounded-2xl shadow-2xl px-10 py-12 flex flex-col items-center border border-gray-700 animate-fade-in w-full max-w-lg">
                 <h1 className="text-5xl font-extrabold mb-4 text-blue-300 drop-shadow-lg tracking-wide">404 Not Found</h1>
                 <p className="text-lg text-gray-200 mb-8 text-center">The page you are looking for does not exist.</p>
