@@ -52,6 +52,7 @@ const Table = () => {
     const { gameCode } = useParams<{ gameCode: string }>();
     const [canPlayCardMap, setCanPlayCardMap] = useState<Map<string, boolean>>(new Map());
     const [roundSummary, setRoundSummary] = useState<RoundSummary | null>(null);
+    const [cardInQueue, setCardInQueue] = useState<Card | null>(null);
 
     useEffect(() => {
         console.debug("Table component mounted, gameCode:", gameCode);
@@ -71,7 +72,6 @@ const Table = () => {
 
         // Handle incoming chat messages
         const handleMessageReceive = (message: ChatMessage) => {
-            message.message = message.message + "chuj"
             setChatMessages(prevMessages => [...prevMessages, message]);
             if (!showChat) setHasNewMessage(true);
         };
@@ -320,6 +320,13 @@ const Table = () => {
                 playableCards.set(card.shortName, isPlayable);
             });
             setCanPlayCardMap(playableCards);
+            //enqueue card
+            if (gameCtx?.gamePhase === 3 && isCurrentPlayer) {
+                if (cardInQueue && playableCards.get(cardInQueue.shortName)) {
+                    handleDropOnTable(cardInQueue);
+                    setCardInQueue(null);
+                }
+            }
         }
     }, [gameCtx?.cardsOnTable, gameCtx?.currentPlayer]);
 
@@ -386,7 +393,7 @@ const Table = () => {
                 roundSummary={roundSummary}
             />
             {/* Main surface */}
-            <div className= "h-screen w-full flex flex-col items-center justify-center bg-gradient-to-br from-neutral-900 via-gray-900 to-blue-950 pt-3 pb-3">
+            <div className="h-screen w-full flex flex-col items-center justify-center bg-gradient-to-br from-neutral-900 via-gray-900 to-blue-950 pt-3 pb-3">
                 <div className={`w-full rounded-3xl shadow-2xl bg-gray-800/90 flex flex-col relative overflow-hidden border border-blue-900 ${showDisconnectedModal || showOptions ? 'pointer-events-none select-none opacity-60' : ''} flex-1`}>
                     <TableHeader
                         gameCtx={gameCtx}
@@ -395,7 +402,7 @@ const Table = () => {
                     />
                     {/* Mobile buttons under header */}
                     <div className="sm:hidden w-full flex  gap-4 px-4 py-2">
-                        {!showChat && (   <button
+                        {!showChat && (<button
                             className={`cursor-pointer px-4 py-2 bg-gradient-to-r from-gray-800 to-gray-900 text-white rounded-lg font-semibold border border-blue-900 shadow-md
                   ${hasNewMessage ? 'animate-glow border-yellow-400 shadow-yellow-400/60' : ''}`}
                             onClick={() => setShowChat(true)}
@@ -486,6 +493,16 @@ const Table = () => {
                                         cards={gameUserCtx?.hand || []}
                                         disabled={!isCurrentPlayer || ![1, 2, 3, 5].includes(gameCtx?.gamePhase ?? -1) || gameCtx?.gamePhase === 5} // Cards are draggable if phase 2 or 3 and current player
                                         playableCards={canPlayCardMap}
+                                        onCardClick={(card: Card | null) => {
+
+                                            if (card && gameCtx?.gamePhase === 3) {
+                                                setCardInQueue(card);
+                                                handleDropOnTable(card);
+                                            } else {
+                                                setCardInQueue(null);
+                                            }
+                                        }}
+                                        cardInQueue={cardInQueue}
                                     />
                                 </div>
                             </DndContext>

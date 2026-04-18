@@ -11,9 +11,9 @@ COPY index.html ./
 COPY public ./public
 COPY src ./src
 COPY generate_skins_json.sh ./generate_skins_json.sh
-RUN chmod +x ./generate_skins_json.sh
+RUN sed -i 's/\r$//' ./generate_skins_json.sh && chmod +x ./generate_skins_json.sh
 COPY customs /customs
-RUN ./generate_skins_json.sh /customs
+RUN sh ./generate_skins_json.sh /customs
 RUN npm ci
 RUN npm run build
 

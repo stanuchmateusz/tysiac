@@ -749,19 +749,17 @@ public class GameService
 
     private RoundSummary CreateRoundSummary(Team team)
     {
-        var team1Melds = (team == Team.Team1 && Round.Team1WonAnyTake)
-            ? Round.SuitToTeam.Where(x => x.Item2 == team).Select(tuple => tuple.Item1)
+        var team1Melds = Round.Team1WonAnyTake
+            ? Round.SuitToTeam.Where(x => x.Item2 == Team.Team1).Select(tuple => tuple.Item1)
             : [];
-        var team2Melds = (team == Team.Team2 && Round.Team2WonAnyTake)
-            ? Round.SuitToTeam.Where(x => x.Item2 == team).Select(tuple => tuple.Item1)
+        var team2Melds =  Round.Team2WonAnyTake
+            ? Round.SuitToTeam.Where(x => x.Item2 == Team.Team2).Select(tuple => tuple.Item1)
             : [];
         
-        var tempTeam1 = new Stack<int>(_pointsTeam1);
-        var tempTeam2 = new Stack<int>(_pointsTeam2);
-        var tempStackTopTeam1 = tempTeam1.Pop();
-        var tempStackTopTeam2 = tempTeam2.Pop();
-        var team1FinalPoints =  tempTeam1.Pop() - tempStackTopTeam1;
-        var team2FinalPoints = tempTeam2.Pop() - tempStackTopTeam2;
+        var tempTeam1 = _pointsTeam1.ToArray();
+        var tempTeam2 = _pointsTeam2.ToArray();
+        var team1FinalPoints = tempTeam1[0] - tempTeam1[1];
+        var team2FinalPoints = tempTeam2[0]- tempTeam2[1];
         if (team == Team.Team1)
         {
             return new RoundSummary(

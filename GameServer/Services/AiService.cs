@@ -61,10 +61,11 @@ public static class AiService
             var trumps = CardUtils.GetTrumps(botHand);
             //daj mu damę nie rozbijając meldunków
             var queens = botHand.Where(c => c.Rank == CardRank.Queen).ToList();
-            if(queens.Any(c => !trumps.Contains(c.Suit )))
+            if(queens.Any(c => !trumps.Contains(c.Suit)))
             {
                 card = queens[0];
             }
+            Log.Debug("Bot gives {Card} to {Player}", card,player);
             gameService.DistributeCard(player, card.ShortName,
                 gameService.GetPlayerFromRoom(userCtx.LeftPlayer.ConnectionId) ?? throw new InvalidOperationException("Bot's Left player not found"));
                     
@@ -73,13 +74,13 @@ public static class AiService
         {
             var card = botHand.OrderByDescending(card => card.Points).ToList()[0];
             var trumps = CardUtils.GetTrumps(botHand);
-            //daj mu króla nie rozbijając meldunków
+            // give away king ("no meld")
             var kings = botHand.Where(c => c.Rank == CardRank.King).ToList();
             if(kings.Any(c => !trumps.Contains(c.Suit )))
             {
                 card = kings[0];
             }
-
+            Log.Debug("Bot gives {Card} to {Player}", card,player);
             gameService.DistributeCard(player, card.ShortName
                 , gameService.GetPlayerFromRoom(userCtx.Teammate.ConnectionId) ?? throw new InvalidOperationException("Bot's teammate not found"));
         }
@@ -87,13 +88,13 @@ public static class AiService
         {
             var card = botHand.OrderBy(card => card.Points).ToList()[0];
             var trumps = CardUtils.GetTrumps(botHand);
-            //daj give away a queen without ruining meld
+            // give away a queen without ruining meld
             var queens = botHand.Where(c => c.Rank == CardRank.Queen).ToList();
             if(queens.Any(c => !trumps.Contains(c.Suit )))
             {
                 card = queens[0];
             }
-                    
+            Log.Debug("Bot gives {Card} to {Player}", card,player);
             gameService.DistributeCard(player, card.ShortName, gameService.GetPlayerFromRoom(userCtx.RightPlayer.ConnectionId) ?? throw new InvalidOperationException("Bot's right player not found"));
         }
     }
@@ -108,25 +109,6 @@ public static class AiService
             cards = botHand;
         }
         var card = CardUtils.GetCardToPlay(cards, gameCtx.CardsOnTable.Count > 0 ? gameCtx.CardsOnTable[^1] : null); 
-        if (gameCtx.CardsOnTable.Count == 0)
-        {
-            var trumps = CardUtils.GetTrumps(botHand);
-            //try to play queen and meld 
-            if (trumps.Count != 0)
-            {
-                card = cards.Where(c => trumps.Contains(c.Suit) && c.Rank == CardRank.Queen).OrderByDescending(c => c.Points)
-                    .ToList()[0];
-            }
-        }
-        else
-        {
-            var cardToPlayOn = gameCtx.CardsOnTable[^1];
-            if (cardToPlayOn.Rank == CardRank.Queen && cards.Any(c =>
-                    c.Rank == CardRank.King && c.Suit == cardToPlayOn.Suit))
-            {
-                card = cards.First(c => c.Rank == CardRank.King && c.Suit == cardToPlayOn.Suit);
-            }
-        }
         gameService.PlayCard(player, card);
         Log.Debug("Bot plays {Card}", card);
     }
@@ -142,7 +124,10 @@ public static class AiService
             // make sure that bid is a multiple of 10
             var res = (int)possibleToPLay - ((int)possibleToPLay % 10);
             if (res < currentBid)
-                res = currentBid;
+            {
+                gameService.PassBid(player);
+                Log.Debug("Bot passes");
+            }
             gameService.PlaceBid(player, res );
             Log.Debug("Bot bids {Bid}", res);
         }
@@ -173,23 +158,27 @@ public static class AiService
 
     private static double CurrentBid(UserContext userCtx)
     {
-        
         var botHand = userCtx.Hand;
         const int maxBid = 220;
-        const double halfTrumpPercentage = 0.3;
-        const double randomieRisc = 0.2;
+        const double halfTrumpPercentage = 0.2;
+        const double randomRisc = 0.2;
+        const int baseVal = 50;
         var trumps = CardUtils.GetTrumps(botHand);
+        var asAndTenBonus = 
+            trumps.Where(trump => 
+                botHand.Select(c => c.Suit == trump && c.Rank == CardRank.As).Any())
+                .Sum(trump => 10);
         var pointsFromTrumps = trumps.Select(CardUtils.GetTrumpPoints).Sum();
         var halfTrumps = CardUtils.GetHalfTrumps(botHand)
             .Select(c => CardUtils.GetTrumpPoints(c.Suit))
             .Select(v => (int)(v * halfTrumpPercentage)).Sum(); 
-                
-        var possibleToPLay = Math.Min(pointsFromTrumps + halfTrumps, maxBid); // make sure not to bet over MAX
+        
+        var possibleToPLay = pointsFromTrumps + halfTrumps; 
         possibleToPLay += botHand.Select(c => c.Points).Sum(arg => arg);
-        var random = new Random().Next( (int)(possibleToPLay * randomieRisc)); 
+        var random = new Random().Next( (int)(possibleToPLay * randomRisc)); 
         possibleToPLay += random;
         if (possibleToPLay == 0)
             possibleToPLay = maxBid;
-        return possibleToPLay;
+        return Math.Min(baseVal + asAndTenBonus + possibleToPLay,maxBid);// make sure not to bet over MAX
     }
 }
