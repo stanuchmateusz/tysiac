@@ -1,6 +1,6 @@
-﻿using System.Text;
-using GameServer.Models;
+﻿using GameServer.Models;
 using GameServer.Models.Context;
+using GameServer.Utils;
 using Microsoft.AspNetCore.SignalR;
 
 namespace GameServer.Services;
@@ -16,7 +16,7 @@ public class LobbyManager
     /// <returns>The generated unique code for the newly created room.</returns>
     public string CreateRoom(IPlayer player)
     {
-        var roomCode = GenerateRoomCode();
+        var roomCode = RandomUtils.GenerateRoomCode();
         var lobbyService = new LobbyService(roomCode, player);
         _lobbies.Add(roomCode, lobbyService);
         return roomCode;
@@ -215,13 +215,5 @@ public class LobbyManager
         _lobbies.Remove(roomCode);
     }
 
-    private static string GenerateRoomCode()
-    {
-        var random = new Random();
-        const string validChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-        var roomCode = new StringBuilder();
-        while (roomCode.Length < 8)
-            roomCode.Append(validChars[random.Next(validChars.Length)]);
-        return roomCode.ToString();
-    }
+    
 }

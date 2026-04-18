@@ -12,12 +12,15 @@ However if you want to run it without docker then keep in mind that in order to 
 ## Custom decks
 If you want to create your own deck, create a new folder in GameClient/customs (can be changed in "docker-compose.yml") and fill it with 24 svgs (just like "custom1")
 ## Todo:
-* Weird bug: Jeśli ostatnim ruchem jest meldunek (i się nie zaczynało) to wartość meldunku się nie odlicza do wyniku - problem z kolejkowaniem? (ponda 900)
-* Bug when reconnecting, position of cards on the table is wrong
+* Bug when reconnecting, position of cards on the table is wrong (track who started the take?)
 * Rebuild lobby backend:
     - Lobby - team mixing
-    - Game settings implementation 
 * Better AI
+* If game starts with bot players, table doesn't load until it's human player's turn
+* Lobby leader sometimes doesnt change on page closed - check why
+* Bot binds are broken sometimes
+* Card playing queue system
+* change default skin and card size for mobile devices
 
 ## Default Assets:
 [Sounds](https://pixabay.com) \

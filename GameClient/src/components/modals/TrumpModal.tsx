@@ -1,4 +1,4 @@
-import { SUIT_ICONS } from "../../utils/CardConsts";
+import { SUIT_ICONS } from "../../utils/CardUtils";
 
 interface TrumpModalProps {
     open: boolean;

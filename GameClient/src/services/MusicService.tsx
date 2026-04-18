@@ -1,7 +1,7 @@
 import { Howl } from 'howler';
 import { getCookie, soundMutedCookieName, soundVolumeCookieName } from '../utils/Cookies';
 
-export const SOUNDS_PATH = import.meta.env.VITE_ASSETS_PATH + "sounds/" || "/public/assets/sounds/";
+export const SOUNDS_PATH = import.meta.env.BASE_URL + import.meta.env.VITE_ASSETS_PATH + "sounds/" || "/public/assets/sounds/";
 
 class MusicServiceController {
     private backgroundMusic: Howl | null = null;
@@ -99,7 +99,7 @@ class MusicServiceController {
     }
 
     playPlaceCard() {
-        if (this.placeCardSound) {
+        if (this.placeCardSound && !this.placeCardSound.playing()) {
             this.placeCardSound.volume(this.getSoundVolumeFromCookies())
             this.placeCardSound.play();
         }

@@ -1,16 +1,27 @@
-
 using GameServer.Models;
 using GameServer.Models.Context;
 using GameServer.Models.impl;
+using GameServer.Utils;
 
-public class LobbyService
+namespace GameServer.Services;
+
+/// <summary>
+/// LobbyService manages the lobby context, including player management, team assignments, and game settings.
+/// It provides methods to add, remove, and manage players, as well as to check lobby readiness.
+/// </summary>
+/// <remarks>
+/// This service is responsible for maintaining the state of the lobby, including player lists, team compositions,
+/// and game settings. It also handles player bans and team assignments.
+/// </remarks>
+/// <exception cref="InvalidOperationException">Thrown when attempting to kick a player who is already banned.</exception>
+/// <exception cref="ArgumentException">Thrown when an invalid suit is provided for trump points.</exception>
+/// <exception cref="ArgumentNullException">Thrown when a null collection is provided where a non-null collection is expected.</exception>
+/// <seealso cref="LobbyContext"/>
+public class LobbyService(string code, IPlayer host)
 {
-    private LobbyContext Context { get; }
-    private readonly HashSet<String> BannedPlayers = new HashSet<String>();
-    public LobbyService(string code, IPlayer host)
-    {
-        Context = new LobbyContext(code, [host], [], [], new GameSettings());
-    }
+    private LobbyContext Context { get; } = new LobbyContext(code, [host], [], [], new GameSettings());
+    private readonly HashSet<String> BannedPlayers = [];
+
     public LobbyContext GetContext()
     {
         return Context;
@@ -66,14 +77,14 @@ public class LobbyService
         var addedBots = Context.Players.Count(player => player.ConnectionId.Contains(AIPlayer.AiPrefix));
         while (Context.Players.Count != 4 && Context.Team1.Count != 2 && addedBots != 3)
         {
-            var bot = new AIPlayer("BOT" + addedBots);
+            var bot = new AIPlayer("BOT " + RandomUtils.GenerateRandomName());
             Context.Players.Add(bot);
             Context.Team1.Add(bot);
             addedBots++;
         }
         while (Context.Players.Count != 4 && Context.Team2.Count != 2 && addedBots != 3)
         {
-            var bot = new AIPlayer("BOT" + addedBots);
+            var bot = new AIPlayer("BOT " + RandomUtils.GenerateRandomName());
             Context.Players.Add(bot);
             Context.Team2.Add(bot);
             addedBots++;

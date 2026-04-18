@@ -1,4 +1,4 @@
-import { SUIT_ICONS } from "../utils/CardConsts";
+import { SUIT_ICONS } from "../utils/CardUtils";
 
 const Rules = () => {
     return (
@@ -11,7 +11,7 @@ const Rules = () => {
             <p className="text-lg text-gray-200 mb-4 text-justify">
                 Gracze z drużyny siedzą naprzeciwko siebie. Punkty nie liczą się indywidualnie, lecz drużynowo. Gra polega na licytacji, rozdawaniu kart i grze w karty. Poniżej przedstawione są zasady gry oraz punktacja.
             </p>
-            <p className="text-lg text-gray-200 mb-4 text-justify">
+            <div className="text-lg text-gray-200 mb-4 text-justify">
                 Fazy gry:
                 <p><strong>Rozdanie kart: </strong>Każdy z graczy dostaje po 5 kart. Pozostałe 4 idą do tak zwanego Musika</p>
                 <p><strong>Faza licytacji: </strong> Gracze mogą podbijać stawkę lub spasować. Licytacja kończy się, gdy wszyscy gracze spasują lub gdy jedna z drużyn osiągnie minimalną stawkę.
@@ -22,7 +22,7 @@ const Rules = () => {
                     Osoba która wygra rozdanie, zaczyna następne, ten sam proces powtarza się do momentu, gdy wszyscy gracze stracą wszystkie karty.
                 </p>
                 <p><strong>Podliczanie punktów: </strong>Po zakończeniu rundy, podliczne są punkty dla obu drużyn. Jeśli drużyna która wygrała licytację, nie zdobyła zakładanej ilości punktów, otrzynują karę w postaci ujemnych punktów równą zakładanej wartości. Punktowanie przebiega wedle poniższej skali.</p>
-            </p>
+            </div>
             <div className="w-full text-lg text-gray-200 mb-4 flex flex-row justify-center items-start gap-x-8">
                 <div className="text-lg text-gray-200 mb-4 text-center">
                     Wartość kart:

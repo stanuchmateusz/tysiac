@@ -62,3 +62,14 @@ export interface GameUserContext {
     myTeamRoundScore: number;
     opponentRoundScore: number;
 }
+
+export interface RoundSummary {
+    roundBet : number,
+    didWeWonBet: boolean,
+    myTeamScoreFromCards: number,
+    opponentScoreFromCards: number,
+    myTeamMeldSuits: number[],
+    opponentMeldSuits: number[],
+    myTeamFinalScore: number,
+    opponentFinalScore: number,
+}
