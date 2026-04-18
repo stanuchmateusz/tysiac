@@ -1,6 +1,7 @@
 const getAvailableDeckSkins = async () => {
     try {
-        const response = await fetch(import.meta.env.VITE_ASSETS_PATH + 'skins.json');
+        const assetsPath = import.meta.env.VITE_ASSETS_PATH || "/assets/";
+        const response = await fetch(`${assetsPath}skins.json`);
         if (!response.ok) {
             throw new Error('Network response was not ok');
         }
