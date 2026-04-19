@@ -1,32 +1,27 @@
 server {
     listen 80;
     server_name localhost;
-    
-    error_page 404 /404;
-    error_page 403 /403;
 
-    location / {
-        root   /usr/share/nginx/html;
-        try_files $uri $uri/ /index.html;
+    error_page 404 ${BASE_PATH}404;
+    error_page 403 ${BASE_PATH}403;
+
+    location ${BASE_PATH} {
+        alias /usr/share/nginx/html/;
+        try_files $uri $uri/ ${BASE_PATH}index.html;
     }
 
-    location /api/ {
-        rewrite ^/api/(.*)$ /$1 break;
+    location ${BASE_PATH}api/ {
+        rewrite ^${BASE_PATH}api/(.*)$ /$1 break;
         proxy_pass http://backend:5000/;
-
-        # WebSocket support
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
-
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
-
         add_header 'Access-Control-Allow-Origin' $http_origin always;
         add_header 'Access-Control-Allow-Credentials' 'true' always;
         add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS, PUT, DELETE' always;
         add_header 'Access-Control-Allow-Headers' 'Origin, Content-Type, Accept, Authorization' always;
-
         if ($request_method = 'OPTIONS') {
             return 204;
         }

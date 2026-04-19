@@ -1,0 +1,13 @@
+services:
+  backend:
+    ports:
+      - "5224:5000"
+
+  frontend:
+    ports:
+      - "5173:80"
+    environment:
+      - BASE_PATH=/tysiac/
+    build:
+      args:
+        ENV_FILE: .env.production

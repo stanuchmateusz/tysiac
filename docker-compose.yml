@@ -3,22 +3,17 @@ services:
     build:
       context: ./GameServer
       dockerfile: Dockerfile
-    ports:
-      - "5224:5000"
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://0.0.0.0:5000
     restart: unless-stopped
+
   frontend:
-    volumes:
-      - ./GameClient/customs:/usr/share/nginx/html/assets/custom
     build:
       context: ./GameClient
       dockerfile: Dockerfile
-      args:
-        ENV_FILE: .env.production
-    ports:
-      - "5173:80"
+    volumes:
+      - ./GameClient/customs:/usr/share/nginx/html/assets/custom
     depends_on:
       - backend
     restart: unless-stopped
